@@ -1,65 +1,159 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import type { Game, Player, BattingStats } from "@/lib/scoring/types";
+
+export default function Dashboard() {
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
+  const [battingStats, setBattingStats] = useState<BattingStats[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      const [playersRes, gamesRes, statsRes] = await Promise.all([
+        supabase.from("players").select("*").order("sort_order"),
+        supabase.from("games").select("*").order("date", { ascending: false }).limit(5),
+        supabase.from("batting_stats_season").select("*").order("avg", { ascending: false }).limit(5),
+      ]);
+      setPlayers(playersRes.data ?? []);
+      setGames(gamesRes.data ?? []);
+      setBattingStats(statsRes.data ?? []);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <Link href="/games/new">
+          <Button>New Game</Button>
+        </Link>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Players</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{players.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Games Played</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{games.filter((g) => g.status === "final").length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Record</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {games.filter((g) => g.status === "final" && g.our_score > g.opponent_score).length}-
+              {games.filter((g) => g.status === "final" && g.our_score < g.opponent_score).length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Team AVG</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {battingStats.length > 0
+                ? (battingStats.reduce((sum, s) => sum + Number(s.avg), 0) / battingStats.length)
+                    .toFixed(3)
+                    .replace(/^0/, "")
+                : "---"}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Games</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {games.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No games yet. Start by creating a new game!</p>
+            ) : (
+              <div className="space-y-3">
+                {games.map((game) => (
+                  <Link
+                    key={game.id}
+                    href={`/games/${game.id}`}
+                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent transition-colors"
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {game.location === "home" ? "vs" : "@"} {game.opponent}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(game.date + "T00:00:00").toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {game.status === "final" ? (
+                        <div className="font-bold">
+                          {game.our_score} - {game.opponent_score}
+                        </div>
+                      ) : game.status === "in_progress" ? (
+                        <span className="text-sm font-medium text-green-600">Live</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Scheduled</span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Batting Leaders</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {battingStats.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No stats yet. Score a game to see leaders!</p>
+            ) : (
+              <div className="space-y-3">
+                {battingStats.map((stat, i) => (
+                  <div key={stat.player_id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
+                      <span className="font-medium">{stat.player_name}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span>{Number(stat.avg).toFixed(3).replace(/^0/, "")} AVG</span>
+                      <span>{stat.hits} H</span>
+                      <span>{stat.rbis} RBI</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
