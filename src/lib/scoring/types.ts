@@ -45,27 +45,40 @@ export type PlateAppearanceResult =
   | "GO"
   | "FO"
   | "FC"
+  | "DP"
   | "SAC"
   | "HBP"
   | "E"
   | "ROE";
 
+export type HitType = "GB" | "FB" | "LD" | "PU";
+
 export interface PlateAppearance {
   id: string;
   game_id: string;
-  player_id: number;
+  player_id: number | null;
+  opponent_batter_id: string | null;
+  team: "us" | "them";
   inning: number;
   batting_order: number;
   result: PlateAppearanceResult;
   scorebook_notation: string;
   spray_x: number | null;
   spray_y: number | null;
+  hit_type: HitType | null;
   rbis: number;
   stolen_bases: number;
   is_at_bat: boolean;
   is_hit: boolean;
   total_bases: number;
   created_at: string;
+}
+
+export interface OpponentBatter {
+  id: string;
+  game_id: string;
+  name: string;
+  batting_order: number;
 }
 
 export interface FieldingPlay {
@@ -80,7 +93,8 @@ export interface FieldingPlay {
 // === Live scoring state types ===
 
 export type BaseRunner = {
-  playerId: number;
+  playerId: number | null;
+  opponentBatterId: string | null;
   playerName: string;
 };
 
@@ -93,16 +107,17 @@ export interface GameState {
   runnerSecond: BaseRunner | null;
   runnerThird: BaseRunner | null;
   currentBatterIndex: number;
+  opponentBatterIndex: number;
   ourScore: number;
   opponentScore: number;
   lineup: GameLineup[];
   players: Player[];
+  opponentLineup: OpponentBatter[];
 }
 
 export type GameAction =
   | { type: "RECORD_AT_BAT"; payload: RecordAtBatPayload }
-  | { type: "RECORD_OPPONENT_OUT" }
-  | { type: "RECORD_OPPONENT_RUN" }
+  | { type: "RECORD_OPPONENT_AT_BAT"; payload: RecordAtBatPayload }
   | { type: "ADVANCE_RUNNER"; payload: { from: "first" | "second" | "third"; to: "second" | "third" | "home" } }
   | { type: "UNDO" };
 

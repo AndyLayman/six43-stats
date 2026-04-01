@@ -34,7 +34,6 @@ export default function NewGamePage() {
 
     setSaving(true);
 
-    // Create the game
     const { data: game, error } = await supabase
       .from("games")
       .insert({ opponent: opponent.trim(), date, location, status: "scheduled" })
@@ -47,7 +46,6 @@ export default function NewGamePage() {
       return;
     }
 
-    // Create lineup entries
     const lineupRows = selectedPlayers.map((playerId, idx) => ({
       game_id: game.id,
       player_id: playerId,
@@ -57,7 +55,6 @@ export default function NewGamePage() {
 
     await supabase.from("game_lineup").insert(lineupRows);
 
-    // Create game state
     await supabase.from("game_state").insert({
       game_id: game.id,
       current_inning: 1,
@@ -89,10 +86,10 @@ export default function NewGamePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">New Game</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight text-gradient">New Game</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card>
+        <Card className="glass">
           <CardHeader>
             <CardTitle>Game Details</CardTitle>
           </CardHeader>
@@ -105,13 +102,19 @@ export default function NewGamePage() {
                 onChange={(e) => setOpponent(e.target.value)}
                 placeholder="Team name"
                 required
-                className="h-12 text-base"
+                className="h-12 text-base bg-input/50 border-border/50 focus:border-primary/50"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="date">Date</Label>
-                <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-12 text-base" />
+                <Input
+                  id="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="h-12 text-base bg-input/50 border-border/50 focus:border-primary/50"
+                />
               </div>
               <div>
                 <Label>Location</Label>
@@ -120,7 +123,9 @@ export default function NewGamePage() {
                     type="button"
                     variant={location === "home" ? "default" : "outline"}
                     onClick={() => setLocation("home")}
-                    className="flex-1 h-12 text-base active:scale-95 transition-transform"
+                    className={`flex-1 h-12 text-base active:scale-95 transition-all ${
+                      location === "home" ? "glow-primary" : "border-border/50"
+                    }`}
                   >
                     Home
                   </Button>
@@ -128,7 +133,9 @@ export default function NewGamePage() {
                     type="button"
                     variant={location === "away" ? "default" : "outline"}
                     onClick={() => setLocation("away")}
-                    className="flex-1 h-12 text-base active:scale-95 transition-transform"
+                    className={`flex-1 h-12 text-base active:scale-95 transition-all ${
+                      location === "away" ? "glow-primary" : "border-border/50"
+                    }`}
                   >
                     Away
                   </Button>
@@ -138,7 +145,7 @@ export default function NewGamePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="glass">
           <CardHeader>
             <CardTitle>Batting Order</CardTitle>
           </CardHeader>
@@ -153,8 +160,10 @@ export default function NewGamePage() {
                 return (
                   <div
                     key={player.id}
-                    className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
-                      isSelected ? "bg-accent" : ""
+                    className={`flex items-center gap-3 rounded-xl border p-3 transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-primary/10 border-primary/30"
+                        : "border-border/50 hover:border-border"
                     }`}
                     onClick={() => togglePlayer(player.id)}
                   >
@@ -162,10 +171,10 @@ export default function NewGamePage() {
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => {}}
-                      className="h-5 w-5 pointer-events-none"
+                      className="h-5 w-5 pointer-events-none accent-primary"
                     />
                     {isSelected && (
-                      <span className="text-sm font-bold text-muted-foreground w-5">{orderIdx + 1}</span>
+                      <span className="text-sm font-bold text-primary w-5">{orderIdx + 1}</span>
                     )}
                     <span className="font-medium flex-1 text-base">
                       #{player.number} {player.name}
@@ -174,7 +183,7 @@ export default function NewGamePage() {
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
-                          className="h-10 w-10 flex items-center justify-center rounded-lg border text-lg active:bg-accent active:scale-95 transition-all disabled:opacity-30"
+                          className="h-10 w-10 flex items-center justify-center rounded-lg border border-border/50 text-lg active:bg-accent active:scale-95 transition-all disabled:opacity-30"
                           onClick={() => movePlayer(player.id, "up")}
                           disabled={orderIdx === 0}
                         >
@@ -182,7 +191,7 @@ export default function NewGamePage() {
                         </button>
                         <button
                           type="button"
-                          className="h-10 w-10 flex items-center justify-center rounded-lg border text-lg active:bg-accent active:scale-95 transition-all disabled:opacity-30"
+                          className="h-10 w-10 flex items-center justify-center rounded-lg border border-border/50 text-lg active:bg-accent active:scale-95 transition-all disabled:opacity-30"
                           onClick={() => movePlayer(player.id, "down")}
                           disabled={orderIdx === selectedPlayers.length - 1}
                         >
@@ -197,7 +206,12 @@ export default function NewGamePage() {
           </CardContent>
         </Card>
 
-        <Button type="submit" className="w-full" size="lg" disabled={saving || !opponent.trim() || selectedPlayers.length === 0}>
+        <Button
+          type="submit"
+          className="w-full h-14 text-lg font-bold glow-primary active:scale-[0.98] transition-transform"
+          size="lg"
+          disabled={saving || !opponent.trim() || selectedPlayers.length === 0}
+        >
           {saving ? "Creating..." : "Create Game"}
         </Button>
       </form>

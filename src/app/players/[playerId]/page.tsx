@@ -33,7 +33,6 @@ export default function PlayerDetailPage() {
       setBattingStats(battingRes.data);
       setFieldingStats(fieldingRes.data);
 
-      // Build game log
       const games = gamesRes.data ?? [];
       const pas = pasRes.data ?? [];
       const log = games
@@ -51,7 +50,11 @@ export default function PlayerDetailPage() {
   }, [playerId]);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
   }
 
   if (!player) {
@@ -61,18 +64,18 @@ export default function PlayerDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-2xl">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 font-bold text-2xl border border-primary/30 text-gradient-bright">
           {player.number}
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{player.name}</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-gradient">{player.name}</h1>
           <p className="text-muted-foreground">#{player.number}</p>
         </div>
       </div>
 
       {/* Season stat highlights */}
       {battingStats && Number(battingStats.at_bats) > 0 && (
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-6">
+        <div className="grid gap-3 grid-cols-3 md:grid-cols-6 stagger-children">
           {[
             { label: "AVG", value: formatAvg(Number(battingStats.avg)) },
             { label: "OBP", value: formatAvg(Number(battingStats.obp)) },
@@ -81,10 +84,10 @@ export default function PlayerDetailPage() {
             { label: "HR", value: String(battingStats.home_runs) },
             { label: "RBI", value: String(battingStats.rbis) },
           ].map((s) => (
-            <Card key={s.label}>
+            <Card key={s.label} className="glass gradient-border card-hover">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold">{s.value}</div>
-                <div className="text-xs text-muted-foreground">{s.label}</div>
+                <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{s.value}</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{s.label}</div>
               </CardContent>
             </Card>
           ))}
@@ -92,7 +95,7 @@ export default function PlayerDetailPage() {
       )}
 
       <Tabs defaultValue="batting">
-        <TabsList className="w-full sm:w-auto">
+        <TabsList className="w-full sm:w-auto bg-muted/50">
           <TabsTrigger value="batting" className="flex-1 sm:flex-none">Batting</TabsTrigger>
           <TabsTrigger value="fielding" className="flex-1 sm:flex-none">Fielding</TabsTrigger>
           <TabsTrigger value="gamelog" className="flex-1 sm:flex-none">Game Log</TabsTrigger>
@@ -100,12 +103,12 @@ export default function PlayerDetailPage() {
 
         <TabsContent value="batting">
           {battingStats && Number(battingStats.at_bats) > 0 ? (
-            <Card>
+            <Card className="glass border-border/50">
               <CardHeader className="px-3 sm:px-6">
-                <CardTitle>Season Batting Stats</CardTitle>
+                <CardTitle className="text-gradient">Season Batting Stats</CardTitle>
               </CardHeader>
               <CardContent className="px-3 sm:px-6">
-                {/* Mobile: stat grid. Desktop: table */}
+                {/* Mobile: stat grid */}
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:hidden">
                   {[
                     { label: "G", value: battingStats.games },
@@ -123,16 +126,17 @@ export default function PlayerDetailPage() {
                     { label: "SLG", value: formatAvg(Number(battingStats.slg)) },
                     { label: "OPS", value: formatAvg(Number(battingStats.ops)) },
                   ].map((s) => (
-                    <div key={s.label} className="text-center p-2 rounded-lg bg-muted/50">
+                    <div key={s.label} className="text-center p-2 rounded-lg bg-muted/30 border border-border/30">
                       <div className="text-lg font-bold tabular-nums">{s.value}</div>
-                      <div className="text-[11px] text-muted-foreground font-medium">{s.label}</div>
+                      <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{s.label}</div>
                     </div>
                   ))}
                 </div>
+                {/* Desktop: table */}
                 <div className="hidden sm:block overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="border-border/50">
                         <TableHead>G</TableHead>
                         <TableHead>PA</TableHead>
                         <TableHead>AB</TableHead>
@@ -151,7 +155,7 @@ export default function PlayerDetailPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
+                      <TableRow className="border-border/30">
                         <TableCell>{battingStats.games}</TableCell>
                         <TableCell>{battingStats.plate_appearances}</TableCell>
                         <TableCell>{battingStats.at_bats}</TableCell>
@@ -163,7 +167,7 @@ export default function PlayerDetailPage() {
                         <TableCell>{battingStats.walks}</TableCell>
                         <TableCell>{battingStats.strikeouts}</TableCell>
                         <TableCell>{battingStats.stolen_bases}</TableCell>
-                        <TableCell className="font-bold">{formatAvg(Number(battingStats.avg))}</TableCell>
+                        <TableCell className="font-bold text-primary">{formatAvg(Number(battingStats.avg))}</TableCell>
                         <TableCell>{formatAvg(Number(battingStats.obp))}</TableCell>
                         <TableCell>{formatAvg(Number(battingStats.slg))}</TableCell>
                         <TableCell>{formatAvg(Number(battingStats.ops))}</TableCell>
@@ -180,9 +184,9 @@ export default function PlayerDetailPage() {
 
         <TabsContent value="fielding">
           {fieldingStats && Number(fieldingStats.total_chances) > 0 ? (
-            <Card>
+            <Card className="glass border-border/50">
               <CardHeader className="px-3 sm:px-6">
-                <CardTitle>Season Fielding Stats</CardTitle>
+                <CardTitle className="text-gradient">Season Fielding Stats</CardTitle>
               </CardHeader>
               <CardContent className="px-3 sm:px-6">
                 <div className="grid grid-cols-3 gap-3 sm:hidden">
@@ -194,16 +198,16 @@ export default function PlayerDetailPage() {
                     { label: "TC", value: fieldingStats.total_chances },
                     { label: "FLD%", value: Number(fieldingStats.fielding_pct).toFixed(3) },
                   ].map((s) => (
-                    <div key={s.label} className="text-center p-2 rounded-lg bg-muted/50">
+                    <div key={s.label} className="text-center p-2 rounded-lg bg-muted/30 border border-border/30">
                       <div className="text-lg font-bold tabular-nums">{s.value}</div>
-                      <div className="text-[11px] text-muted-foreground font-medium">{s.label}</div>
+                      <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{s.label}</div>
                     </div>
                   ))}
                 </div>
                 <div className="hidden sm:block">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="border-border/50">
                         <TableHead>G</TableHead>
                         <TableHead>PO</TableHead>
                         <TableHead>A</TableHead>
@@ -213,13 +217,13 @@ export default function PlayerDetailPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
+                      <TableRow className="border-border/30">
                         <TableCell>{fieldingStats.games}</TableCell>
                         <TableCell>{fieldingStats.putouts}</TableCell>
                         <TableCell>{fieldingStats.assists}</TableCell>
                         <TableCell>{fieldingStats.errors}</TableCell>
                         <TableCell>{fieldingStats.total_chances}</TableCell>
-                        <TableCell className="font-bold">{Number(fieldingStats.fielding_pct).toFixed(3)}</TableCell>
+                        <TableCell className="font-bold text-primary">{Number(fieldingStats.fielding_pct).toFixed(3)}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -233,14 +237,14 @@ export default function PlayerDetailPage() {
 
         <TabsContent value="gamelog">
           {gameLog.length > 0 ? (
-            <Card>
+            <Card className="glass border-border/50">
               <CardHeader>
-                <CardTitle>Game Log</CardTitle>
+                <CardTitle className="text-gradient">Game Log</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="border-border/50">
                       <TableHead>Date</TableHead>
                       <TableHead>Opponent</TableHead>
                       <TableHead>AB</TableHead>
@@ -255,16 +259,16 @@ export default function PlayerDetailPage() {
                       const h = g.appearances.filter((pa) => pa.is_hit).length;
                       const rbi = g.appearances.reduce((sum, pa) => sum + pa.rbis, 0);
                       return (
-                        <TableRow key={g.game_id}>
+                        <TableRow key={g.game_id} className="border-border/30">
                           <TableCell>
                             <Link href={`/games/${g.game_id}`} className="text-primary hover:underline">
                               {new Date(g.date + "T00:00:00").toLocaleDateString()}
                             </Link>
                           </TableCell>
                           <TableCell>{g.opponent}</TableCell>
-                          <TableCell>{ab}</TableCell>
-                          <TableCell>{h}</TableCell>
-                          <TableCell>{rbi}</TableCell>
+                          <TableCell className="tabular-nums">{ab}</TableCell>
+                          <TableCell className="tabular-nums">{h}</TableCell>
+                          <TableCell className="tabular-nums">{rbi}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {g.appearances.map((pa) => pa.result).join(", ")}
                           </TableCell>

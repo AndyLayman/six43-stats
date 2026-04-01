@@ -22,28 +22,32 @@ export default function GamesPage() {
   }, []);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Games</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-gradient">Games</h1>
         <Link href="/games/new">
-          <Button>New Game</Button>
+          <Button className="glow-primary">New Game</Button>
         </Link>
       </div>
 
       {games.length === 0 ? (
         <p className="text-muted-foreground text-center py-12">No games yet. Create your first game!</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 stagger-children">
           {games.map((game) => (
             <Link key={game.id} href={`/games/${game.id}`}>
-              <Card className="hover:bg-accent transition-colors cursor-pointer mb-3">
+              <Card className="card-hover glass cursor-pointer mb-3">
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4">
-                    <div className="text-sm text-muted-foreground w-24">
+                    <div className="text-sm text-muted-foreground w-24 tabular-nums">
                       {new Date(game.date + "T00:00:00").toLocaleDateString()}
                     </div>
                     <div>
@@ -55,17 +59,20 @@ export default function GamesPage() {
                   <div className="flex items-center gap-4">
                     {game.status === "final" ? (
                       <>
-                        <span className="text-lg font-bold">
+                        <span className="text-lg font-bold tabular-nums">
                           {game.our_score} - {game.opponent_score}
                         </span>
-                        <Badge variant={game.our_score > game.opponent_score ? "default" : "secondary"}>
+                        <Badge
+                          variant={game.our_score > game.opponent_score ? "default" : "secondary"}
+                          className={game.our_score > game.opponent_score ? "bg-primary/20 text-primary border-primary/30" : ""}
+                        >
                           {game.our_score > game.opponent_score ? "W" : game.our_score < game.opponent_score ? "L" : "T"}
                         </Badge>
                       </>
                     ) : game.status === "in_progress" ? (
-                      <Badge className="bg-green-600">Live</Badge>
+                      <Badge className="bg-primary/20 text-primary border border-primary/30 animate-pulse">Live</Badge>
                     ) : (
-                      <Badge variant="outline">Scheduled</Badge>
+                      <Badge variant="outline" className="border-border/50 text-muted-foreground">Scheduled</Badge>
                     )}
                   </div>
                 </CardContent>

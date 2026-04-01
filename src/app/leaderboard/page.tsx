@@ -53,19 +53,22 @@ export default function LeaderboardPage() {
     .sort((a, b) => Number(b.fielding_pct) - Number(a.fielding_pct));
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
   }
 
   const SortHeader = ({ label, field }: { label: string; field: SortKey }) => (
     <TableHead
-      className="cursor-pointer hover:text-foreground transition-colors select-none px-2 py-3"
+      className="cursor-pointer hover:text-primary transition-colors select-none px-2 py-3"
       onClick={() => handleSort(field)}
     >
       {label} {sortBy === field ? (sortAsc ? "\u25B2" : "\u25BC") : ""}
     </TableHead>
   );
 
-  // Mobile sort chip buttons
   const SORT_OPTIONS: { label: string; field: SortKey }[] = [
     { label: "AVG", field: "avg" },
     { label: "H", field: "hits" },
@@ -77,10 +80,10 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Leaderboard</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight text-gradient">Leaderboard</h1>
 
       <Tabs defaultValue="batting">
-        <TabsList className="w-full sm:w-auto">
+        <TabsList className="w-full sm:w-auto bg-muted/50">
           <TabsTrigger value="batting" className="flex-1 sm:flex-none">Batting</TabsTrigger>
           <TabsTrigger value="fielding" className="flex-1 sm:flex-none">Fielding</TabsTrigger>
         </TabsList>
@@ -97,56 +100,60 @@ export default function LeaderboardPage() {
                     <button
                       key={opt.field}
                       onClick={() => handleSort(opt.field)}
-                      className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors active:scale-95 ${
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium border transition-all active:scale-95 ${
                         sortBy === opt.field
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background border-border text-muted-foreground"
+                          ? "bg-primary text-primary-foreground border-primary glow-primary"
+                          : "bg-muted/30 border-border/50 text-muted-foreground"
                       }`}
                     >
                       {opt.label} {sortBy === opt.field ? (sortAsc ? "\u25B2" : "\u25BC") : ""}
                     </button>
                   ))}
                 </div>
-                {sortedBatting.map((stat, i) => (
-                  <Link key={stat.player_id} href={`/players/${stat.player_id}`}>
-                    <Card className="active:scale-[0.99] transition-transform">
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
-                            <span className="font-semibold">{stat.player_name}</span>
-                          </div>
-                          <span className="text-lg font-bold tabular-nums">
-                            {sortBy === "avg" || sortBy === "obp" || sortBy === "slg" || sortBy === "ops"
-                              ? formatAvg(Number(stat[sortBy]))
-                              : String(stat[sortBy])}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2 text-center">
-                          {[
-                            { label: "AVG", value: formatAvg(Number(stat.avg)) },
-                            { label: "H", value: stat.hits },
-                            { label: "HR", value: stat.home_runs },
-                            { label: "RBI", value: stat.rbis },
-                          ].map((s) => (
-                            <div key={s.label} className="text-xs">
-                              <div className="font-bold tabular-nums">{s.value}</div>
-                              <div className="text-muted-foreground">{s.label}</div>
+                <div className="stagger-children">
+                  {sortedBatting.map((stat, i) => (
+                    <Link key={stat.player_id} href={`/players/${stat.player_id}`}>
+                      <Card className="card-hover glass mb-3">
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-bold w-5 ${i === 0 ? "text-primary" : "text-muted-foreground"}`}>
+                                {i + 1}
+                              </span>
+                              <span className="font-semibold">{stat.player_name}</span>
                             </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
+                            <span className="text-lg font-extrabold tabular-nums text-gradient-bright">
+                              {sortBy === "avg" || sortBy === "obp" || sortBy === "slg" || sortBy === "ops"
+                                ? formatAvg(Number(stat[sortBy]))
+                                : String(stat[sortBy])}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2 text-center">
+                            {[
+                              { label: "AVG", value: formatAvg(Number(stat.avg)) },
+                              { label: "H", value: stat.hits },
+                              { label: "HR", value: stat.home_runs },
+                              { label: "RBI", value: stat.rbis },
+                            ].map((s) => (
+                              <div key={s.label} className="text-xs">
+                                <div className="font-bold tabular-nums">{s.value}</div>
+                                <div className="text-muted-foreground uppercase tracking-wider">{s.label}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
               </div>
 
               {/* Desktop: full table */}
-              <Card className="hidden sm:block">
+              <Card className="hidden sm:block glass">
                 <CardContent className="overflow-x-auto p-0">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="border-border/50">
                         <TableHead className="w-8">#</TableHead>
                         <TableHead>Player</TableHead>
                         <SortHeader label="G" field="games" />
@@ -167,10 +174,12 @@ export default function LeaderboardPage() {
                     </TableHeader>
                     <TableBody>
                       {sortedBatting.map((stat, i) => (
-                        <TableRow key={stat.player_id}>
-                          <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
+                        <TableRow key={stat.player_id} className="border-border/30">
+                          <TableCell className={`font-bold ${i === 0 ? "text-primary" : "text-muted-foreground"}`}>
+                            {i + 1}
+                          </TableCell>
                           <TableCell>
-                            <Link href={`/players/${stat.player_id}`} className="font-medium hover:underline">
+                            <Link href={`/players/${stat.player_id}`} className="font-medium hover:text-primary transition-colors">
                               {stat.player_name}
                             </Link>
                           </TableCell>
@@ -184,7 +193,7 @@ export default function LeaderboardPage() {
                           <TableCell>{stat.walks}</TableCell>
                           <TableCell>{stat.strikeouts}</TableCell>
                           <TableCell>{stat.stolen_bases}</TableCell>
-                          <TableCell className="font-bold">{formatAvg(Number(stat.avg))}</TableCell>
+                          <TableCell className="font-bold text-gradient-bright">{formatAvg(Number(stat.avg))}</TableCell>
                           <TableCell>{formatAvg(Number(stat.obp))}</TableCell>
                           <TableCell>{formatAvg(Number(stat.slg))}</TableCell>
                           <TableCell>{formatAvg(Number(stat.ops))}</TableCell>
@@ -204,17 +213,21 @@ export default function LeaderboardPage() {
           ) : (
             <>
               {/* Mobile: card list */}
-              <div className="sm:hidden space-y-3">
+              <div className="sm:hidden space-y-3 stagger-children">
                 {sortedFielding.map((stat, i) => (
                   <Link key={stat.player_id} href={`/players/${stat.player_id}`}>
-                    <Card className="active:scale-[0.99] transition-transform">
+                    <Card className="card-hover glass">
                       <CardContent className="p-3">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
+                            <span className={`text-sm font-bold w-5 ${i === 0 ? "text-primary" : "text-muted-foreground"}`}>
+                              {i + 1}
+                            </span>
                             <span className="font-semibold">{stat.player_name}</span>
                           </div>
-                          <span className="text-lg font-bold tabular-nums">{Number(stat.fielding_pct).toFixed(3)}</span>
+                          <span className="text-lg font-extrabold tabular-nums text-gradient-bright">
+                            {Number(stat.fielding_pct).toFixed(3)}
+                          </span>
                         </div>
                         <div className="grid grid-cols-4 gap-2 text-center text-xs">
                           <div><div className="font-bold">{stat.putouts}</div><div className="text-muted-foreground">PO</div></div>
@@ -229,11 +242,11 @@ export default function LeaderboardPage() {
               </div>
 
               {/* Desktop: table */}
-              <Card className="hidden sm:block">
+              <Card className="hidden sm:block glass">
                 <CardContent className="overflow-x-auto p-0">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="border-border/50">
                         <TableHead className="w-8">#</TableHead>
                         <TableHead>Player</TableHead>
                         <TableHead>G</TableHead>
@@ -246,10 +259,12 @@ export default function LeaderboardPage() {
                     </TableHeader>
                     <TableBody>
                       {sortedFielding.map((stat, i) => (
-                        <TableRow key={stat.player_id}>
-                          <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
+                        <TableRow key={stat.player_id} className="border-border/30">
+                          <TableCell className={`font-bold ${i === 0 ? "text-primary" : "text-muted-foreground"}`}>
+                            {i + 1}
+                          </TableCell>
                           <TableCell>
-                            <Link href={`/players/${stat.player_id}`} className="font-medium hover:underline">
+                            <Link href={`/players/${stat.player_id}`} className="font-medium hover:text-primary transition-colors">
                               {stat.player_name}
                             </Link>
                           </TableCell>
@@ -258,7 +273,7 @@ export default function LeaderboardPage() {
                           <TableCell>{stat.assists}</TableCell>
                           <TableCell>{stat.errors}</TableCell>
                           <TableCell>{stat.total_chances}</TableCell>
-                          <TableCell className="font-bold">{Number(stat.fielding_pct).toFixed(3)}</TableCell>
+                          <TableCell className="font-bold text-gradient-bright">{Number(stat.fielding_pct).toFixed(3)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

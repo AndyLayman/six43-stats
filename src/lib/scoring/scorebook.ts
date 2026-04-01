@@ -69,6 +69,16 @@ export function generateNotation(result: PlateAppearanceResult, fieldPosition: n
     }
     case "FO":
       return fieldPosition ? `F${fieldPosition}` : "FO";
+    case "DP": {
+      if (!fieldPosition) return "DP";
+      // Double play: e.g. 6-4-3 (SS to 2B to 1B) or 4-6-3
+      if (fieldPosition === 6) return "6-4-3";
+      if (fieldPosition === 4) return "4-6-3";
+      if (fieldPosition === 5) return "5-4-3";
+      if (fieldPosition === 3) return "3-6-3";
+      if (fieldPosition === 1) return "1-6-3";
+      return `DP ${fieldPosition}`;
+    }
     case "FC":
       return fieldPosition ? `FC ${fieldPosition}` : "FC";
     case "E":
@@ -93,6 +103,7 @@ export function getResultColor(result: PlateAppearanceResult): string {
     case "GO":
     case "FO":
     case "FC":
+    case "DP":
     case "SAC": return "#9ca3af"; // light gray
     case "E":
     case "ROE": return "#f97316"; // orange

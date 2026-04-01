@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatAvg } from "@/lib/stats/calculations";
-import type { Game, GameLineup, Player, PlateAppearance } from "@/lib/scoring/types";
+import type { Game, GameLineup, Player, PlateAppearance, OpponentBatter } from "@/lib/scoring/types";
 
 export default function GameDetailPage() {
   const params = useParams();
@@ -17,20 +17,23 @@ export default function GameDetailPage() {
 
   const [game, setGame] = useState<Game | null>(null);
   const [lineup, setLineup] = useState<(GameLineup & { player: Player })[]>([]);
+  const [opponentLineup, setOpponentLineup] = useState<OpponentBatter[]>([]);
   const [appearances, setAppearances] = useState<PlateAppearance[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [gameRes, lineupRes, pasRes] = await Promise.all([
+      const [gameRes, lineupRes, pasRes, oppRes] = await Promise.all([
         supabase.from("games").select("*").eq("id", gameId).single(),
         supabase.from("game_lineup").select("*, player:players(*)").eq("game_id", gameId).order("batting_order"),
         supabase.from("plate_appearances").select("*").eq("game_id", gameId).order("created_at"),
+        supabase.from("opponent_lineup").select("*").eq("game_id", gameId).order("batting_order"),
       ]);
 
       setGame(gameRes.data);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setLineup((lineupRes.data as any) ?? []);
+      setOpponentLineup(oppRes.data ?? []);
       setAppearances(pasRes.data ?? []);
       setLoading(false);
     }
@@ -38,14 +41,19 @@ export default function GameDetailPage() {
   }, [gameId]);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
   }
 
   if (!game) {
     return <div className="flex items-center justify-center py-20 text-muted-foreground">Game not found</div>;
   }
 
-  // Get max innings from appearances
+  const ourAppearances = appearances.filter((pa) => (pa.team ?? "us") === "us");
+  const oppAppearances = appearances.filter((pa) => pa.team === "them");
   const maxInning = appearances.length > 0 ? Math.max(...appearances.map((pa) => pa.inning)) : 0;
   const innings = Array.from({ length: Math.max(maxInning, 1) }, (_, i) => i + 1);
 
@@ -53,7 +61,7 @@ export default function GameDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-3xl font-extrabold tracking-tight text-gradient">
             {game.location === "home" ? "vs" : "@"} {game.opponent}
           </h1>
           <p className="text-muted-foreground">
@@ -63,10 +71,21 @@ export default function GameDetailPage() {
         <div className="flex items-center gap-3">
           {game.status !== "final" && (
             <Link href={`/games/${gameId}/live`}>
-              <Button>{game.status === "in_progress" ? "Continue Scoring" : "Start Scoring"}</Button>
+              <Button className="glow-primary">
+                {game.status === "in_progress" ? "Continue Scoring" : "Start Scoring"}
+              </Button>
             </Link>
           )}
-          <Badge variant={game.status === "final" ? "default" : game.status === "in_progress" ? "default" : "outline"}>
+          <Badge
+            variant={game.status === "final" ? "default" : "outline"}
+            className={
+              game.status === "in_progress"
+                ? "bg-primary/20 text-primary border-primary/30 animate-pulse"
+                : game.status === "final"
+                ? "bg-primary/20 text-primary border-primary/30"
+                : "border-border/50 text-muted-foreground"
+            }
+          >
             {game.status === "in_progress" ? "Live" : game.status === "final" ? "Final" : "Scheduled"}
           </Badge>
         </div>
@@ -74,11 +93,11 @@ export default function GameDetailPage() {
 
       {/* Scoreboard */}
       {(game.status === "final" || game.status === "in_progress") && (
-        <Card>
+        <Card className="glass gradient-border glow-primary">
           <CardContent className="p-6">
             <div className="text-center">
-              <div className="text-5xl font-bold">
-                {game.our_score} - {game.opponent_score}
+              <div className="text-5xl font-extrabold tabular-nums text-gradient-bright">
+                {game.our_score} <span className="text-gradient text-3xl">-</span> {game.opponent_score}
               </div>
               <div className="text-muted-foreground mt-1">
                 {game.innings_played > 0 ? `${game.innings_played} innings` : ""}
@@ -88,18 +107,18 @@ export default function GameDetailPage() {
         </Card>
       )}
 
-      {/* Box Score */}
+      {/* Box Score — Our Team */}
       {lineup.length > 0 && (
-        <Card>
+        <Card className="glass border-border/50">
           <CardHeader className="px-3 sm:px-6">
-            <CardTitle>Box Score</CardTitle>
+            <CardTitle className="text-gradient">Our Box Score</CardTitle>
           </CardHeader>
           <CardContent className="px-0 sm:px-6">
             <div className="overflow-x-auto">
               <Table className="min-w-0">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="sticky left-0 bg-background z-10 min-w-[120px]">Player</TableHead>
+                  <TableRow className="border-border/50">
+                    <TableHead className="sticky left-0 bg-card z-10 min-w-[120px]">Player</TableHead>
                     {innings.map((inn) => (
                       <TableHead key={inn} className="text-center w-12 px-1">
                         {inn}
@@ -112,15 +131,15 @@ export default function GameDetailPage() {
                 </TableHeader>
                 <TableBody>
                 {lineup.map((entry) => {
-                  const playerPAs = appearances.filter((pa) => pa.player_id === entry.player_id);
+                  const playerPAs = ourAppearances.filter((pa) => pa.player_id === entry.player_id);
                   const ab = playerPAs.filter((pa) => pa.is_at_bat).length;
                   const h = playerPAs.filter((pa) => pa.is_hit).length;
                   const rbi = playerPAs.reduce((sum, pa) => sum + pa.rbis, 0);
 
                   return (
-                    <TableRow key={entry.id}>
-                      <TableCell className="sticky left-0 bg-background z-10">
-                        <Link href={`/players/${entry.player_id}`} className="hover:underline font-medium">
+                    <TableRow key={entry.id} className="border-border/30">
+                      <TableCell className="sticky left-0 bg-card z-10">
+                        <Link href={`/players/${entry.player_id}`} className="hover:text-primary font-medium transition-colors">
                           <span className="text-muted-foreground mr-1">{entry.batting_order}.</span>
                           {entry.player?.name ?? `Player ${entry.player_id}`}
                         </Link>
@@ -133,9 +152,65 @@ export default function GameDetailPage() {
                           </TableCell>
                         );
                       })}
-                      <TableCell className="text-center">{ab}</TableCell>
-                      <TableCell className="text-center font-bold">{h}</TableCell>
-                      <TableCell className="text-center">{rbi}</TableCell>
+                      <TableCell className="text-center tabular-nums">{ab}</TableCell>
+                      <TableCell className="text-center font-bold text-primary tabular-nums">{h}</TableCell>
+                      <TableCell className="text-center tabular-nums">{rbi}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Box Score — Opponent */}
+      {opponentLineup.length > 0 && (
+        <Card className="glass border-border/50">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="text-gradient">Opponent Box Score</CardTitle>
+          </CardHeader>
+          <CardContent className="px-0 sm:px-6">
+            <div className="overflow-x-auto">
+              <Table className="min-w-0">
+                <TableHeader>
+                  <TableRow className="border-border/50">
+                    <TableHead className="sticky left-0 bg-card z-10 min-w-[120px]">Batter</TableHead>
+                    {innings.map((inn) => (
+                      <TableHead key={inn} className="text-center w-12 px-1">
+                        {inn}
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-center px-2">AB</TableHead>
+                    <TableHead className="text-center px-2">H</TableHead>
+                    <TableHead className="text-center px-2">RBI</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                {opponentLineup.map((entry) => {
+                  const batterPAs = oppAppearances.filter((pa) => pa.opponent_batter_id === entry.id);
+                  const ab = batterPAs.filter((pa) => pa.is_at_bat).length;
+                  const h = batterPAs.filter((pa) => pa.is_hit).length;
+                  const rbi = batterPAs.reduce((sum, pa) => sum + pa.rbis, 0);
+
+                  return (
+                    <TableRow key={entry.id} className="border-border/30">
+                      <TableCell className="sticky left-0 bg-card z-10">
+                        <span className="text-muted-foreground mr-1">{entry.batting_order}.</span>
+                        <span className="font-medium">{entry.name}</span>
+                      </TableCell>
+                      {innings.map((inn) => {
+                        const innPAs = batterPAs.filter((pa) => pa.inning === inn);
+                        return (
+                          <TableCell key={inn} className="text-center text-xs sm:text-sm px-1 whitespace-nowrap">
+                            {innPAs.map((pa) => pa.scorebook_notation || pa.result).join(", ") || ""}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center tabular-nums">{ab}</TableCell>
+                      <TableCell className="text-center font-bold text-primary tabular-nums">{h}</TableCell>
+                      <TableCell className="text-center tabular-nums">{rbi}</TableCell>
                     </TableRow>
                   );
                 })}
