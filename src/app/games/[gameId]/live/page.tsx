@@ -203,6 +203,11 @@ export default function LiveScoringPage() {
       if (state.runnerThird) advances.push({ from: "third", to: "home" });
       if (state.runnerSecond) advances.push({ from: "second", to: "third" });
       if (state.runnerFirst) advances.push({ from: "first", to: "second" });
+    } else if (result === "DP") {
+      // Runner on 1st is forced out at 2nd (handled by engine)
+      // Remaining runners advance
+      if (state.runnerThird) advances.push({ from: "third", to: "home" });
+      if (state.runnerSecond) advances.push({ from: "second", to: "third" });
     }
     return advances;
   }
@@ -236,7 +241,21 @@ export default function LiveScoringPage() {
       ? recordOpponentAtBat(gameState, payload)
       : recordAtBat(gameState, payload);
 
-    await supabase.from("plate_appearances").insert({
+    // Update UI immediately (optimistic) — don't wait for DB
+    setGameState(newState);
+    setPlayLog((prev) => [
+      ...prev,
+      { notation, playerName: batter.playerName, inning: gameState.currentInning, team: isOpponent ? "them" : "us" },
+    ]);
+    setSelectedResult(null);
+    setSprayPoint(null);
+    setHitType(null);
+    setNotationOverride(null);
+    setRbis(0);
+    setStolenBases(0);
+
+    // Persist to DB in background
+    supabase.from("plate_appearances").insert({
       game_id: gameId,
       player_id: batter.playerId ?? null,
       opponent_batter_id: batter.opponentBatterId ?? null,
@@ -256,21 +275,7 @@ export default function LiveScoringPage() {
       is_hit: isHit(selectedResult),
       total_bases: totalBases(selectedResult),
     });
-
-    setPlayLog((prev) => [
-      ...prev,
-      { notation, playerName: batter.playerName, inning: gameState.currentInning, team: isOpponent ? "them" : "us" },
-    ]);
-
-    setGameState(newState);
-    await persistState(newState);
-
-    setSelectedResult(null);
-    setSprayPoint(null);
-    setHitType(null);
-    setNotationOverride(null);
-    setRbis(0);
-    setStolenBases(0);
+    persistState(newState);
   }
 
   async function handleAddOpponentBatter() {

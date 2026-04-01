@@ -125,11 +125,9 @@ export function recordAtBat(state: GameState, payload: RecordAtBatPayload): Game
         newFirst = state.runnerFirst;
         newSecond = state.runnerSecond;
         newThird = state.runnerThird;
-        // DP: remove lead runner (closest to home)
+        // DP: runner on 1st is forced out at 2nd
         if (result === "DP") {
-          if (state.runnerThird) newThird = null;
-          else if (state.runnerSecond) newSecond = null;
-          else if (state.runnerFirst) newFirst = null;
+          newFirst = null;
         }
         // Re-apply runner advances only
         for (const advance of payload.runnerAdvances) {
@@ -250,11 +248,9 @@ export function recordOpponentAtBat(state: GameState, payload: RecordAtBatPayloa
         newFirst = state.runnerFirst;
         newSecond = state.runnerSecond;
         newThird = state.runnerThird;
-        // DP: remove lead runner
+        // DP: runner on 1st is forced out at 2nd
         if (result === "DP") {
-          if (state.runnerThird) newThird = null;
-          else if (state.runnerSecond) newSecond = null;
-          else if (state.runnerFirst) newFirst = null;
+          newFirst = null;
         }
         for (const advance of payload.runnerAdvances) {
           if (advance.from === "third") newThird = null;
