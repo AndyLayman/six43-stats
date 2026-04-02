@@ -988,27 +988,28 @@ export default function LiveScoringPage() {
             );
           })()}
 
-          {/* Confirm bar — sticky at bottom */}
-          {selectedResult && (
-            <div className="fixed bottom-0 left-0 right-0 p-3 glass-strong border-t border-border/50 z-40">
-              <div className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  value={notationOverride !== null ? notationOverride : (sprayPoint ? (() => { const fp = sprayToPosition(sprayPoint.x, sprayPoint.y); return generateNotation(selectedResult, fp, { first: gameState.runnerFirst, second: gameState.runnerSecond, third: gameState.runnerThird }, fp === 8 ? sprayCfSide(sprayPoint.x, sprayPoint.y) : undefined); })() : selectedResult)}
-                  onChange={(e) => setNotationOverride(e.target.value)}
-                  className="h-14 flex-1 rounded-xl border-2 border-border/50 bg-muted/30 px-4 text-center text-lg font-bold tabular-nums placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
-                />
-                <Button
-                  onClick={handleConfirmAtBat}
-                  size="lg"
-                  className="h-14 px-8 text-lg font-bold active:scale-[0.98] transition-transform glow-primary"
-                >
-                  Confirm
-                </Button>
-              </div>
-            </div>
-          )}
         </>
+      )}
+
+      {/* Confirm bar — fixed at bottom of screen */}
+      {activeBatter && selectedResult && (
+        <div className="fixed bottom-0 left-0 right-0 p-3 glass-strong border-t border-border/50 z-40">
+          <div className="max-w-lg mx-auto flex gap-2 items-center">
+            <input
+              type="text"
+              value={notationOverride !== null ? notationOverride : (sprayPoint ? (() => { const fp = sprayToPosition(sprayPoint.x, sprayPoint.y); return generateNotation(selectedResult, fp, { first: gameState.runnerFirst, second: gameState.runnerSecond, third: gameState.runnerThird }, fp === 8 ? sprayCfSide(sprayPoint.x, sprayPoint.y) : undefined); })() : selectedResult)}
+              onChange={(e) => setNotationOverride(e.target.value)}
+              className="h-14 flex-1 rounded-xl border-2 border-border/50 bg-muted/30 px-4 text-center text-lg font-bold tabular-nums placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
+            />
+            <Button
+              onClick={handleConfirmAtBat}
+              size="lg"
+              className="h-14 px-8 text-lg font-bold active:scale-[0.98] transition-transform glow-primary"
+            >
+              Confirm
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Play log */}
