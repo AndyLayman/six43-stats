@@ -2,17 +2,27 @@
 
 import { useCallback } from "react";
 import { getResultColor } from "@/lib/scoring/scorebook";
-import type { PlateAppearanceResult } from "@/lib/scoring/types";
+import type { PlateAppearanceResult, HitType } from "@/lib/scoring/types";
 
 interface SprayChartProps {
   onClick?: (x: number, y: number) => void;
   markers?: { x: number; y: number; result: PlateAppearanceResult }[];
+  ghostMarkers?: { x: number; y: number; result: PlateAppearanceResult }[];
   selectedPoint?: { x: number; y: number } | null;
+  hitType?: HitType | null;
   interactive?: boolean;
   className?: string;
 }
 
-export function SprayChart({ onClick, markers = [], selectedPoint, interactive = true, className = "" }: SprayChartProps) {
+export function SprayChart({
+  onClick,
+  markers = [],
+  ghostMarkers = [],
+  selectedPoint,
+  hitType,
+  interactive = true,
+  className = "",
+}: SprayChartProps) {
   const getCoords = useCallback((svg: SVGSVGElement, clientX: number, clientY: number) => {
     const rect = svg.getBoundingClientRect();
     const x = ((clientX - rect.left) / rect.width) * 300;
@@ -28,11 +38,15 @@ export function SprayChart({ onClick, markers = [], selectedPoint, interactive =
 
   function handleTouch(e: React.TouchEvent<SVGSVGElement>) {
     if (!interactive || !onClick) return;
-    e.preventDefault(); // prevent scroll and double-tap zoom
+    e.preventDefault();
     const touch = e.changedTouches[0];
     const { x, y } = getCoords(e.currentTarget, touch.clientX, touch.clientY);
     onClick(x, y);
   }
+
+  // Home plate position in SVG coords
+  const homeX = 150;
+  const homeY = 280;
 
   return (
     <svg
@@ -54,14 +68,14 @@ export function SprayChart({ onClick, markers = [], selectedPoint, interactive =
         </linearGradient>
       </defs>
 
-      {/* Foul lines — extend through 3B (80,210) and 1B (220,210) from home (150,280) */}
+      {/* Foul lines */}
       <line x1="150" y1="280" x2="10" y2="140" stroke="url(#field-grad)" strokeWidth="1.5" opacity="0.4" />
       <line x1="150" y1="280" x2="290" y2="140" stroke="url(#field-grad)" strokeWidth="1.5" opacity="0.4" />
 
-      {/* Outfield fence arc — connects foul line endpoints, centered on home plate */}
+      {/* Outfield fence arc */}
       <path d="M 10 140 A 198 198 0 0 1 290 140" fill="none" stroke="url(#field-grad)" strokeWidth="2" opacity="0.5" />
 
-      {/* Infield diamond fill (very subtle) */}
+      {/* Infield diamond fill */}
       <path d="M 150 280 L 80 210 L 150 140 L 220 210 Z" fill="url(#field-grad-dim)" />
 
       {/* Base paths */}
@@ -105,7 +119,32 @@ export function SprayChart({ onClick, markers = [], selectedPoint, interactive =
         </text>
       ))}
 
-      {/* Existing markers */}
+      {/* Ghost markers — previous at-bats for this hitter */}
+      {ghostMarkers.map((m, i) => (
+        <g key={`ghost-${i}`} opacity="0.25">
+          <circle
+            cx={m.x}
+            cy={m.y}
+            r="5"
+            fill={getResultColor(m.result)}
+            stroke="oklch(0.95 0.005 270)"
+            strokeWidth="1"
+          />
+        </g>
+      ))}
+
+      {/* Trajectory line from home plate to selected point */}
+      {selectedPoint && (
+        <TrajectoryPath
+          fromX={homeX}
+          fromY={homeY}
+          toX={selectedPoint.x}
+          toY={selectedPoint.y}
+          hitType={hitType}
+        />
+      )}
+
+      {/* Existing markers (current game, all batters) */}
       {markers.map((m, i) => (
         <circle
           key={i}
@@ -144,4 +183,129 @@ export function SprayChart({ onClick, markers = [], selectedPoint, interactive =
       )}
     </svg>
   );
+}
+
+/**
+ * Trajectory path from home plate to the ball landing spot.
+ *
+ * The arc shape reflects the hit type:
+ *   GB (ground ball) — low bouncing line with small humps
+ *   LD (line drive)  — nearly straight, slight upward arc
+ *   FB (fly ball)    — moderate arc peaking ~40% of the way up
+ *   PU (pop up)      — exaggerated high arc, almost vertical peak
+ *   null (unknown)   — simple straight dashed line
+ */
+function TrajectoryPath({
+  fromX,
+  fromY,
+  toX,
+  toY,
+  hitType,
+}: {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  hitType?: HitType | null;
+}) {
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist < 5) return null;
+
+  // Unit direction and perpendicular (for arc control points)
+  const ux = dx / dist;
+  const uy = dy / dist;
+  // Perpendicular (rotated 90 degrees CCW) — points "up" relative to the trajectory
+  const px = -uy;
+  const py = ux;
+
+  const color = "oklch(0.75 0.17 165)";
+
+  if (!hitType) {
+    // Simple dashed line
+    return (
+      <line
+        x1={fromX} y1={fromY} x2={toX} y2={toY}
+        stroke={color} strokeWidth="1.5" strokeDasharray="6 4" opacity="0.4"
+      />
+    );
+  }
+
+  if (hitType === "GB") {
+    // Ground ball: low bouncing trajectory with 3 small humps
+    const bounces = 3;
+    const segLen = dist / bounces;
+    const bounceHeight = Math.min(12, dist * 0.06);
+    let d = `M ${fromX} ${fromY}`;
+
+    for (let i = 0; i < bounces; i++) {
+      const t0 = i / bounces;
+      const t1 = (i + 1) / bounces;
+      const tMid = (t0 + t1) / 2;
+      // Midpoint of this segment
+      const mx = fromX + dx * tMid;
+      const my = fromY + dy * tMid;
+      // Control point offset perpendicular (arcs get smaller with each bounce)
+      const h = bounceHeight * (1 - i * 0.3);
+      const cx = mx + px * h;
+      const cy = my + py * h;
+      // End of segment
+      const ex = fromX + dx * t1;
+      const ey = fromY + dy * t1;
+      d += ` Q ${cx} ${cy} ${ex} ${ey}`;
+    }
+
+    return (
+      <path d={d} fill="none" stroke={color} strokeWidth="1.8" opacity="0.5" />
+    );
+  }
+
+  if (hitType === "LD") {
+    // Line drive: slight arc, peaks early (~30% along the path)
+    const peakT = 0.3;
+    const arcHeight = dist * 0.08;
+    const cx = fromX + dx * peakT + px * arcHeight;
+    const cy = fromY + dy * peakT + py * arcHeight;
+
+    return (
+      <path
+        d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
+        fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
+      />
+    );
+  }
+
+  if (hitType === "FB") {
+    // Fly ball: moderate arc, peaks at ~40%
+    const peakT = 0.4;
+    const arcHeight = dist * 0.25;
+    const cx = fromX + dx * peakT + px * arcHeight;
+    const cy = fromY + dy * peakT + py * arcHeight;
+
+    return (
+      <path
+        d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
+        fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
+      />
+    );
+  }
+
+  if (hitType === "PU") {
+    // Pop up: exaggerated high arc, peaks at ~35% with extreme height
+    const peakT = 0.35;
+    const arcHeight = dist * 0.55;
+    const cx = fromX + dx * peakT + px * arcHeight;
+    const cy = fromY + dy * peakT + py * arcHeight;
+
+    return (
+      <path
+        d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
+        fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
+      />
+    );
+  }
+
+  return null;
 }
