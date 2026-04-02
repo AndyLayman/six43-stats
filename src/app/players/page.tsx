@@ -90,7 +90,8 @@ export default function PlayersPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border/50">
-                  <TableHead className="sticky left-0 z-10 bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]">Player</TableHead>
+                  <TableHead className="sticky left-0 z-10 bg-zinc-950 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)] text-center w-10 px-2">#</TableHead>
+                  <TableHead className="whitespace-nowrap">Name</TableHead>
                   <TableHead className="text-center whitespace-nowrap">G</TableHead>
                   <TableHead className="text-center whitespace-nowrap">PA</TableHead>
                   <TableHead className="text-center whitespace-nowrap">AB</TableHead>
@@ -111,9 +112,12 @@ export default function PlayersPage() {
               <TableBody>
                 {players.map((p) => (
                   <TableRow key={p.id} className="border-border/30 hover:bg-accent/30 transition-colors">
-                    <TableCell className="sticky left-0 z-10 bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)] font-medium whitespace-nowrap">
+                    <TableCell className="sticky left-0 z-10 bg-zinc-950 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)] text-center w-10 px-2 font-bold tabular-nums">
+                      {p.number}
+                    </TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">
                       <Link href={`/players/${p.id}`} className="text-primary hover:underline">
-                        #{p.number} {p.name}
+                        {p.name}
                       </Link>
                     </TableCell>
                     <TableCell className="text-center tabular-nums">{p.games}</TableCell>
