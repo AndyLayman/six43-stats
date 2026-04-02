@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatAvg } from "@/lib/stats/calculations";
-import type { Player, PlateAppearance, BattingStats, FieldingStats } from "@/lib/scoring/types";
+import { SprayChart } from "@/components/scoring/SprayChart";
+import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType } from "@/lib/scoring/types";
 
 export default function PlayerDetailPage() {
   const params = useParams();
@@ -16,6 +17,7 @@ export default function PlayerDetailPage() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [battingStats, setBattingStats] = useState<BattingStats | null>(null);
   const [fieldingStats, setFieldingStats] = useState<FieldingStats | null>(null);
+  const [allPAs, setAllPAs] = useState<PlateAppearance[]>([]);
   const [gameLog, setGameLog] = useState<{ game_id: string; date: string; opponent: string; appearances: PlateAppearance[] }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,7 +36,8 @@ export default function PlayerDetailPage() {
       setFieldingStats(fieldingRes.data);
 
       const games = gamesRes.data ?? [];
-      const pas = pasRes.data ?? [];
+      const pas: PlateAppearance[] = pasRes.data ?? [];
+      setAllPAs(pas);
       const log = games
         .filter((g) => pas.some((pa) => pa.game_id === g.id))
         .map((g) => ({
@@ -93,6 +96,29 @@ export default function PlayerDetailPage() {
           ))}
         </div>
       )}
+
+      {/* Spray Chart */}
+      {(() => {
+        const sprayPAs = allPAs.filter((pa) => pa.spray_x != null && pa.spray_y != null);
+        if (sprayPAs.length === 0) return null;
+        const markers = sprayPAs.map((pa) => ({
+          x: pa.spray_x!,
+          y: pa.spray_y!,
+          result: pa.result as PlateAppearanceResult,
+        }));
+        return (
+          <Card className="glass border-border/50">
+            <CardHeader className="px-3 sm:px-6">
+              <CardTitle className="text-gradient">Spray Chart</CardTitle>
+            </CardHeader>
+            <CardContent className="px-1 pt-1 pb-3">
+              <div className="max-w-md mx-auto">
+                <SprayChart markers={markers} interactive={false} />
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       <Tabs defaultValue="batting">
         <TabsList className="w-full sm:w-auto bg-muted/50">
