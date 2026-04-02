@@ -17,9 +17,14 @@ const FIELD_POSITIONS = [
   { value: "3B", label: "3B" },
   { value: "SS", label: "SS" },
   { value: "LF", label: "LF" },
-  { value: "CF", label: "CF" },
+  { value: "LCF", label: "LCF" },
+  { value: "RCF", label: "RCF" },
   { value: "RF", label: "RF" },
   { value: "DH", label: "DH" },
+  { value: "BN1", label: "BN1" },
+  { value: "BN2", label: "BN2" },
+  { value: "BN3", label: "BN3" },
+  { value: "BN4", label: "BN4" },
 ];
 
 export default function NewGamePage() {

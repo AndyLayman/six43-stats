@@ -20,6 +20,13 @@ export const POSITION_NUMBERS: Record<string, number> = {
   P: 1, C: 2, "1B": 3, "2B": 4, "3B": 5, SS: 6, LF: 7, CF: 8, RF: 9,
 };
 
+// Aliases: positions in lineup_assignments that map to a standard position number
+// LCF and RCF both count as CF (position 8) for fielding attribution
+const POSITION_ALIASES: Record<string, string> = {
+  LCF: "CF",
+  RCF: "CF",
+};
+
 // Convert spray chart coordinates to fielding position number
 // SVG viewBox is 0-300 x 0-300, home plate at (150, 280)
 export function sprayToPosition(x: number, y: number): number {
@@ -34,10 +41,10 @@ export function sprayToPosition(x: number, y: number): number {
   const isOutfield = distance > 130;
 
   if (isOutfield) {
-    // Outfield zones by angle
+    // Outfield zones by angle (CF split into LCF/RCF but both map to position 8)
     if (angle < -20) return 7; // LF
     if (angle > 20) return 9; // RF
-    return 8; // CF
+    return 8; // CF (covers both LCF and RCF areas)
   } else {
     // Infield zones by angle
     if (distance < 40) return 1; // Pitcher area
@@ -248,10 +255,18 @@ export function resolvePositionToPlayerId(
   const posAbbrev = POSITIONS[positionNumber];
   if (!posAbbrev) return null;
 
+  // Check if a stored position matches the target (handles aliases like LCF/RCF → CF)
+  function matchesPosition(storedPos: string): boolean {
+    const upper = storedPos.toUpperCase();
+    if (upper === posAbbrev) return true;
+    const alias = POSITION_ALIASES[upper];
+    return alias === posAbbrev;
+  }
+
   // Highest priority: per-inning lineup assignments
   if (inningPositions && inningPositions.length > 0) {
     for (const entry of inningPositions) {
-      if (entry.position.toUpperCase() === posAbbrev) {
+      if (matchesPosition(entry.position)) {
         return entry.player_id;
       }
     }
@@ -259,7 +274,7 @@ export function resolvePositionToPlayerId(
 
   // Second: game_lineup positions
   for (const entry of lineup) {
-    if (entry.position.toUpperCase() === posAbbrev) {
+    if (matchesPosition(entry.position)) {
       return entry.player_id;
     }
   }
@@ -267,7 +282,7 @@ export function resolvePositionToPlayerId(
   // Fall back to player's default position from the players table
   for (const entry of lineup) {
     const player = players.find((p) => p.id === entry.player_id);
-    if (player && player.position?.toUpperCase() === posAbbrev) {
+    if (player && matchesPosition(player.position ?? "")) {
       return player.id;
     }
   }
