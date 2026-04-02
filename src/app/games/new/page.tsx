@@ -43,12 +43,7 @@ export default function NewGamePage() {
       const allPlayers: Player[] = data ?? [];
       setPlayers(allPlayers);
       setSelectedPlayers(allPlayers.map((p) => p.id));
-      // Pre-fill positions from each player's default position
-      const defaultPositions: Record<number, string> = {};
-      for (const p of allPlayers) {
-        if (p.position) defaultPositions[p.id] = p.position;
-      }
-      setPositions(defaultPositions);
+      setPositions({});
     }
     load();
   }, []);
@@ -203,9 +198,6 @@ export default function NewGamePage() {
                     )}
                     <span className="font-medium flex-1 text-base">
                       #{player.number} {player.name}
-                      {!isSelected && player.position && (
-                        <span className="ml-1 text-xs text-muted-foreground">({player.position})</span>
-                      )}
                     </span>
                     {isSelected && (
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>

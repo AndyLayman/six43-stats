@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS players (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   number TEXT,
-  position TEXT DEFAULT '',
   bats TEXT DEFAULT 'Right' CHECK (bats IN ('Right', 'Left', 'Switch')),
   throws TEXT DEFAULT 'Right' CHECK (throws IN ('Right', 'Left')),
   photo_file TEXT,

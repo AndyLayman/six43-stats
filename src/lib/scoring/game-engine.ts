@@ -19,7 +19,7 @@ export function createInitialGameState(
     ourScore: 0,
     opponentScore: 0,
     lineup: lineup.map((l) => ({ ...l, id: "", game_id: gameId, position: "" })),
-    players: players.map((p) => ({ ...p, number: "", position: "", bats: null, throws: null, photo_file: null, intro_file: null, song_file: null, combo_file: null, sort_order: 0 })),
+    players: players.map((p) => ({ ...p, number: "", bats: null, throws: null, photo_file: null, intro_file: null, song_file: null, combo_file: null, sort_order: 0 })),
     opponentLineup: [],
   };
 }

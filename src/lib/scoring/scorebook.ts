@@ -332,22 +332,6 @@ export function resolvePositionToPlayerId(
     }
   }
 
-  // Fall back to player's default position from the players table
-  if (posAbbrev === "CF" && cfSide) {
-    for (const entry of lineup) {
-      const player = players.find((p) => p.id === entry.player_id);
-      if (player && preferredCfMatch(player.position ?? "")) {
-        return player.id;
-      }
-    }
-  }
-  for (const entry of lineup) {
-    const player = players.find((p) => p.id === entry.player_id);
-    if (player && matchesPosition(player.position ?? "")) {
-      return player.id;
-    }
-  }
-
   return null;
 }
 
