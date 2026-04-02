@@ -244,6 +244,7 @@ export default function LiveScoringPage() {
 
     // Detect half-inning switch
     const halfChanged = newState.currentHalf !== gameState.currentHalf || newState.currentInning !== gameState.currentInning;
+    const fullInningCompleted = newState.currentInning > gameState.currentInning;
     if (halfChanged) {
       setHalfInningTransition({
         fromHalf: gameState.currentHalf,
@@ -252,6 +253,22 @@ export default function LiveScoringPage() {
       });
       setTimeout(() => setHalfInningTransition((prev) => prev ? { ...prev, fading: true } : null), 2200);
       setTimeout(() => setHalfInningTransition(null), 3000);
+
+      // When a full inning completes (bottom → top), append to completed_innings
+      if (fullInningCompleted) {
+        void supabase.from("games")
+          .select("completed_innings")
+          .eq("id", gameId)
+          .single()
+          .then(({ data }) => {
+            const current: number[] = data?.completed_innings ?? [];
+            if (!current.includes(gameState.currentInning)) {
+              void supabase.from("games").update({
+                completed_innings: [...current, gameState.currentInning],
+              }).eq("id", gameId);
+            }
+          });
+      }
     }
 
     // Update UI immediately (optimistic) — don't wait for DB
