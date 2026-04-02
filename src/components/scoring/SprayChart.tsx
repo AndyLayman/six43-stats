@@ -66,6 +66,11 @@ export function SprayChart({
           <stop offset="50%" stopColor="oklch(0.72 0.14 220 / 20%)" />
           <stop offset="100%" stopColor="oklch(0.70 0.12 280 / 15%)" />
         </linearGradient>
+        <radialGradient id="dot-grad" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="oklch(0.80 0.17 165)" />
+          <stop offset="50%" stopColor="oklch(0.72 0.16 220)" />
+          <stop offset="100%" stopColor="oklch(0.68 0.14 280)" />
+        </radialGradient>
       </defs>
 
       {/* Foul lines */}
@@ -158,14 +163,14 @@ export function SprayChart({
         />
       ))}
 
-      {/* Selected point — pulse animation */}
+      {/* Selected point — pulse animation with gradient */}
       {selectedPoint && (
         <>
           <circle
             cx={selectedPoint.x}
             cy={selectedPoint.y}
             r="12"
-            fill="oklch(0.75 0.17 165)"
+            fill="url(#dot-grad)"
             opacity="0.3"
           >
             <animate attributeName="r" values="8;14;8" dur="1.5s" repeatCount="indefinite" />
@@ -175,7 +180,7 @@ export function SprayChart({
             cx={selectedPoint.x}
             cy={selectedPoint.y}
             r="7"
-            fill="oklch(0.75 0.17 165)"
+            fill="url(#dot-grad)"
             stroke="oklch(0.95 0.005 270)"
             strokeWidth="2.5"
           />
