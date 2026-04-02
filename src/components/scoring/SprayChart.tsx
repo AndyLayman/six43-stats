@@ -23,10 +23,11 @@ export function SprayChart({
   interactive = true,
   className = "",
 }: SprayChartProps) {
+  // viewBox is "0 70 300 240" — x: 0-300, y: 70-310
   const getCoords = useCallback((svg: SVGSVGElement, clientX: number, clientY: number) => {
     const rect = svg.getBoundingClientRect();
     const x = ((clientX - rect.left) / rect.width) * 300;
-    const y = ((clientY - rect.top) / rect.height) * 300;
+    const y = ((clientY - rect.top) / rect.height) * 240 + 70;
     return { x, y };
   }, []);
 
