@@ -300,8 +300,8 @@ function TrajectoryPath({
   }
 
   if (hitType === "PU") {
-    // Pop up: exaggerated high arc, peaks at ~35% with extreme height
-    const peakT = 0.35;
+    // Pop up: exaggerated high arc, peaks at ~65% (closer to landing spot)
+    const peakT = 0.65;
     const arcHeight = dist * 0.55;
     const cx = fromX + dx * peakT + px * arcHeight;
     const cy = fromY + dy * peakT + py * arcHeight;
