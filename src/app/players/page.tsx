@@ -13,6 +13,7 @@ interface PlayerWithStats extends Player {
   plate_appearances: number;
   at_bats: number;
   hits: number;
+  singles: number;
   doubles: number;
   triples: number;
   home_runs: number;
@@ -48,6 +49,7 @@ export default function PlayersPage() {
           plate_appearances: s ? Number(s.plate_appearances) : 0,
           at_bats: s ? Number(s.at_bats) : 0,
           hits: s ? Number(s.hits) : 0,
+          singles: s ? Number(s.singles) : 0,
           doubles: s ? Number(s.doubles) : 0,
           triples: s ? Number(s.triples) : 0,
           home_runs: s ? Number(s.home_runs) : 0,
@@ -96,7 +98,7 @@ export default function PlayersPage() {
                   <TableHead className="text-center whitespace-nowrap">G</TableHead>
                   <TableHead className="text-center whitespace-nowrap">PA</TableHead>
                   <TableHead className="text-center whitespace-nowrap">AB</TableHead>
-                  <TableHead className="text-center whitespace-nowrap">H</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">1B</TableHead>
                   <TableHead className="text-center whitespace-nowrap">2B</TableHead>
                   <TableHead className="text-center whitespace-nowrap">3B</TableHead>
                   <TableHead className="text-center whitespace-nowrap">HR</TableHead>
@@ -126,7 +128,7 @@ export default function PlayersPage() {
                     <TableCell className="text-center tabular-nums">{p.games}</TableCell>
                     <TableCell className="text-center tabular-nums">{p.plate_appearances}</TableCell>
                     <TableCell className="text-center tabular-nums">{p.at_bats}</TableCell>
-                    <TableCell className="text-center tabular-nums">{p.hits}</TableCell>
+                    <TableCell className="text-center tabular-nums">{p.singles}</TableCell>
                     <TableCell className="text-center tabular-nums">{p.doubles}</TableCell>
                     <TableCell className="text-center tabular-nums">{p.triples}</TableCell>
                     <TableCell className="text-center tabular-nums">{p.home_runs}</TableCell>
