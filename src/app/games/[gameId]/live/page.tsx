@@ -574,7 +574,7 @@ export default function LiveScoringPage() {
                 />
               </div>
               {/* Hit type buttons — inline below spray chart */}
-              {selectedResult && !NON_BATTED.includes(selectedResult) && (
+              {sprayPoint && (!selectedResult || !NON_BATTED.includes(selectedResult)) && (
                 <div className="grid grid-cols-4 gap-2">
                   {HIT_TYPE_BUTTONS.map(({ type, label }) => (
                     <button
