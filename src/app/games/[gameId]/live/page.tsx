@@ -560,9 +560,6 @@ export default function LiveScoringPage() {
         <>
           {/* Spray chart + hit type */}
           <Card className="glass">
-            <CardHeader className="pb-2 px-3 sm:px-6">
-              <CardTitle className="text-lg text-gradient">Tap where it went</CardTitle>
-            </CardHeader>
             <CardContent className="px-3 sm:px-6 pb-3 space-y-3">
               <div className="flex justify-center">
                 <SprayChart
