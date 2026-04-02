@@ -160,7 +160,6 @@ export default function PlayerDetailPage() {
                   { label: "2B", color: "#3b82f6" },
                   { label: "3B", color: "#f59e0b" },
                   { label: "HR", color: "#ef4444" },
-                  { label: "BB/HBP", color: "#8b5cf6" },
                   { label: "Out", color: "#9ca3af" },
                   { label: "Error", color: "#f97316" },
                 ].map((item) => (
