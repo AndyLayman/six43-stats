@@ -766,8 +766,8 @@ export default function LiveScoringPage() {
             </CardContent>
           </Card>
 
-          {/* RBIs */}
-          {selectedResult && (
+          {/* RBIs — only when runners on base or HR (self-RBI) */}
+          {selectedResult && (selectedResult === "HR" || gameState.runnerFirst || gameState.runnerSecond || gameState.runnerThird) && (
             <Card className="glass animate-slide-up">
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
