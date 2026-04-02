@@ -232,10 +232,9 @@ export function parseNotationToFieldingPlays(
 }
 
 /**
- * Resolve a fielding position number to a player ID using the game lineup.
+ * Resolve a fielding position number to a player ID.
  *
- * Uses the player's position from the players table (mapped through lineup)
- * to find which player_id is playing that position number.
+ * Priority: 1) inning defensive positions, 2) game_lineup positions, 3) player default position
  *
  * Position number mapping (Retrosheet standard):
  *   1=P, 2=C, 3=1B, 4=2B, 5=3B, 6=SS, 7=LF, 8=CF, 9=RF
@@ -243,12 +242,22 @@ export function parseNotationToFieldingPlays(
 export function resolvePositionToPlayerId(
   positionNumber: number,
   lineup: GameLineup[],
-  players: Player[]
+  players: Player[],
+  inningPositions?: { player_id: number; position: string }[]
 ): number | null {
   const posAbbrev = POSITIONS[positionNumber];
   if (!posAbbrev) return null;
 
-  // First check game_lineup positions (game-specific overrides)
+  // Highest priority: per-inning defensive positions
+  if (inningPositions) {
+    for (const entry of inningPositions) {
+      if (entry.position.toUpperCase() === posAbbrev) {
+        return entry.player_id;
+      }
+    }
+  }
+
+  // Second: game_lineup positions (game-start assignments)
   for (const entry of lineup) {
     if (entry.position.toUpperCase() === posAbbrev) {
       return entry.player_id;

@@ -18,6 +18,7 @@ import {
 import { sprayToPosition, generateNotation, parseNotationToFieldingPlays, resolvePositionToPlayerId } from "@/lib/scoring/scorebook";
 import { getDefaultRunnerAdvances, canDoublePlay } from "@/lib/scoring/baseball-rules";
 import { isAtBat, isHit, totalBases } from "@/lib/stats/calculations";
+import { POSITIONS } from "@/lib/scoring/scorebook";
 import type { GameState, PlateAppearanceResult, RecordAtBatPayload, RunnerAdvance, Player, GameLineup, OpponentBatter, HitType } from "@/lib/scoring/types";
 
 const RESULT_BUTTONS: { result: PlateAppearanceResult; label: string; color: string }[] = [
@@ -63,6 +64,8 @@ export default function LiveScoringPage() {
   const [playLog, setPlayLog] = useState<{ notation: string; playerName: string; inning: number; team: "us" | "them" }[]>([]);
   const [newOpponentName, setNewOpponentName] = useState("");
   const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult }[]>([]);
+  const [defensivePositions, setDefensivePositions] = useState<{ player_id: number; position: string }[]>([]);
+  const [showPositionEditor, setShowPositionEditor] = useState(false);
 
   // Wake Lock to prevent screen sleep during scoring
   useEffect(() => {
@@ -275,7 +278,7 @@ export default function LiveScoringPage() {
       const fieldingPlays = parseNotationToFieldingPlays(notation, selectedResult);
       const fieldingRows = fieldingPlays
         .map((fp) => {
-          const playerId = resolvePositionToPlayerId(fp.positionNumber, gameState.lineup, gameState.players);
+          const playerId = resolvePositionToPlayerId(fp.positionNumber, gameState.lineup, gameState.players, defensivePositions);
           if (!playerId) return null;
           return {
             game_id: gameId,
@@ -398,6 +401,106 @@ export default function LiveScoringPage() {
     }
     fetchHistory();
   }, [activeBatter?.playerId, activeBatter?.opponentBatterId]);
+
+  // Load or seed defensive positions for the current inning
+  useEffect(() => {
+    if (!gameState) return;
+    const inning = gameState.currentInning;
+    async function loadPositions() {
+      // Check if positions exist for this inning
+      const { data } = await supabase
+        .from("defensive_positions")
+        .select("player_id, position")
+        .eq("game_id", gameId)
+        .eq("inning", inning);
+
+      if (data && data.length > 0) {
+        setDefensivePositions(data);
+        return;
+      }
+
+      // No positions for this inning — seed from previous inning or game_lineup
+      let seedPositions: { player_id: number; position: string }[] = [];
+
+      if (inning > 1) {
+        const { data: prev } = await supabase
+          .from("defensive_positions")
+          .select("player_id, position")
+          .eq("game_id", gameId)
+          .eq("inning", inning - 1);
+        if (prev && prev.length > 0) {
+          seedPositions = prev;
+        }
+      }
+
+      // Fall back to game_lineup positions or player default positions
+      if (seedPositions.length === 0) {
+        seedPositions = gameState.lineup
+          .map((entry) => {
+            const pos = entry.position || gameState.players.find((p) => p.id === entry.player_id)?.position || "";
+            return { player_id: entry.player_id, position: pos.toUpperCase() };
+          })
+          .filter((e) => e.position !== "");
+      }
+
+      if (seedPositions.length > 0) {
+        const rows = seedPositions.map((sp) => ({
+          game_id: gameId,
+          inning,
+          player_id: sp.player_id,
+          position: sp.position,
+        }));
+        await supabase.from("defensive_positions").upsert(rows, { onConflict: "game_id,inning,player_id" }).then();
+        setDefensivePositions(seedPositions);
+      }
+    }
+    loadPositions();
+  }, [gameState?.currentInning, gameId]);
+
+  // Swap two players' positions for the current inning
+  async function swapPositions(playerId1: number, playerId2: number) {
+    if (!gameState) return;
+    const inning = gameState.currentInning;
+    const pos1 = defensivePositions.find((p) => p.player_id === playerId1)?.position ?? "";
+    const pos2 = defensivePositions.find((p) => p.player_id === playerId2)?.position ?? "";
+    if (!pos1 || !pos2) return;
+
+    const updated = defensivePositions.map((p) => {
+      if (p.player_id === playerId1) return { ...p, position: pos2 };
+      if (p.player_id === playerId2) return { ...p, position: pos1 };
+      return p;
+    });
+    setDefensivePositions(updated);
+
+    // Persist: delete both then re-insert to avoid unique constraint issues
+    await supabase.from("defensive_positions").delete()
+      .eq("game_id", gameId).eq("inning", inning).in("player_id", [playerId1, playerId2]);
+    await supabase.from("defensive_positions").insert([
+      { game_id: gameId, inning, player_id: playerId1, position: pos2 },
+      { game_id: gameId, inning, player_id: playerId2, position: pos1 },
+    ]).then();
+  }
+
+  // Update a single player's position for the current inning
+  async function updatePlayerPosition(playerId: number, newPosition: string) {
+    if (!gameState) return;
+    const inning = gameState.currentInning;
+    const updated = defensivePositions.map((p) =>
+      p.player_id === playerId ? { ...p, position: newPosition } : p
+    );
+    // If player wasn't in list, add them
+    if (!defensivePositions.find((p) => p.player_id === playerId)) {
+      updated.push({ player_id: playerId, position: newPosition });
+    }
+    setDefensivePositions(updated);
+
+    await supabase.from("defensive_positions").upsert({
+      game_id: gameId,
+      inning,
+      player_id: playerId,
+      position: newPosition,
+    }, { onConflict: "game_id,inning,player_id" }).then();
+  }
 
   return (
     <div className="space-y-3 max-w-lg mx-auto pb-24">
@@ -533,6 +636,88 @@ export default function LiveScoringPage() {
               <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
             </div>
           </CardContent>
+        </Card>
+      )}
+
+      {/* Defensive positions — show when opponent is batting (our defense) */}
+      {isOpponentBatting && defensivePositions.length > 0 && (
+        <Card className="glass">
+          <CardHeader className="pb-0 px-3 sm:px-6">
+            <button
+              className="flex items-center justify-between w-full"
+              onClick={() => setShowPositionEditor(!showPositionEditor)}
+            >
+              <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider">
+                Defense — Inn {gameState.currentInning}
+              </CardTitle>
+              <span className="text-xs text-muted-foreground">
+                {showPositionEditor ? "Hide" : "Edit"}
+              </span>
+            </button>
+            {!showPositionEditor && (
+              <div className="flex flex-wrap gap-1.5 pt-1 pb-2">
+                {defensivePositions
+                  .sort((a, b) => {
+                    const posOrder = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"];
+                    return posOrder.indexOf(a.position) - posOrder.indexOf(b.position);
+                  })
+                  .map((dp) => {
+                    const player = gameState.players.find((p) => p.id === dp.player_id);
+                    return (
+                      <span key={dp.player_id} className="text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">{dp.position}</span>
+                        {" "}
+                        {player?.name?.split(" ").pop() ?? `#${dp.player_id}`}
+                      </span>
+                    );
+                  })}
+              </div>
+            )}
+          </CardHeader>
+          {showPositionEditor && (
+            <CardContent className="px-3 sm:px-6 pb-3 pt-2">
+              <div className="space-y-1.5">
+                {gameState.lineup.map((entry) => {
+                  const player = gameState.players.find((p) => p.id === entry.player_id);
+                  const currentPos = defensivePositions.find((dp) => dp.player_id === entry.player_id)?.position ?? "";
+                  return (
+                    <div key={entry.player_id} className="flex items-center gap-2">
+                      <div className="flex-1 text-sm font-medium truncate">
+                        {player?.name ?? `Player ${entry.player_id}`}
+                      </div>
+                      <div className="flex gap-1">
+                        {Object.values(POSITIONS).map((pos) => (
+                          <button
+                            key={pos}
+                            className={`w-8 h-8 rounded-lg text-xs font-bold transition-all active:scale-95 select-none ${
+                              currentPos === pos
+                                ? "bg-primary text-primary-foreground border-transparent shadow-md"
+                                : defensivePositions.some((dp) => dp.position === pos && dp.player_id !== entry.player_id)
+                                  ? "bg-muted/10 text-muted-foreground/30 border border-border/20"
+                                  : "bg-muted/30 text-foreground border border-border/50 hover:bg-accent"
+                            }`}
+                            onClick={() => {
+                              // If another player has this position, swap them
+                              const otherPlayer = defensivePositions.find(
+                                (dp) => dp.position === pos && dp.player_id !== entry.player_id
+                              );
+                              if (otherPlayer) {
+                                swapPositions(entry.player_id, otherPlayer.player_id);
+                              } else {
+                                updatePlayerPosition(entry.player_id, pos);
+                              }
+                            }}
+                          >
+                            {pos}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 

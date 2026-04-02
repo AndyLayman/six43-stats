@@ -82,6 +82,14 @@ export interface OpponentBatter {
   batting_order: number;
 }
 
+export interface DefensivePosition {
+  id: string;
+  game_id: string;
+  inning: number;
+  player_id: number;
+  position: string;
+}
+
 export interface FieldingPlay {
   id: string;
   game_id: string;
