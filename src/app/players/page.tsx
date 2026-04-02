@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatAvg } from "@/lib/stats/calculations";
 import type { Player } from "@/lib/scoring/types";
 
@@ -27,9 +29,92 @@ interface PlayerWithStats extends Player {
   ops: number;
 }
 
+// Generate an optimized batting order based on classic baseball strategy:
+// 1 - Leadoff: high OBP + speed
+// 2 - Contact/table-setter: high AVG + OBP, can move runners
+// 3 - Best overall hitter: highest OPS
+// 4 - Cleanup: power + RBI (SLG heavy)
+// 5 - Secondary power
+// 6-9 - Remaining by OPS descending
+function generateOptimizedOrder(players: PlayerWithStats[]): PlayerWithStats[] {
+  const eligible = players.filter((p) => p.at_bats > 0);
+  if (eligible.length === 0) return [];
+
+  const remaining = [...eligible];
+  const order: PlayerWithStats[] = [];
+
+  function pickBest(scoreFn: (p: PlayerWithStats) => number): PlayerWithStats {
+    let bestIdx = 0;
+    let bestScore = -Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const score = scoreFn(remaining[i]);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+    return remaining.splice(bestIdx, 1)[0];
+  }
+
+  // 1 - Leadoff: OBP + speed
+  order.push(pickBest((p) => p.obp * 0.6 + (p.stolen_bases / Math.max(p.games, 1)) * 0.4));
+
+  if (remaining.length === 0) return order;
+
+  // 3 - Best overall hitter (pick before 2 so we get the true best)
+  const thirdHitter = pickBest((p) => p.ops);
+
+  if (remaining.length === 0) {
+    order.push(thirdHitter);
+    return order;
+  }
+
+  // 4 - Cleanup: power + RBI
+  const cleanupHitter = pickBest((p) => p.slg * 0.5 + (p.rbis / Math.max(p.games, 1)) * 0.3 + (p.home_runs / Math.max(p.games, 1)) * 0.2);
+
+  if (remaining.length === 0) {
+    order.push(thirdHitter, cleanupHitter);
+    return order;
+  }
+
+  // 2 - Contact/table-setter: AVG + OBP
+  order.push(pickBest((p) => p.avg * 0.5 + p.obp * 0.5));
+
+  // Now insert 3 and 4
+  order.push(thirdHitter, cleanupHitter);
+
+  if (remaining.length === 0) return order;
+
+  // 5 - Secondary power
+  order.push(pickBest((p) => p.slg * 0.6 + p.ops * 0.4));
+
+  // 6-9+ - Remaining by OPS
+  remaining.sort((a, b) => b.ops - a.ops);
+  order.push(...remaining);
+
+  return order;
+}
+
+const SLOT_LABELS = [
+  "Leadoff — Gets on base, has speed",
+  "Table-setter — Good contact, moves runners",
+  "Best hitter — Highest overall production",
+  "Cleanup — Power & RBI",
+  "Secondary power",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+];
+
 export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showOrder, setShowOrder] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -71,6 +156,8 @@ export default function PlayersPage() {
     load();
   }, []);
 
+  const optimizedOrder = useMemo(() => generateOptimizedOrder(players), [players]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -81,7 +168,52 @@ export default function PlayersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-extrabold tracking-tight text-gradient">Players</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-extrabold tracking-tight text-gradient">Players</h1>
+        <Button
+          onClick={() => setShowOrder(true)}
+          className="bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 text-white font-semibold"
+        >
+          Optimized Order
+        </Button>
+      </div>
+
+      <Dialog open={showOrder} onOpenChange={setShowOrder}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-gradient text-xl">Optimized Batting Order</DialogTitle>
+          </DialogHeader>
+          {optimizedOrder.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">Not enough stats to generate an order yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {optimizedOrder.map((p, i) => (
+                <div key={p.id} className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 via-blue-500 to-purple-500 font-bold text-white text-sm shrink-0">
+                    {i + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold">
+                      <span className="text-muted-foreground mr-1">#{p.number}</span>
+                      {p.name}
+                    </div>
+                    {SLOT_LABELS[i] && (
+                      <div className="text-xs text-muted-foreground">{SLOT_LABELS[i]}</div>
+                    )}
+                    <div className="flex gap-3 mt-1 text-xs tabular-nums text-muted-foreground">
+                      <span>AVG {formatAvg(p.avg)}</span>
+                      <span>OBP {formatAvg(p.obp)}</span>
+                      <span>SLG {formatAvg(p.slg)}</span>
+                      <span>HR {p.home_runs}</span>
+                      <span>SB {p.stolen_bases}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Card className="glass border-border/50">
         <CardHeader className="px-3 sm:px-6">
