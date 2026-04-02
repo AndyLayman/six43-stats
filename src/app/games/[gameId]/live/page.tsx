@@ -515,7 +515,7 @@ export default function LiveScoringPage() {
         <CardContent className="p-3 sm:p-4">
           <div className="flex items-center justify-between">
             <div className="text-center flex-1">
-              <div className="text-4xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.ourScore}</div>
+              <div className="text-3xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.ourScore}</div>
               <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Us</div>
             </div>
             <div className="text-center px-3">
@@ -577,7 +577,7 @@ export default function LiveScoringPage() {
               </div>
             </div>
             <div className="text-center flex-1">
-              <div className="text-4xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.opponentScore}</div>
+              <div className="text-3xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.opponentScore}</div>
               <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Them</div>
             </div>
           </div>
@@ -659,7 +659,7 @@ export default function LiveScoringPage() {
               <CardContent className="p-3 sm:p-4">
                 <div className="text-center">
                   <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Opponent Batting</div>
-                  <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{opponentBatter.playerName}</div>
+                  <div className="text-lg sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{opponentBatter.playerName}</div>
                 </div>
               </CardContent>
             </Card>
@@ -675,14 +675,14 @@ export default function LiveScoringPage() {
                     value={newOpponentName}
                     onChange={(e) => setNewOpponentName(e.target.value)}
                     placeholder="Batter name or #"
-                    className="flex-1 h-12 rounded-xl border-2 border-border/50 bg-muted/30 px-3 text-base font-medium placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
+                    className="flex-1 h-10 sm:h-12 rounded-xl border-2 border-border/50 bg-muted/30 px-3 text-sm sm:text-base font-medium placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
                     onKeyDown={(e) => e.key === "Enter" && handleAddOpponentBatter()}
                     autoFocus
                   />
                   <Button
                     onClick={handleAddOpponentBatter}
                     disabled={!newOpponentName.trim()}
-                    className="h-12 px-5 text-base font-bold glow-primary"
+                    className="h-10 sm:h-12 px-4 sm:px-5 text-sm sm:text-base font-bold glow-primary"
                   >
                     Add
                   </Button>
@@ -717,7 +717,7 @@ export default function LiveScoringPage() {
           <CardContent className="p-3 sm:p-4">
             <div className="text-center">
               <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Now Batting</div>
-              <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
+              <div className="text-lg sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
             </div>
           </CardContent>
         </Card>
@@ -841,7 +841,7 @@ export default function LiveScoringPage() {
                 }).map(({ result, label, color }) => (
                   <button
                     key={result}
-                    className={`h-14 sm:h-12 rounded-xl text-base font-bold border-2 transition-all active:scale-95 select-none ${
+                    className={`h-11 sm:h-12 rounded-xl text-sm sm:text-base font-bold border-2 transition-all active:scale-95 select-none ${
                       selectedResult === result
                         ? `${color} text-white border-transparent shadow-lg`
                         : "bg-muted/30 text-foreground border-border/50 hover:bg-accent hover:border-border"
@@ -999,12 +999,12 @@ export default function LiveScoringPage() {
               type="text"
               value={notationOverride !== null ? notationOverride : (sprayPoint ? (() => { const fp = sprayToPosition(sprayPoint.x, sprayPoint.y); return generateNotation(selectedResult, fp, { first: gameState.runnerFirst, second: gameState.runnerSecond, third: gameState.runnerThird }, fp === 8 ? sprayCfSide(sprayPoint.x, sprayPoint.y) : undefined); })() : selectedResult)}
               onChange={(e) => setNotationOverride(e.target.value)}
-              className="h-14 flex-1 rounded-xl border-2 border-border/50 bg-muted/30 px-4 text-center text-lg font-bold tabular-nums placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
+              className="h-12 sm:h-14 flex-1 rounded-xl border-2 border-border/50 bg-muted/30 px-3 text-center text-base sm:text-lg font-bold tabular-nums placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
             />
             <Button
               onClick={handleConfirmAtBat}
               size="lg"
-              className="h-14 px-8 text-lg font-bold active:scale-[0.98] transition-transform glow-primary"
+              className="h-12 sm:h-14 px-6 sm:px-8 text-base sm:text-lg font-bold active:scale-[0.98] transition-transform glow-primary"
             >
               Confirm
             </Button>
