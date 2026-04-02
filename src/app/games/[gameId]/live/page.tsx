@@ -598,34 +598,30 @@ export default function LiveScoringPage() {
             </CardHeader>
             <CardContent className="px-3 sm:px-6 pb-3">
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {RESULT_BUTTONS.map(({ result, label, color }) => {
+                {RESULT_BUTTONS.filter(({ result }) => {
                   const baseState = {
                     first: gameState.runnerFirst,
                     second: gameState.runnerSecond,
                     third: gameState.runnerThird,
                   };
-                  // DP requires at least one runner; FC requires at least one runner
-                  const disabled =
-                    (result === "DP" && !canDoublePlay(baseState)) ||
-                    (result === "FC" && !canDoublePlay(baseState));
-
-                  return (
-                    <button
-                      key={result}
-                      disabled={disabled}
-                      className={`h-14 sm:h-12 rounded-xl text-base font-bold border-2 transition-all active:scale-95 select-none ${
-                        disabled
-                          ? "opacity-30 cursor-not-allowed bg-muted/10 text-muted-foreground border-border/20"
-                          : selectedResult === result
-                            ? `${color} text-white border-transparent shadow-lg`
-                            : "bg-muted/30 text-foreground border-border/50 hover:bg-accent hover:border-border"
-                      }`}
-                      onClick={() => !disabled && setSelectedResult(result)}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
+                  // Hide non-batted results once a spray dot is placed
+                  if (sprayPoint && NON_BATTED.includes(result)) return false;
+                  // Hide DP/FC when no runners on base
+                  if ((result === "DP" || result === "FC") && !canDoublePlay(baseState)) return false;
+                  return true;
+                }).map(({ result, label, color }) => (
+                  <button
+                    key={result}
+                    className={`h-14 sm:h-12 rounded-xl text-base font-bold border-2 transition-all active:scale-95 select-none ${
+                      selectedResult === result
+                        ? `${color} text-white border-transparent shadow-lg`
+                        : "bg-muted/30 text-foreground border-border/50 hover:bg-accent hover:border-border"
+                    }`}
+                    onClick={() => setSelectedResult(result)}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </CardContent>
           </Card>
