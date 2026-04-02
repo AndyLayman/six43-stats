@@ -107,7 +107,8 @@ export function SprayChart({
         { x: 65, y: 214, label: "3B" },
         { x: 110, y: 178, label: "SS" },
         { x: 50, y: 155, label: "LF" },
-        { x: 150, y: 100, label: "CF" },
+        { x: 115, y: 108, label: "LC" },
+        { x: 185, y: 108, label: "RC" },
         { x: 250, y: 155, label: "RF" },
       ].map((pos) => (
         <text

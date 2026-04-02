@@ -56,8 +56,8 @@ export default function LiveScoringPage() {
   const [sprayPoint, setSprayPoint] = useState<{ x: number; y: number } | null>(null);
   const [notationOverride, setNotationOverride] = useState<string | null>(null);
   const [rbis, setRbis] = useState(0);
-  const [stolenBases, setStolenBases] = useState(0);
   const [hitType, setHitType] = useState<HitType | null>(null);
+  const [sbRunner, setSbRunner] = useState<"first" | "second" | "third" | null>(null);
   const [runnerAdvanceOverrides, setRunnerAdvanceOverrides] = useState<RunnerAdvance[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [playLog, setPlayLog] = useState<{ notation: string; playerName: string; inning: number; team: "us" | "them" }[]>([]);
@@ -225,7 +225,7 @@ export default function LiveScoringPage() {
       sprayX: sprayPoint?.x ?? null,
       sprayY: sprayPoint?.y ?? null,
       rbis,
-      stolenBases,
+      stolenBases: 0,
       scorebookNotation: notation,
       fieldingPlays: [],
       runnerAdvances,
@@ -248,7 +248,6 @@ export default function LiveScoringPage() {
     setNotationOverride(null);
     setRunnerAdvanceOverrides(null);
     setRbis(0);
-    setStolenBases(0);
 
     // Persist to DB in background
     void supabase.from("plate_appearances").insert({
@@ -266,7 +265,7 @@ export default function LiveScoringPage() {
       spray_y: sprayPoint?.y ?? null,
       hit_type: isBattedBall ? hitType : null,
       rbis,
-      stolen_bases: stolenBases,
+      stolen_bases: 0,
       is_at_bat: isAtBat(selectedResult),
       is_hit: isHit(selectedResult),
       total_bases: totalBases(selectedResult),
@@ -340,6 +339,61 @@ export default function LiveScoringPage() {
           .eq("description", lastPA.scorebook_notation);
       }
     }
+  }
+
+  async function handleStolenBase(from: "first" | "second" | "third", to: "second" | "third" | "home") {
+    if (!gameState) return;
+    const runner = gameState[from === "first" ? "runnerFirst" : from === "second" ? "runnerSecond" : "runnerThird"];
+    if (!runner) return;
+
+    setStateHistory((prev) => [...prev, gameState]);
+
+    // Move the runner
+    const newState = { ...gameState };
+    // Clear the origin base
+    if (from === "first") newState.runnerFirst = null;
+    else if (from === "second") newState.runnerSecond = null;
+    else newState.runnerThird = null;
+
+    // Place on destination (or score)
+    if (to === "second") newState.runnerSecond = runner;
+    else if (to === "third") newState.runnerThird = runner;
+    else if (to === "home") {
+      // Runner scores
+      if (gameState.currentHalf === "top") {
+        newState.opponentScore = gameState.opponentScore + 1;
+      } else {
+        newState.ourScore = gameState.ourScore + 1;
+      }
+    }
+
+    setGameState(newState);
+    setSbRunner(null);
+
+    // Record the SB by incrementing stolen_bases on the runner's most recent PA
+    let query = supabase.from("plate_appearances").select("id, stolen_bases").eq("game_id", gameId);
+    if (runner.playerId) {
+      query = query.eq("player_id", runner.playerId);
+    } else if (runner.opponentBatterId) {
+      query = query.eq("opponent_batter_id", runner.opponentBatterId);
+    }
+    const { data: lastPA } = await query.order("created_at", { ascending: false }).limit(1).single();
+
+    if (lastPA) {
+      void supabase.from("plate_appearances")
+        .update({ stolen_bases: (lastPA.stolen_bases || 0) + 1 })
+        .eq("id", lastPA.id)
+        .then();
+    }
+
+    const baseLabel = from === "first" ? "1st" : from === "second" ? "2nd" : "3rd";
+    const destLabel = to === "second" ? "2nd" : to === "third" ? "3rd" : "Home";
+    setPlayLog((prev) => [
+      ...prev,
+      { notation: `SB ${baseLabel}→${destLabel}`, playerName: runner.playerName, inning: gameState.currentInning, team: gameState.currentHalf === "top" ? "them" : "us" },
+    ]);
+
+    persistState(newState);
   }
 
   async function handleEndGame() {
@@ -429,16 +483,46 @@ export default function LiveScoringPage() {
               <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Us</div>
             </div>
             <div className="text-center px-3">
-              {/* Base runners diamond */}
+              {/* Base runners diamond — tap occupied base for stolen base */}
               <svg viewBox="0 0 80 80" className="w-14 h-14 sm:w-16 sm:h-16 mx-auto">
                 <line x1="40" y1="65" x2="15" y2="40" stroke="oklch(0.4 0.01 260)" strokeWidth="1.5" />
                 <line x1="15" y1="40" x2="40" y2="15" stroke="oklch(0.4 0.01 260)" strokeWidth="1.5" />
                 <line x1="40" y1="15" x2="65" y2="40" stroke="oklch(0.4 0.01 260)" strokeWidth="1.5" />
                 <line x1="65" y1="40" x2="40" y2="65" stroke="oklch(0.4 0.01 260)" strokeWidth="1.5" />
                 <rect x="37" y="62" width="6" height="6" fill="oklch(0.25 0.01 260)" stroke="oklch(0.4 0.01 260)" transform="rotate(45 40 65)" />
-                <rect x="12" y="37" width="6" height="6" fill={gameState.runnerThird ? "oklch(0.72 0.19 160)" : "oklch(0.25 0.01 260)"} stroke={gameState.runnerThird ? "oklch(0.72 0.19 160)" : "oklch(0.4 0.01 260)"} transform="rotate(45 15 40)" />
-                <rect x="37" y="12" width="6" height="6" fill={gameState.runnerSecond ? "oklch(0.72 0.19 160)" : "oklch(0.25 0.01 260)"} stroke={gameState.runnerSecond ? "oklch(0.72 0.19 160)" : "oklch(0.4 0.01 260)"} transform="rotate(45 40 15)" />
-                <rect x="62" y="37" width="6" height="6" fill={gameState.runnerFirst ? "oklch(0.72 0.19 160)" : "oklch(0.25 0.01 260)"} stroke={gameState.runnerFirst ? "oklch(0.72 0.19 160)" : "oklch(0.4 0.01 260)"} transform="rotate(45 65 40)" />
+                {/* 3rd base */}
+                <rect
+                  x="6" y="31" width="18" height="18" fill="transparent" rx="2"
+                  className={gameState.runnerThird ? "cursor-pointer" : ""}
+                  onClick={() => gameState.runnerThird && setSbRunner(sbRunner === "third" ? null : "third")}
+                />
+                <rect x="12" y="37" width="6" height="6"
+                  fill={gameState.runnerThird ? (sbRunner === "third" ? "oklch(0.80 0.17 165)" : "oklch(0.72 0.19 160)") : "oklch(0.25 0.01 260)"}
+                  stroke={gameState.runnerThird ? (sbRunner === "third" ? "oklch(0.80 0.17 165)" : "oklch(0.72 0.19 160)") : "oklch(0.4 0.01 260)"}
+                  transform="rotate(45 15 40)" pointerEvents="none"
+                />
+                {/* 2nd base */}
+                <rect
+                  x="31" y="6" width="18" height="18" fill="transparent" rx="2"
+                  className={gameState.runnerSecond ? "cursor-pointer" : ""}
+                  onClick={() => gameState.runnerSecond && setSbRunner(sbRunner === "second" ? null : "second")}
+                />
+                <rect x="37" y="12" width="6" height="6"
+                  fill={gameState.runnerSecond ? (sbRunner === "second" ? "oklch(0.80 0.17 165)" : "oklch(0.72 0.19 160)") : "oklch(0.25 0.01 260)"}
+                  stroke={gameState.runnerSecond ? (sbRunner === "second" ? "oklch(0.80 0.17 165)" : "oklch(0.72 0.19 160)") : "oklch(0.4 0.01 260)"}
+                  transform="rotate(45 40 15)" pointerEvents="none"
+                />
+                {/* 1st base */}
+                <rect
+                  x="56" y="31" width="18" height="18" fill="transparent" rx="2"
+                  className={gameState.runnerFirst ? "cursor-pointer" : ""}
+                  onClick={() => gameState.runnerFirst && setSbRunner(sbRunner === "first" ? null : "first")}
+                />
+                <rect x="62" y="37" width="6" height="6"
+                  fill={gameState.runnerFirst ? (sbRunner === "first" ? "oklch(0.80 0.17 165)" : "oklch(0.72 0.19 160)") : "oklch(0.25 0.01 260)"}
+                  stroke={gameState.runnerFirst ? (sbRunner === "first" ? "oklch(0.80 0.17 165)" : "oklch(0.72 0.19 160)") : "oklch(0.4 0.01 260)"}
+                  transform="rotate(45 65 40)" pointerEvents="none"
+                />
               </svg>
               <div className="text-sm font-bold mt-1">
                 {gameState.currentHalf === "top" ? "\u25B2" : "\u25BC"} {gameState.currentInning}
@@ -463,6 +547,54 @@ export default function LiveScoringPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Stolen base action — shown when a runner's base is tapped */}
+      {sbRunner && (() => {
+        const runner = sbRunner === "first" ? gameState.runnerFirst
+          : sbRunner === "second" ? gameState.runnerSecond
+          : gameState.runnerThird;
+        if (!runner) return null;
+        const baseLabel = sbRunner === "first" ? "1st" : sbRunner === "second" ? "2nd" : "3rd";
+        const destinations: { to: "second" | "third" | "home"; label: string }[] = [];
+        if (sbRunner === "first") {
+          destinations.push({ to: "second", label: "Stole 2nd" });
+          if (!gameState.runnerSecond) destinations.push({ to: "third", label: "Stole 3rd" });
+        }
+        if (sbRunner === "second") {
+          destinations.push({ to: "third", label: "Stole 3rd" });
+          destinations.push({ to: "home", label: "Stole Home" });
+        }
+        if (sbRunner === "third") {
+          destinations.push({ to: "home", label: "Stole Home" });
+        }
+        return (
+          <Card className="border-primary/30 bg-primary/5 animate-slide-up">
+            <CardContent className="p-3 sm:p-4">
+              <div className="text-center mb-2">
+                <div className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Runner on {baseLabel}</div>
+                <div className="text-lg font-extrabold text-gradient-bright">{runner.playerName}</div>
+              </div>
+              <div className="flex gap-2 justify-center">
+                {destinations.map(({ to, label }) => (
+                  <button
+                    key={to}
+                    className="h-10 px-4 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none bg-emerald-600 hover:bg-emerald-500 text-white border-transparent shadow-md"
+                    onClick={() => handleStolenBase(sbRunner, to)}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button
+                  className="h-10 px-4 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none bg-muted/30 text-foreground border-border/50 hover:bg-accent"
+                  onClick={() => setSbRunner(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Game controls — near scoreboard */}
       <div className="flex justify-between items-center">
@@ -634,46 +766,26 @@ export default function LiveScoringPage() {
             </CardContent>
           </Card>
 
-          {/* RBI & SB */}
+          {/* RBIs */}
           {selectedResult && (
             <Card className="glass animate-slide-up">
               <CardContent className="p-3 sm:p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-2 uppercase tracking-wider font-medium">RBIs</div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
-                        onClick={() => setRbis(Math.max(0, rbis - 1))}
-                      >
-                        -
-                      </button>
-                      <span className="text-2xl font-extrabold w-8 text-center tabular-nums">{rbis}</span>
-                      <button
-                        className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
-                        onClick={() => setRbis(rbis + 1)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-2 uppercase tracking-wider font-medium">Stolen Bases</div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
-                        onClick={() => setStolenBases(Math.max(0, stolenBases - 1))}
-                      >
-                        -
-                      </button>
-                      <span className="text-2xl font-extrabold w-8 text-center tabular-nums">{stolenBases}</span>
-                      <button
-                        className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
-                        onClick={() => setStolenBases(stolenBases + 1)}
-                      >
-                        +
-                      </button>
-                    </div>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium">RBIs</div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
+                      onClick={() => setRbis(Math.max(0, rbis - 1))}
+                    >
+                      -
+                    </button>
+                    <span className="text-2xl font-extrabold w-8 text-center tabular-nums">{rbis}</span>
+                    <button
+                      className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
+                      onClick={() => setRbis(rbis + 1)}
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
               </CardContent>
