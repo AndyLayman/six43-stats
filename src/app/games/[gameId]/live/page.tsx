@@ -63,6 +63,7 @@ export default function LiveScoringPage() {
   const [playLog, setPlayLog] = useState<{ notation: string; playerName: string; inning: number; team: "us" | "them" }[]>([]);
   const [newOpponentName, setNewOpponentName] = useState("");
   const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult }[]>([]);
+  const [inningPositions, setInningPositions] = useState<{ player_id: number; position: string }[]>([]);
 
   // Wake Lock to prevent screen sleep during scoring
   useEffect(() => {
@@ -275,7 +276,7 @@ export default function LiveScoringPage() {
       const fieldingPlays = parseNotationToFieldingPlays(notation, selectedResult);
       const fieldingRows = fieldingPlays
         .map((fp) => {
-          const playerId = resolvePositionToPlayerId(fp.positionNumber, gameState.lineup, gameState.players);
+          const playerId = resolvePositionToPlayerId(fp.positionNumber, gameState.lineup, gameState.players, inningPositions);
           if (!playerId) return null;
           return {
             game_id: gameId,
@@ -398,6 +399,22 @@ export default function LiveScoringPage() {
     }
     fetchHistory();
   }, [activeBatter?.playerId, activeBatter?.opponentBatterId]);
+
+  // Load lineup_assignments for the current inning (who plays what position)
+  useEffect(() => {
+    if (!gameState) return;
+    async function loadPositions() {
+      const { data } = await supabase
+        .from("lineup_assignments")
+        .select("player_id, position")
+        .eq("game_id", gameId)
+        .eq("inning", gameState!.currentInning);
+      if (data && data.length > 0) {
+        setInningPositions(data);
+      }
+    }
+    loadPositions();
+  }, [gameState?.currentInning, gameId]);
 
   return (
     <div className="space-y-3 max-w-lg mx-auto pb-24">
