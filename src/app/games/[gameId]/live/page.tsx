@@ -783,6 +783,11 @@ export default function LiveScoringPage() {
                   selectedPoint={sprayPoint}
                   hitType={hitType}
                   ghostMarkers={batterHistory}
+                  runners={{
+                    first: !!gameState.runnerFirst,
+                    second: !!gameState.runnerSecond,
+                    third: !!gameState.runnerThird,
+                  }}
                   className="w-full touch-none"
                 />
               </div>

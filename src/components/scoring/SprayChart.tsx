@@ -10,6 +10,7 @@ interface SprayChartProps {
   ghostMarkers?: { x: number; y: number; result: PlateAppearanceResult; hitType?: HitType | null }[];
   selectedPoint?: { x: number; y: number } | null;
   hitType?: HitType | null;
+  runners?: { first: boolean; second: boolean; third: boolean };
   interactive?: boolean;
   className?: string;
 }
@@ -20,6 +21,7 @@ export function SprayChart({
   ghostMarkers = [],
   selectedPoint,
   hitType,
+  runners,
   interactive = true,
   className = "",
 }: SprayChartProps) {
@@ -92,9 +94,42 @@ export function SprayChart({
 
       {/* Bases */}
       <rect x="145" y="275" width="10" height="10" fill="url(#field-grad)" transform="rotate(45 150 280)" />
-      <rect x="75" y="205" width="10" height="10" fill="url(#field-grad)" opacity="0.7" transform="rotate(45 80 210)" />
-      <rect x="145" y="135" width="10" height="10" fill="url(#field-grad)" opacity="0.7" transform="rotate(45 150 140)" />
-      <rect x="215" y="205" width="10" height="10" fill="url(#field-grad)" opacity="0.7" transform="rotate(45 220 210)" />
+      {/* 1st base */}
+      <rect x="215" y="205" width="10" height="10"
+        fill={runners?.first ? "oklch(0.80 0.17 165)" : "url(#field-grad)"}
+        opacity={runners?.first ? 1 : 0.7}
+        transform="rotate(45 220 210)"
+      />
+      {runners?.first && (
+        <circle cx="220" cy="210" r="6" fill="oklch(0.80 0.17 165)" opacity="0.3">
+          <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
+        </circle>
+      )}
+      {/* 2nd base */}
+      <rect x="145" y="135" width="10" height="10"
+        fill={runners?.second ? "oklch(0.80 0.17 165)" : "url(#field-grad)"}
+        opacity={runners?.second ? 1 : 0.7}
+        transform="rotate(45 150 140)"
+      />
+      {runners?.second && (
+        <circle cx="150" cy="140" r="6" fill="oklch(0.80 0.17 165)" opacity="0.3">
+          <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
+        </circle>
+      )}
+      {/* 3rd base */}
+      <rect x="75" y="205" width="10" height="10"
+        fill={runners?.third ? "oklch(0.80 0.17 165)" : "url(#field-grad)"}
+        opacity={runners?.third ? 1 : 0.7}
+        transform="rotate(45 80 210)"
+      />
+      {runners?.third && (
+        <circle cx="80" cy="210" r="6" fill="oklch(0.80 0.17 165)" opacity="0.3">
+          <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
+        </circle>
+      )}
 
       {/* Pitcher's mound */}
       <circle cx="150" cy="218" r="4" fill="none" stroke="url(#field-grad)" strokeWidth="1.5" opacity="0.5" />
