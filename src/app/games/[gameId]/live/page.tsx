@@ -15,7 +15,7 @@ import {
   recordOpponentAtBat,
   addOpponentBatter,
 } from "@/lib/scoring/game-engine";
-import { sprayToPosition, generateNotation, parseNotationToFieldingPlays, resolvePositionToPlayerId } from "@/lib/scoring/scorebook";
+import { sprayToPosition, sprayCfSide, generateNotation, parseNotationToFieldingPlays, resolvePositionToPlayerId } from "@/lib/scoring/scorebook";
 import { getDefaultRunnerAdvances, canDoublePlay } from "@/lib/scoring/baseball-rules";
 import { isAtBat, isHit, totalBases } from "@/lib/stats/calculations";
 import type { GameState, PlateAppearanceResult, RecordAtBatPayload, RunnerAdvance, Player, GameLineup, OpponentBatter, HitType } from "@/lib/scoring/types";
@@ -210,12 +210,13 @@ export default function LiveScoringPage() {
     const isBattedBall = !NON_BATTED.includes(selectedResult);
 
     const fieldPosition = sprayPoint ? sprayToPosition(sprayPoint.x, sprayPoint.y) : null;
+    const cfSide = sprayPoint && fieldPosition === 8 ? sprayCfSide(sprayPoint.x, sprayPoint.y) : undefined;
     const baseState = {
       first: gameState.runnerFirst,
       second: gameState.runnerSecond,
       third: gameState.runnerThird,
     };
-    const autoNotation = generateNotation(selectedResult, fieldPosition, baseState);
+    const autoNotation = generateNotation(selectedResult, fieldPosition, baseState, cfSide);
     const notation = notationOverride ?? autoNotation;
     const runnerAdvances = runnerAdvanceOverrides ?? buildRunnerAdvances(selectedResult, gameState);
 
@@ -276,7 +277,7 @@ export default function LiveScoringPage() {
       const fieldingPlays = parseNotationToFieldingPlays(notation, selectedResult);
       const fieldingRows = fieldingPlays
         .map((fp) => {
-          const playerId = resolvePositionToPlayerId(fp.positionNumber, gameState.lineup, gameState.players, inningPositions);
+          const playerId = resolvePositionToPlayerId(fp.positionNumber, gameState.lineup, gameState.players, inningPositions, fp.cfSide);
           if (!playerId) return null;
           return {
             game_id: gameId,
@@ -784,7 +785,7 @@ export default function LiveScoringPage() {
               <div className="flex gap-2 items-center">
                 <input
                   type="text"
-                  value={notationOverride !== null ? notationOverride : (sprayPoint ? generateNotation(selectedResult, sprayToPosition(sprayPoint.x, sprayPoint.y), { first: gameState.runnerFirst, second: gameState.runnerSecond, third: gameState.runnerThird }) : selectedResult)}
+                  value={notationOverride !== null ? notationOverride : (sprayPoint ? (() => { const fp = sprayToPosition(sprayPoint.x, sprayPoint.y); return generateNotation(selectedResult, fp, { first: gameState.runnerFirst, second: gameState.runnerSecond, third: gameState.runnerThird }, fp === 8 ? sprayCfSide(sprayPoint.x, sprayPoint.y) : undefined); })() : selectedResult)}
                   onChange={(e) => setNotationOverride(e.target.value)}
                   className="h-14 flex-1 rounded-xl border-2 border-border/50 bg-muted/30 px-4 text-center text-lg font-bold tabular-nums placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
                 />
