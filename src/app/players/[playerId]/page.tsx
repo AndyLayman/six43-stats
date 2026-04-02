@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,9 +76,11 @@ export default function PlayerDetailPage() {
       </Link>
       <div className="flex items-center gap-4">
         {player.photo_file ? (
-          <img
+          <Image
             src={supabase.storage.from("media").getPublicUrl(`player-${player.id}-photo`).data.publicUrl}
             alt={player.name}
+            width={64}
+            height={64}
             className="h-16 w-16 rounded-full object-cover border border-primary/30"
           />
         ) : (
