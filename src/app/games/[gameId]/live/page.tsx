@@ -570,9 +570,15 @@ export default function LiveScoringPage() {
                   className="!max-w-[340px] w-full touch-none"
                 />
               </div>
-              {/* Hit type buttons — inline below spray chart */}
+              {/* Clear + hit type buttons — inline below spray chart */}
               {sprayPoint && (!selectedResult || !NON_BATTED.includes(selectedResult)) && (
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-2">
+                  <button
+                    className="h-10 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none bg-muted/30 text-muted-foreground border-border/50 hover:bg-destructive/20 hover:text-destructive hover:border-destructive/50"
+                    onClick={() => { setSprayPoint(null); setHitType(null); }}
+                  >
+                    Clear
+                  </button>
                   {HIT_TYPE_BUTTONS.map(({ type, label }) => (
                     <button
                       key={type}
