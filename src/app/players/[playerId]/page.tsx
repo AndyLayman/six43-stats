@@ -154,6 +154,22 @@ export default function PlayerDetailPage() {
               <div className="max-w-md mx-auto">
                 <SprayChart ghostMarkers={ghostMarkers} interactive={false} />
               </div>
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2 px-3">
+                {[
+                  { label: "1B", color: "#22c55e" },
+                  { label: "2B", color: "#3b82f6" },
+                  { label: "3B", color: "#f59e0b" },
+                  { label: "HR", color: "#ef4444" },
+                  { label: "BB/HBP", color: "#8b5cf6" },
+                  { label: "Out", color: "#9ca3af" },
+                  { label: "Error", color: "#f97316" },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-1.5">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs text-muted-foreground">{item.label}</span>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         );
