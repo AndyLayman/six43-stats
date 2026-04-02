@@ -248,7 +248,7 @@ export default function LiveScoringPage() {
     setStolenBases(0);
 
     // Persist to DB in background
-    supabase.from("plate_appearances").insert({
+    void supabase.from("plate_appearances").insert({
       game_id: gameId,
       player_id: batter.playerId ?? null,
       opponent_batter_id: batter.opponentBatterId ?? null,
@@ -267,7 +267,7 @@ export default function LiveScoringPage() {
       is_at_bat: isAtBat(selectedResult),
       is_hit: isHit(selectedResult),
       total_bases: totalBases(selectedResult),
-    });
+    }).then();
 
     // Auto-generate fielding plays when opponent is batting (our defense)
     if (isOpponent) {
@@ -287,7 +287,7 @@ export default function LiveScoringPage() {
         .filter((row): row is NonNullable<typeof row> => row !== null);
 
       if (fieldingRows.length > 0) {
-        supabase.from("fielding_plays").insert(fieldingRows);
+        void supabase.from("fielding_plays").insert(fieldingRows).then();
       }
     }
 
