@@ -67,7 +67,7 @@ export default function LiveScoringPage() {
   const [loading, setLoading] = useState(true);
   const [playLog, setPlayLog] = useState<{ notation: string; playerName: string; inning: number; team: "us" | "them" }[]>([]);
   const [newOpponentName, setNewOpponentName] = useState("");
-  const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult }[]>([]);
+  const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult; hitType: HitType | null }[]>([]);
   const [inningPositions, setInningPositions] = useState<{ player_id: number; position: string }[]>([]);
 
   // Wake Lock to prevent screen sleep during scoring
@@ -436,7 +436,7 @@ export default function LiveScoringPage() {
     async function fetchHistory() {
       let query = supabase
         .from("plate_appearances")
-        .select("spray_x, spray_y, result")
+        .select("spray_x, spray_y, result, hit_type")
         .not("spray_x", "is", null);
 
       if (activeBatter!.playerId) {
@@ -453,10 +453,11 @@ export default function LiveScoringPage() {
         setBatterHistory(
           data
             .filter((pa: { spray_x: number | null; spray_y: number | null }) => pa.spray_x != null && pa.spray_y != null)
-            .map((pa: { spray_x: number; spray_y: number; result: string }) => ({
+            .map((pa: { spray_x: number; spray_y: number; result: string; hit_type: string | null }) => ({
               x: pa.spray_x,
               y: pa.spray_y,
               result: pa.result as PlateAppearanceResult,
+              hitType: (pa.hit_type as HitType) || null,
             }))
         );
       }

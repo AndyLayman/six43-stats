@@ -7,7 +7,7 @@ import type { PlateAppearanceResult, HitType } from "@/lib/scoring/types";
 interface SprayChartProps {
   onClick?: (x: number, y: number) => void;
   markers?: { x: number; y: number; result: PlateAppearanceResult }[];
-  ghostMarkers?: { x: number; y: number; result: PlateAppearanceResult }[];
+  ghostMarkers?: { x: number; y: number; result: PlateAppearanceResult; hitType?: HitType | null }[];
   selectedPoint?: { x: number; y: number } | null;
   hitType?: HitType | null;
   interactive?: boolean;
@@ -128,7 +128,17 @@ export function SprayChart({
 
       {/* Ghost markers — previous at-bats for this hitter */}
       {ghostMarkers.map((m, i) => (
-        <g key={`ghost-${i}`} opacity="0.25">
+        <g key={`ghost-${i}`} opacity="0.2">
+          {m.hitType && (
+            <TrajectoryPath
+              fromX={homeX}
+              fromY={homeY}
+              toX={m.x}
+              toY={m.y}
+              hitType={m.hitType}
+              ghost
+            />
+          )}
           <circle
             cx={m.x}
             cy={m.y}
@@ -208,12 +218,14 @@ function TrajectoryPath({
   toX,
   toY,
   hitType,
+  ghost = false,
 }: {
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
   hitType?: HitType | null;
+  ghost?: boolean;
 }) {
   const dx = toX - fromX;
   const dy = toY - fromY;
@@ -237,9 +249,11 @@ function TrajectoryPath({
   const py = ccwY * sign;
 
   const color = "oklch(0.75 0.17 165)";
+  const strokeW = ghost ? 1 : 1.8;
+  const strokeOp = ghost ? 0.4 : 0.5;
 
-  // Straight line shadow behind all arc types
-  const shadowLine = (
+  // Straight line shadow behind all arc types (skip for ghost markers)
+  const shadowLine = ghost ? null : (
     <line
       x1={fromX} y1={fromY} x2={toX} y2={toY}
       stroke="black" strokeWidth="1.6" opacity="0.25"
@@ -281,7 +295,7 @@ function TrajectoryPath({
     }
 
     return (
-      <>{shadowLine}<path d={d} fill="none" stroke={color} strokeWidth="1.8" opacity="0.5" /></>
+      <>{shadowLine}<path d={d} fill="none" stroke={color} strokeWidth={strokeW} opacity={strokeOp} /></>
     );
   }
 
@@ -295,7 +309,7 @@ function TrajectoryPath({
     return (
       <>{shadowLine}<path
         d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
-        fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
+        fill="none" stroke={color} strokeWidth={strokeW} opacity={strokeOp}
       /></>
     );
   }
@@ -310,7 +324,7 @@ function TrajectoryPath({
     return (
       <>{shadowLine}<path
         d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
-        fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
+        fill="none" stroke={color} strokeWidth={strokeW} opacity={strokeOp}
       /></>
     );
   }
@@ -325,7 +339,7 @@ function TrajectoryPath({
     return (
       <>{shadowLine}<path
         d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
-        fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
+        fill="none" stroke={color} strokeWidth={strokeW} opacity={strokeOp}
       /></>
     );
   }
