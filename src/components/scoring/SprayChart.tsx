@@ -117,7 +117,7 @@ export function SprayChart({
           y={pos.y}
           textAnchor="middle"
           fill="url(#field-grad)"
-          fontSize="11"
+          fontSize="8"
           fontWeight="bold"
           opacity="0.5"
         >
@@ -131,10 +131,10 @@ export function SprayChart({
           <circle
             cx={m.x}
             cy={m.y}
-            r="5"
+            r="3.5"
             fill={getResultColor(m.result)}
             stroke="oklch(0.95 0.005 270)"
-            strokeWidth="1"
+            strokeWidth="0.75"
           />
         </g>
       ))}
@@ -170,20 +170,20 @@ export function SprayChart({
           <circle
             cx={selectedPoint.x}
             cy={selectedPoint.y}
-            r="12"
+            r="8"
             fill="url(#dot-grad)"
             opacity="0.3"
           >
-            <animate attributeName="r" values="8;14;8" dur="1.5s" repeatCount="indefinite" />
+            <animate attributeName="r" values="5;10;5" dur="1.5s" repeatCount="indefinite" />
             <animate attributeName="opacity" values="0.4;0.1;0.4" dur="1.5s" repeatCount="indefinite" />
           </circle>
           <circle
             cx={selectedPoint.x}
             cy={selectedPoint.y}
-            r="7"
+            r="5"
             fill="url(#dot-grad)"
             stroke="oklch(0.95 0.005 270)"
-            strokeWidth="2.5"
+            strokeWidth="1.5"
           />
         </>
       )}
