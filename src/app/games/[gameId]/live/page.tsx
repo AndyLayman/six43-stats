@@ -62,6 +62,7 @@ export default function LiveScoringPage() {
     fromHalf: "top" | "bottom";
     inning: number;
     score: { us: number; them: number };
+    fading?: boolean;
   } | null>(null);
   const [runnerAdvanceOverrides, setRunnerAdvanceOverrides] = useState<RunnerAdvance[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -249,6 +250,7 @@ export default function LiveScoringPage() {
         inning: gameState.currentInning,
         score: { us: newState.ourScore, them: newState.opponentScore },
       });
+      setTimeout(() => setHalfInningTransition((prev) => prev ? { ...prev, fading: true } : null), 2200);
       setTimeout(() => setHalfInningTransition(null), 3000);
     }
 
@@ -958,8 +960,11 @@ export default function LiveScoringPage() {
       {/* Half-inning transition overlay */}
       {halfInningTransition && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md"
-          onClick={() => setHalfInningTransition(null)}
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md transition-opacity duration-700 ${halfInningTransition.fading ? "opacity-0" : "opacity-100"}`}
+          onClick={() => {
+            setHalfInningTransition((prev) => prev ? { ...prev, fading: true } : null);
+            setTimeout(() => setHalfInningTransition(null), 700);
+          }}
         >
           <div className="text-center animate-slide-up space-y-4">
             {/* Animated baseball */}
