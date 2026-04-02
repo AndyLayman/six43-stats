@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -11,6 +11,8 @@ import { formatAvg } from "@/lib/stats/calculations";
 import { SprayChart } from "@/components/scoring/SprayChart";
 import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType } from "@/lib/scoring/types";
 
+type SprayFilter = "both" | "hits" | "outs";
+
 export default function PlayerDetailPage() {
   const params = useParams();
   const playerId = Number(params.playerId);
@@ -20,6 +22,7 @@ export default function PlayerDetailPage() {
   const [allPAs, setAllPAs] = useState<PlateAppearance[]>([]);
   const [gameLog, setGameLog] = useState<{ game_id: string; date: string; opponent: string; appearances: PlateAppearance[] }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sprayFilter, setSprayFilter] = useState<SprayFilter>("both");
 
   useEffect(() => {
     async function load() {
@@ -101,19 +104,47 @@ export default function PlayerDetailPage() {
       {(() => {
         const sprayPAs = allPAs.filter((pa) => pa.spray_x != null && pa.spray_y != null);
         if (sprayPAs.length === 0) return null;
-        const markers = sprayPAs.map((pa) => ({
+
+        const filtered = sprayPAs.filter((pa) => {
+          if (sprayFilter === "hits") return pa.is_hit;
+          if (sprayFilter === "outs") return !pa.is_hit;
+          return true;
+        });
+
+        const ghostMarkers = filtered.map((pa) => ({
           x: pa.spray_x!,
           y: pa.spray_y!,
           result: pa.result as PlateAppearanceResult,
+          hitType: pa.hit_type as HitType | null,
         }));
+
         return (
           <Card className="glass border-border/50">
-            <CardHeader className="px-3 sm:px-6">
+            <CardHeader className="px-3 sm:px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-gradient">Spray Chart</CardTitle>
+              <div className="flex rounded-lg overflow-hidden border border-border/50">
+                {([
+                  { value: "both", label: "Both" },
+                  { value: "hits", label: "Hits" },
+                  { value: "outs", label: "Outs" },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSprayFilter(opt.value)}
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${
+                      sprayFilter === opt.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </CardHeader>
             <CardContent className="px-1 pt-1 pb-3">
               <div className="max-w-md mx-auto">
-                <SprayChart markers={markers} interactive={false} />
+                <SprayChart ghostMarkers={ghostMarkers} interactive={false} />
               </div>
             </CardContent>
           </Card>
