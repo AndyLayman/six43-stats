@@ -230,8 +230,16 @@ function TrajectoryPath({
 
   const color = "oklch(0.75 0.17 165)";
 
+  // Straight line shadow behind all arc types
+  const shadowLine = (
+    <line
+      x1={fromX} y1={fromY} x2={toX} y2={toY}
+      stroke={color} strokeWidth="1" strokeDasharray="4 3" opacity="0.2"
+    />
+  );
+
   if (!hitType) {
-    // Simple dashed line
+    // Simple dashed line (no shadow needed, it IS the line)
     return (
       <line
         x1={fromX} y1={fromY} x2={toX} y2={toY}
@@ -265,7 +273,7 @@ function TrajectoryPath({
     }
 
     return (
-      <path d={d} fill="none" stroke={color} strokeWidth="1.8" opacity="0.5" />
+      <>{shadowLine}<path d={d} fill="none" stroke={color} strokeWidth="1.8" opacity="0.5" /></>
     );
   }
 
@@ -277,10 +285,10 @@ function TrajectoryPath({
     const cy = fromY + dy * peakT + py * arcHeight;
 
     return (
-      <path
+      <>{shadowLine}<path
         d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
         fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
-      />
+      /></>
     );
   }
 
@@ -292,10 +300,10 @@ function TrajectoryPath({
     const cy = fromY + dy * peakT + py * arcHeight;
 
     return (
-      <path
+      <>{shadowLine}<path
         d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
         fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
-      />
+      /></>
     );
   }
 
@@ -307,10 +315,10 @@ function TrajectoryPath({
     const cy = fromY + dy * peakT + py * arcHeight;
 
     return (
-      <path
+      <>{shadowLine}<path
         d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
         fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
-      />
+      /></>
     );
   }
 
