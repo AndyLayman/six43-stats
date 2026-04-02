@@ -163,7 +163,7 @@ export function SprayChart({
 
       {/* Ghost markers — previous at-bats for this hitter */}
       {ghostMarkers.map((m, i) => (
-        <g key={`ghost-${i}`} opacity="0.2">
+        <g key={`ghost-${i}`} opacity={interactive ? 0.2 : 0.7}>
           {m.hitType && (
             <TrajectoryPath
               fromX={homeX}
