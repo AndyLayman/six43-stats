@@ -353,18 +353,11 @@ export default function LiveScoringPage() {
     router.push(`/games/${gameId}`);
   }
 
-  if (loading || !gameState) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
-
-  const batter = getCurrentBatter(gameState);
-  const opponentBatter = getCurrentOpponentBatter(gameState);
-  const isOurBatting = gameState.currentHalf === "bottom";
-  const isOpponentBatting = gameState.currentHalf === "top";
+  // Compute derived values for hooks (must be before any early return)
+  const batter = gameState ? getCurrentBatter(gameState) : null;
+  const opponentBatter = gameState ? getCurrentOpponentBatter(gameState) : null;
+  const isOurBatting = gameState?.currentHalf === "bottom";
+  const isOpponentBatting = gameState?.currentHalf === "top";
   const activeBatter = isOurBatting ? batter : opponentBatter;
 
   // Fetch spray history for the current batter
@@ -416,6 +409,14 @@ export default function LiveScoringPage() {
     }
     loadPositions();
   }, [gameState?.currentInning, gameId]);
+
+  if (loading || !gameState) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 max-w-lg mx-auto pb-24">
