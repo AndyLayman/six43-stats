@@ -62,6 +62,7 @@ export default function LiveScoringPage() {
   const [loading, setLoading] = useState(true);
   const [playLog, setPlayLog] = useState<{ notation: string; playerName: string; inning: number; team: "us" | "them" }[]>([]);
   const [newOpponentName, setNewOpponentName] = useState("");
+  const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult }[]>([]);
 
   // Wake Lock to prevent screen sleep during scoring
   useEffect(() => {
@@ -364,6 +365,40 @@ export default function LiveScoringPage() {
   const isOpponentBatting = gameState.currentHalf === "top";
   const activeBatter = isOurBatting ? batter : opponentBatter;
 
+  // Fetch spray history for the current batter
+  useEffect(() => {
+    if (!activeBatter) { setBatterHistory([]); return; }
+    async function fetchHistory() {
+      let query = supabase
+        .from("plate_appearances")
+        .select("spray_x, spray_y, result")
+        .not("spray_x", "is", null);
+
+      if (activeBatter!.playerId) {
+        query = query.eq("player_id", activeBatter!.playerId);
+      } else if (activeBatter!.opponentBatterId) {
+        query = query.eq("opponent_batter_id", activeBatter!.opponentBatterId);
+      } else {
+        setBatterHistory([]);
+        return;
+      }
+
+      const { data } = await query;
+      if (data) {
+        setBatterHistory(
+          data
+            .filter((pa: { spray_x: number | null; spray_y: number | null }) => pa.spray_x != null && pa.spray_y != null)
+            .map((pa: { spray_x: number; spray_y: number; result: string }) => ({
+              x: pa.spray_x,
+              y: pa.spray_y,
+              result: pa.result as PlateAppearanceResult,
+            }))
+        );
+      }
+    }
+    fetchHistory();
+  }, [activeBatter?.playerId, activeBatter?.opponentBatterId]);
+
   return (
     <div className="space-y-3 max-w-lg mx-auto pb-24">
       {/* Scoreboard */}
@@ -504,17 +539,39 @@ export default function LiveScoringPage() {
       {/* At-bat flow — shared for both halves */}
       {activeBatter && (
         <>
-          {/* Spray chart — always visible first */}
+          {/* Spray chart + hit type */}
           <Card className="glass">
             <CardHeader className="pb-2 px-3 sm:px-6">
               <CardTitle className="text-lg text-gradient">Tap where it went</CardTitle>
             </CardHeader>
-            <CardContent className="flex justify-center px-3 sm:px-6 pb-3">
-              <SprayChart
-                onClick={(x, y) => setSprayPoint({ x, y })}
-                selectedPoint={sprayPoint}
-                className="!max-w-[340px] w-full touch-none"
-              />
+            <CardContent className="px-3 sm:px-6 pb-3 space-y-3">
+              <div className="flex justify-center">
+                <SprayChart
+                  onClick={(x, y) => setSprayPoint({ x, y })}
+                  selectedPoint={sprayPoint}
+                  hitType={hitType}
+                  ghostMarkers={batterHistory}
+                  className="!max-w-[340px] w-full touch-none"
+                />
+              </div>
+              {/* Hit type buttons — inline below spray chart */}
+              {selectedResult && !NON_BATTED.includes(selectedResult) && (
+                <div className="grid grid-cols-4 gap-2">
+                  {HIT_TYPE_BUTTONS.map(({ type, label }) => (
+                    <button
+                      key={type}
+                      className={`h-10 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none ${
+                        hitType === type
+                          ? "bg-primary text-primary-foreground border-transparent shadow-lg glow-primary"
+                          : "bg-muted/30 text-foreground border-border/50 hover:bg-accent hover:border-border"
+                      }`}
+                      onClick={() => setHitType(hitType === type ? null : type)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -556,32 +613,6 @@ export default function LiveScoringPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Hit type — only for batted balls */}
-          {selectedResult && !NON_BATTED.includes(selectedResult) && (
-            <Card className="glass animate-slide-up">
-              <CardHeader className="pb-2 px-3 sm:px-6">
-                <CardTitle className="text-lg text-gradient">Ball Type</CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 sm:px-6 pb-3">
-                <div className="grid grid-cols-4 gap-2">
-                  {HIT_TYPE_BUTTONS.map(({ type, label }) => (
-                    <button
-                      key={type}
-                      className={`h-12 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none ${
-                        hitType === type
-                          ? "bg-primary text-primary-foreground border-transparent shadow-lg glow-primary"
-                          : "bg-muted/30 text-foreground border-border/50 hover:bg-accent hover:border-border"
-                      }`}
-                      onClick={() => setHitType(hitType === type ? null : type)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* RBI & SB */}
           {selectedResult && (
