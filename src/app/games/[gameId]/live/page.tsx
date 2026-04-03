@@ -15,7 +15,7 @@ import {
   recordOpponentAtBat,
   addOpponentBatter,
 } from "@/lib/scoring/game-engine";
-import { sprayToPosition, sprayCfSide, generateNotation, parseNotationToFieldingPlays, resolvePositionToPlayerId } from "@/lib/scoring/scorebook";
+import { sprayToPosition, generateNotation, parseNotationToFieldingPlays, resolvePositionToPlayerId } from "@/lib/scoring/scorebook";
 import { getDefaultRunnerAdvances, canDoublePlay } from "@/lib/scoring/baseball-rules";
 import { isAtBat, isHit, totalBases } from "@/lib/stats/calculations";
 import type { GameState, PlateAppearanceResult, RecordAtBatPayload, RunnerAdvance, Player, GameLineup, OpponentBatter, HitType } from "@/lib/scoring/types";
@@ -56,20 +56,13 @@ export default function LiveScoringPage() {
   const [sprayPoint, setSprayPoint] = useState<{ x: number; y: number } | null>(null);
   const [notationOverride, setNotationOverride] = useState<string | null>(null);
   const [rbis, setRbis] = useState(0);
+  const [stolenBases, setStolenBases] = useState(0);
   const [hitType, setHitType] = useState<HitType | null>(null);
-  const [sbRunner, setSbRunner] = useState<"first" | "second" | "third" | null>(null);
-  const [halfInningTransition, setHalfInningTransition] = useState<{
-    fromHalf: "top" | "bottom";
-    inning: number;
-    score: { us: number; them: number };
-    fading?: boolean;
-  } | null>(null);
   const [runnerAdvanceOverrides, setRunnerAdvanceOverrides] = useState<RunnerAdvance[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [playLog, setPlayLog] = useState<{ notation: string; playerName: string; inning: number; team: "us" | "them" }[]>([]);
   const [newOpponentName, setNewOpponentName] = useState("");
-  const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult; hitType: HitType | null }[]>([]);
-  const [inningPositions, setInningPositions] = useState<{ player_id: number; position: string }[]>([]);
+  const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult }[]>([]);
 
   // Wake Lock to prevent screen sleep during scoring
   useEffect(() => {
@@ -192,7 +185,7 @@ export default function LiveScoringPage() {
         supabase.from("games").update({
           our_score: state.ourScore,
           opponent_score: state.opponentScore,
-          innings_played: state.currentHalf === "top" ? state.currentInning - 1 : state.currentInning,
+          innings_played: state.currentInning,
         }).eq("id", gameId),
       ]);
     },
@@ -216,13 +209,12 @@ export default function LiveScoringPage() {
     const isBattedBall = !NON_BATTED.includes(selectedResult);
 
     const fieldPosition = sprayPoint ? sprayToPosition(sprayPoint.x, sprayPoint.y) : null;
-    const cfSide = sprayPoint && fieldPosition === 8 ? sprayCfSide(sprayPoint.x, sprayPoint.y) : undefined;
     const baseState = {
       first: gameState.runnerFirst,
       second: gameState.runnerSecond,
       third: gameState.runnerThird,
     };
-    const autoNotation = generateNotation(selectedResult, fieldPosition, baseState, cfSide);
+    const autoNotation = generateNotation(selectedResult, fieldPosition, baseState);
     const notation = notationOverride ?? autoNotation;
     const runnerAdvances = runnerAdvanceOverrides ?? buildRunnerAdvances(selectedResult, gameState);
 
@@ -231,7 +223,7 @@ export default function LiveScoringPage() {
       sprayX: sprayPoint?.x ?? null,
       sprayY: sprayPoint?.y ?? null,
       rbis,
-      stolenBases: 0,
+      stolenBases,
       scorebookNotation: notation,
       fieldingPlays: [],
       runnerAdvances,
@@ -241,35 +233,6 @@ export default function LiveScoringPage() {
     const newState = isOpponent
       ? recordOpponentAtBat(gameState, payload)
       : recordAtBat(gameState, payload);
-
-    // Detect half-inning switch
-    const halfChanged = newState.currentHalf !== gameState.currentHalf || newState.currentInning !== gameState.currentInning;
-    const fullInningCompleted = newState.currentInning > gameState.currentInning;
-    if (halfChanged) {
-      setHalfInningTransition({
-        fromHalf: gameState.currentHalf,
-        inning: gameState.currentInning,
-        score: { us: newState.ourScore, them: newState.opponentScore },
-      });
-      setTimeout(() => setHalfInningTransition((prev) => prev ? { ...prev, fading: true } : null), 2200);
-      setTimeout(() => setHalfInningTransition(null), 3000);
-
-      // When a full inning completes (bottom → top), append to completed_innings
-      if (fullInningCompleted) {
-        void supabase.from("games")
-          .select("completed_innings")
-          .eq("id", gameId)
-          .single()
-          .then(({ data }) => {
-            const current: number[] = data?.completed_innings ?? [];
-            if (!current.includes(gameState.currentInning)) {
-              void supabase.from("games").update({
-                completed_innings: [...current, gameState.currentInning],
-              }).eq("id", gameId);
-            }
-          });
-      }
-    }
 
     // Update UI immediately (optimistic) — don't wait for DB
     setGameState(newState);
@@ -283,6 +246,7 @@ export default function LiveScoringPage() {
     setNotationOverride(null);
     setRunnerAdvanceOverrides(null);
     setRbis(0);
+    setStolenBases(0);
 
     // Persist to DB in background
     void supabase.from("plate_appearances").insert({
@@ -300,7 +264,7 @@ export default function LiveScoringPage() {
       spray_y: sprayPoint?.y ?? null,
       hit_type: isBattedBall ? hitType : null,
       rbis,
-      stolen_bases: 0,
+      stolen_bases: stolenBases,
       is_at_bat: isAtBat(selectedResult),
       is_hit: isHit(selectedResult),
       total_bases: totalBases(selectedResult),
@@ -311,7 +275,7 @@ export default function LiveScoringPage() {
       const fieldingPlays = parseNotationToFieldingPlays(notation, selectedResult);
       const fieldingRows = fieldingPlays
         .map((fp) => {
-          const playerId = resolvePositionToPlayerId(fp.positionNumber, gameState.lineup, gameState.players, inningPositions, fp.cfSide);
+          const playerId = resolvePositionToPlayerId(fp.positionNumber, gameState.lineup, gameState.players);
           if (!playerId) return null;
           return {
             game_id: gameId,
@@ -376,77 +340,29 @@ export default function LiveScoringPage() {
     }
   }
 
-  async function handleStolenBase(from: "first" | "second" | "third", to: "second" | "third" | "home") {
-    if (!gameState) return;
-    const runner = gameState[from === "first" ? "runnerFirst" : from === "second" ? "runnerSecond" : "runnerThird"];
-    if (!runner) return;
-
-    setStateHistory((prev) => [...prev, gameState]);
-
-    // Move the runner
-    const newState = { ...gameState };
-    // Clear the origin base
-    if (from === "first") newState.runnerFirst = null;
-    else if (from === "second") newState.runnerSecond = null;
-    else newState.runnerThird = null;
-
-    // Place on destination (or score)
-    if (to === "second") newState.runnerSecond = runner;
-    else if (to === "third") newState.runnerThird = runner;
-    else if (to === "home") {
-      // Runner scores
-      if (gameState.currentHalf === "top") {
-        newState.opponentScore = gameState.opponentScore + 1;
-      } else {
-        newState.ourScore = gameState.ourScore + 1;
-      }
-    }
-
-    setGameState(newState);
-    setSbRunner(null);
-
-    // Record the SB by incrementing stolen_bases on the runner's most recent PA
-    let query = supabase.from("plate_appearances").select("id, stolen_bases").eq("game_id", gameId);
-    if (runner.playerId) {
-      query = query.eq("player_id", runner.playerId);
-    } else if (runner.opponentBatterId) {
-      query = query.eq("opponent_batter_id", runner.opponentBatterId);
-    }
-    const { data: lastPA } = await query.order("created_at", { ascending: false }).limit(1).single();
-
-    if (lastPA) {
-      void supabase.from("plate_appearances")
-        .update({ stolen_bases: (lastPA.stolen_bases || 0) + 1 })
-        .eq("id", lastPA.id)
-        .then();
-    }
-
-    const baseLabel = from === "first" ? "1st" : from === "second" ? "2nd" : "3rd";
-    const destLabel = to === "second" ? "2nd" : to === "third" ? "3rd" : "Home";
-    setPlayLog((prev) => [
-      ...prev,
-      { notation: `SB ${baseLabel}→${destLabel}`, playerName: runner.playerName, inning: gameState.currentInning, team: gameState.currentHalf === "top" ? "them" : "us" },
-    ]);
-
-    persistState(newState);
-  }
-
   async function handleEndGame() {
     if (!gameState) return;
     await supabase.from("games").update({
       status: "final",
       our_score: gameState.ourScore,
       opponent_score: gameState.opponentScore,
-      innings_played: gameState.currentHalf === "top" ? gameState.currentInning - 1 : gameState.currentInning,
+      innings_played: gameState.currentInning,
     }).eq("id", gameId);
     router.push(`/games/${gameId}`);
   }
 
-  // Compute derived values for hooks (must be before any early return)
-  const batter = gameState ? getCurrentBatter(gameState) : null;
-  const opponentBatter = gameState ? getCurrentOpponentBatter(gameState) : null;
-  const isOurBatting = gameState?.currentHalf === "bottom";
-  const isOpponentBatting = gameState?.currentHalf === "top";
+  if (loading || !gameState) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  const batter = getCurrentBatter(gameState);
+  const opponentBatter = getCurrentOpponentBatter(gameState);
+  const isOurBatting = gameState.currentHalf === "bottom";
+  const isOpponentBatting = gameState.currentHalf === "top";
   const activeBatter = isOurBatting ? batter : opponentBatter;
 
   // Fetch spray history for the current batter
@@ -455,7 +371,7 @@ export default function LiveScoringPage() {
     async function fetchHistory() {
       let query = supabase
         .from("plate_appearances")
-        .select("spray_x, spray_y, result, hit_type")
+        .select("spray_x, spray_y, result")
         .not("spray_x", "is", null);
 
       if (activeBatter!.playerId) {
@@ -472,41 +388,16 @@ export default function LiveScoringPage() {
         setBatterHistory(
           data
             .filter((pa: { spray_x: number | null; spray_y: number | null }) => pa.spray_x != null && pa.spray_y != null)
-            .map((pa: { spray_x: number; spray_y: number; result: string; hit_type: string | null }) => ({
+            .map((pa: { spray_x: number; spray_y: number; result: string }) => ({
               x: pa.spray_x,
               y: pa.spray_y,
               result: pa.result as PlateAppearanceResult,
-              hitType: (pa.hit_type as HitType) || null,
             }))
         );
       }
     }
     fetchHistory();
   }, [activeBatter?.playerId, activeBatter?.opponentBatterId]);
-
-  // Load lineup_assignments for the current inning (who plays what position)
-  useEffect(() => {
-    if (!gameState) return;
-    async function loadPositions() {
-      const { data } = await supabase
-        .from("lineup_assignments")
-        .select("player_id, position")
-        .eq("game_id", gameId)
-        .eq("inning", gameState!.currentInning);
-      if (data && data.length > 0) {
-        setInningPositions(data);
-      }
-    }
-    loadPositions();
-  }, [gameState?.currentInning, gameId]);
-
-  if (loading || !gameState) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-3 max-w-lg mx-auto pb-24">
@@ -515,50 +406,20 @@ export default function LiveScoringPage() {
         <CardContent className="p-3 sm:p-4">
           <div className="flex items-center justify-between">
             <div className="text-center flex-1">
-              <div className="text-3xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.ourScore}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.ourScore}</div>
               <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Us</div>
             </div>
             <div className="text-center px-3">
-              {/* Base runners diamond — tap occupied base for stolen base */}
+              {/* Base runners diamond */}
               <svg viewBox="0 0 80 80" className="w-14 h-14 sm:w-16 sm:h-16 mx-auto">
                 <line x1="40" y1="65" x2="15" y2="40" stroke="#3A3A3A" strokeWidth="1.5" />
                 <line x1="15" y1="40" x2="40" y2="15" stroke="#3A3A3A" strokeWidth="1.5" />
                 <line x1="40" y1="15" x2="65" y2="40" stroke="#3A3A3A" strokeWidth="1.5" />
                 <line x1="65" y1="40" x2="40" y2="65" stroke="#3A3A3A" strokeWidth="1.5" />
                 <rect x="37" y="62" width="6" height="6" fill="#141414" stroke="#3A3A3A" transform="rotate(45 40 65)" />
-                {/* 3rd base */}
-                <rect
-                  x="6" y="31" width="18" height="18" fill="transparent" rx="2"
-                  className={gameState.runnerThird ? "cursor-pointer" : ""}
-                  onClick={() => gameState.runnerThird && setSbRunner(sbRunner === "third" ? null : "third")}
-                />
-                <rect x="12" y="37" width="6" height="6"
-                  fill={gameState.runnerThird ? (sbRunner === "third" ? "#08DDC8" : "#08DDC8") : "#141414"}
-                  stroke={gameState.runnerThird ? (sbRunner === "third" ? "#08DDC8" : "#08DDC8") : "#3A3A3A"}
-                  transform="rotate(45 15 40)" pointerEvents="none"
-                />
-                {/* 2nd base */}
-                <rect
-                  x="31" y="6" width="18" height="18" fill="transparent" rx="2"
-                  className={gameState.runnerSecond ? "cursor-pointer" : ""}
-                  onClick={() => gameState.runnerSecond && setSbRunner(sbRunner === "second" ? null : "second")}
-                />
-                <rect x="37" y="12" width="6" height="6"
-                  fill={gameState.runnerSecond ? (sbRunner === "second" ? "#08DDC8" : "#08DDC8") : "#141414"}
-                  stroke={gameState.runnerSecond ? (sbRunner === "second" ? "#08DDC8" : "#08DDC8") : "#3A3A3A"}
-                  transform="rotate(45 40 15)" pointerEvents="none"
-                />
-                {/* 1st base */}
-                <rect
-                  x="56" y="31" width="18" height="18" fill="transparent" rx="2"
-                  className={gameState.runnerFirst ? "cursor-pointer" : ""}
-                  onClick={() => gameState.runnerFirst && setSbRunner(sbRunner === "first" ? null : "first")}
-                />
-                <rect x="62" y="37" width="6" height="6"
-                  fill={gameState.runnerFirst ? (sbRunner === "first" ? "#08DDC8" : "#08DDC8") : "#141414"}
-                  stroke={gameState.runnerFirst ? (sbRunner === "first" ? "#08DDC8" : "#08DDC8") : "#3A3A3A"}
-                  transform="rotate(45 65 40)" pointerEvents="none"
-                />
+                <rect x="12" y="37" width="6" height="6" fill={gameState.runnerThird ? "#08DDC8" : "#141414"} stroke={gameState.runnerThird ? "#08DDC8" : "#3A3A3A"} transform="rotate(45 15 40)" />
+                <rect x="37" y="12" width="6" height="6" fill={gameState.runnerSecond ? "#08DDC8" : "#141414"} stroke={gameState.runnerSecond ? "#08DDC8" : "#3A3A3A"} transform="rotate(45 40 15)" />
+                <rect x="62" y="37" width="6" height="6" fill={gameState.runnerFirst ? "#08DDC8" : "#141414"} stroke={gameState.runnerFirst ? "#08DDC8" : "#3A3A3A"} transform="rotate(45 65 40)" />
               </svg>
               <div className="text-sm font-bold mt-1">
                 {gameState.currentHalf === "top" ? "\u25B2" : "\u25BC"} {gameState.currentInning}
@@ -577,60 +438,12 @@ export default function LiveScoringPage() {
               </div>
             </div>
             <div className="text-center flex-1">
-              <div className="text-3xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.opponentScore}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.opponentScore}</div>
               <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Them</div>
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Stolen base action — shown when a runner's base is tapped */}
-      {sbRunner && (() => {
-        const runner = sbRunner === "first" ? gameState.runnerFirst
-          : sbRunner === "second" ? gameState.runnerSecond
-          : gameState.runnerThird;
-        if (!runner) return null;
-        const baseLabel = sbRunner === "first" ? "1st" : sbRunner === "second" ? "2nd" : "3rd";
-        const destinations: { to: "second" | "third" | "home"; label: string }[] = [];
-        if (sbRunner === "first") {
-          destinations.push({ to: "second", label: "Stole 2nd" });
-          if (!gameState.runnerSecond) destinations.push({ to: "third", label: "Stole 3rd" });
-        }
-        if (sbRunner === "second") {
-          destinations.push({ to: "third", label: "Stole 3rd" });
-          destinations.push({ to: "home", label: "Stole Home" });
-        }
-        if (sbRunner === "third") {
-          destinations.push({ to: "home", label: "Stole Home" });
-        }
-        return (
-          <Card className="border-primary/30 bg-primary/5 animate-slide-up">
-            <CardContent className="p-3 sm:p-4">
-              <div className="text-center mb-2">
-                <div className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Runner on {baseLabel}</div>
-                <div className="text-lg font-extrabold text-gradient-bright">{runner.playerName}</div>
-              </div>
-              <div className="flex gap-2 justify-center">
-                {destinations.map(({ to, label }) => (
-                  <button
-                    key={to}
-                    className="h-10 px-4 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none bg-[#08DDC8] hover:bg-[#1ae8d4] text-white border-transparent shadow-md"
-                    onClick={() => handleStolenBase(sbRunner, to)}
-                  >
-                    {label}
-                  </button>
-                ))}
-                <button
-                  className="h-10 px-4 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none bg-muted/30 text-foreground border-border/50 hover:bg-accent"
-                  onClick={() => setSbRunner(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
 
       {/* Game controls — near scoreboard */}
       <div className="flex justify-between items-center">
@@ -659,7 +472,7 @@ export default function LiveScoringPage() {
               <CardContent className="p-3 sm:p-4">
                 <div className="text-center">
                   <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Opponent Batting</div>
-                  <div className="text-lg sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{opponentBatter.playerName}</div>
+                  <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{opponentBatter.playerName}</div>
                 </div>
               </CardContent>
             </Card>
@@ -675,14 +488,14 @@ export default function LiveScoringPage() {
                     value={newOpponentName}
                     onChange={(e) => setNewOpponentName(e.target.value)}
                     placeholder="Batter name or #"
-                    className="flex-1 h-10 sm:h-12 rounded-xl border-2 border-border/50 bg-muted/30 px-3 text-sm sm:text-base font-medium placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
+                    className="flex-1 h-12 rounded-xl border-2 border-border/50 bg-muted/30 px-3 text-base font-medium placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
                     onKeyDown={(e) => e.key === "Enter" && handleAddOpponentBatter()}
                     autoFocus
                   />
                   <Button
                     onClick={handleAddOpponentBatter}
                     disabled={!newOpponentName.trim()}
-                    className="h-10 sm:h-12 px-4 sm:px-5 text-sm sm:text-base font-bold glow-primary"
+                    className="h-12 px-5 text-base font-bold glow-primary"
                   >
                     Add
                   </Button>
@@ -717,56 +530,8 @@ export default function LiveScoringPage() {
           <CardContent className="p-3 sm:p-4">
             <div className="text-center">
               <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Now Batting</div>
-              <div className="text-lg sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
+              <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Lineup builder if our lineup is empty */}
-      {isOurBatting && !batter && gameState && (
-        <Card className="glass animate-slide-up">
-          <CardHeader className="pb-2 px-3 sm:px-6">
-            <CardTitle className="text-lg text-gradient">Set Batting Order</CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pb-3 space-y-3">
-            <p className="text-sm text-muted-foreground">No lineup set for this game. Tap players in batting order:</p>
-            {gameState.lineup.length > 0 && (
-              <div className="text-xs text-muted-foreground">
-                Current order: {gameState.lineup.map((l, i) => `${i + 1}. ${gameState.players.find((p) => p.id === l.player_id)?.name}`).join(", ")}
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              {gameState.players
-                .filter((p) => p.active && !gameState.lineup.some((l) => l.player_id === p.id))
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((p) => (
-                  <button
-                    key={p.id}
-                    className="h-11 rounded-xl text-sm font-semibold border-2 border-border/50 bg-muted/30 hover:bg-accent hover:border-border active:scale-95 transition-all"
-                    onClick={async () => {
-                      const order = gameState.lineup.length + 1;
-                      await supabase.from("game_lineup").insert({
-                        game_id: gameId,
-                        player_id: p.id,
-                        batting_order: order,
-                      });
-                      const newLineup = [...gameState.lineup, { id: "", game_id: gameId, player_id: p.id, batting_order: order, position: "" }];
-                      setGameState({ ...gameState, lineup: newLineup });
-                    }}
-                  >
-                    #{p.number} {p.name}
-                  </button>
-                ))}
-            </div>
-            {gameState.lineup.length > 0 && (
-              <Button
-                className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-[#08DDC8] via-[#83DD68] to-[#CF59F3] text-white"
-                onClick={() => setGameState({ ...gameState })}
-              >
-                Start Scoring ({gameState.lineup.length} batters)
-              </Button>
-            )}
           </CardContent>
         </Card>
       )}
@@ -776,30 +541,22 @@ export default function LiveScoringPage() {
         <>
           {/* Spray chart + hit type */}
           <Card className="glass">
-            <CardContent className="px-1 pt-1 pb-3 space-y-3">
+            <CardHeader className="pb-2 px-3 sm:px-6">
+              <CardTitle className="text-lg text-gradient">Tap where it went</CardTitle>
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 space-y-3">
               <div className="flex justify-center">
                 <SprayChart
                   onClick={(x, y) => setSprayPoint({ x, y })}
                   selectedPoint={sprayPoint}
                   hitType={hitType}
                   ghostMarkers={batterHistory}
-                  runners={{
-                    first: !!gameState.runnerFirst,
-                    second: !!gameState.runnerSecond,
-                    third: !!gameState.runnerThird,
-                  }}
-                  className="w-full touch-none"
+                  className="!max-w-[340px] w-full touch-none"
                 />
               </div>
-              {/* Clear + hit type buttons — inline below spray chart */}
-              {sprayPoint && (!selectedResult || !NON_BATTED.includes(selectedResult)) && (
-                <div className="grid grid-cols-5 gap-2">
-                  <button
-                    className="h-10 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none bg-muted/30 text-muted-foreground border-border/50 hover:bg-destructive/20 hover:text-destructive hover:border-destructive/50"
-                    onClick={() => { setSprayPoint(null); setHitType(null); }}
-                  >
-                    Clear
-                  </button>
+              {/* Hit type buttons — inline below spray chart */}
+              {selectedResult && !NON_BATTED.includes(selectedResult) && (
+                <div className="grid grid-cols-4 gap-2">
                   {HIT_TYPE_BUTTONS.map(({ type, label }) => (
                     <button
                       key={type}
@@ -825,62 +582,78 @@ export default function LiveScoringPage() {
             </CardHeader>
             <CardContent className="px-3 sm:px-6 pb-3">
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {RESULT_BUTTONS.filter(({ result }) => {
+                {RESULT_BUTTONS.map(({ result, label, color }) => {
                   const baseState = {
                     first: gameState.runnerFirst,
                     second: gameState.runnerSecond,
                     third: gameState.runnerThird,
                   };
-                  // No spray dot: only show non-batted results (BB, K, HBP)
-                  if (!sprayPoint && !NON_BATTED.includes(result)) return false;
-                  // Spray dot placed: hide non-batted results
-                  if (sprayPoint && NON_BATTED.includes(result)) return false;
-                  // Hide DP/FC when no runners on base
-                  if ((result === "DP" || result === "FC") && !canDoublePlay(baseState)) return false;
-                  return true;
-                }).map(({ result, label, color }) => (
-                  <button
-                    key={result}
-                    className={`h-11 sm:h-12 rounded-xl text-sm sm:text-base font-bold border-2 transition-all active:scale-95 select-none ${
-                      selectedResult === result
-                        ? `${color} text-white border-transparent shadow-lg`
-                        : "bg-muted/30 text-foreground border-border/50 hover:bg-accent hover:border-border"
-                    }`}
-                    onClick={() => {
-                      setSelectedResult(result);
-                      // Auto-select hit type based on result
-                      if (result === "GO") setHitType("GB");
-                      else if (result === "FO") setHitType("FB");
-                      else if (result === "DP") setHitType("GB");
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
+                  // DP requires at least one runner; FC requires at least one runner
+                  const disabled =
+                    (result === "DP" && !canDoublePlay(baseState)) ||
+                    (result === "FC" && !canDoublePlay(baseState));
+
+                  return (
+                    <button
+                      key={result}
+                      disabled={disabled}
+                      className={`h-14 sm:h-12 rounded-xl text-base font-bold border-2 transition-all active:scale-95 select-none ${
+                        disabled
+                          ? "opacity-30 cursor-not-allowed bg-muted/10 text-muted-foreground border-border/20"
+                          : selectedResult === result
+                            ? `${color} text-white border-transparent shadow-lg`
+                            : "bg-muted/30 text-foreground border-border/50 hover:bg-accent hover:border-border"
+                      }`}
+                      onClick={() => !disabled && setSelectedResult(result)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
 
-          {/* RBIs — only when runs can plausibly score */}
-          {selectedResult && selectedResult !== "SO" && selectedResult !== "DP" && (selectedResult === "HR" || gameState.runnerFirst || gameState.runnerSecond || gameState.runnerThird) && (
+          {/* RBI & SB */}
+          {selectedResult && (
             <Card className="glass animate-slide-up">
               <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium">RBIs</div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
-                      onClick={() => setRbis(Math.max(0, rbis - 1))}
-                    >
-                      -
-                    </button>
-                    <span className="text-2xl font-extrabold w-8 text-center tabular-nums">{rbis}</span>
-                    <button
-                      className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
-                      onClick={() => setRbis(rbis + 1)}
-                    >
-                      +
-                    </button>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-2 uppercase tracking-wider font-medium">RBIs</div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
+                        onClick={() => setRbis(Math.max(0, rbis - 1))}
+                      >
+                        -
+                      </button>
+                      <span className="text-2xl font-extrabold w-8 text-center tabular-nums">{rbis}</span>
+                      <button
+                        className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
+                        onClick={() => setRbis(rbis + 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-2 uppercase tracking-wider font-medium">Stolen Bases</div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
+                        onClick={() => setStolenBases(Math.max(0, stolenBases - 1))}
+                      >
+                        -
+                      </button>
+                      <span className="text-2xl font-extrabold w-8 text-center tabular-nums">{stolenBases}</span>
+                      <button
+                        className="h-12 w-12 rounded-xl border-2 border-border/50 text-xl font-bold flex items-center justify-center active:bg-primary/20 active:border-primary/50 active:scale-95 transition-all select-none"
+                        onClick={() => setStolenBases(stolenBases + 1)}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -988,28 +761,27 @@ export default function LiveScoringPage() {
             );
           })()}
 
+          {/* Confirm bar — sticky at bottom */}
+          {selectedResult && (
+            <div className="fixed bottom-0 left-0 right-0 p-3 glass-strong border-t border-border/50 z-40">
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={notationOverride !== null ? notationOverride : (sprayPoint ? generateNotation(selectedResult, sprayToPosition(sprayPoint.x, sprayPoint.y), { first: gameState.runnerFirst, second: gameState.runnerSecond, third: gameState.runnerThird }) : selectedResult)}
+                  onChange={(e) => setNotationOverride(e.target.value)}
+                  className="h-14 flex-1 rounded-xl border-2 border-border/50 bg-muted/30 px-4 text-center text-lg font-bold tabular-nums placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
+                />
+                <Button
+                  onClick={handleConfirmAtBat}
+                  size="lg"
+                  className="h-14 px-8 text-lg font-bold active:scale-[0.98] transition-transform glow-primary"
+                >
+                  Confirm
+                </Button>
+              </div>
+            </div>
+          )}
         </>
-      )}
-
-      {/* Confirm bar — fixed at bottom of screen */}
-      {activeBatter && selectedResult && (
-        <div className="fixed bottom-0 left-0 right-0 p-3 glass-strong border-t border-border/50 z-40">
-          <div className="max-w-lg mx-auto flex gap-2 items-center">
-            <input
-              type="text"
-              value={notationOverride !== null ? notationOverride : (sprayPoint ? (() => { const fp = sprayToPosition(sprayPoint.x, sprayPoint.y); return generateNotation(selectedResult, fp, { first: gameState.runnerFirst, second: gameState.runnerSecond, third: gameState.runnerThird }, fp === 8 ? sprayCfSide(sprayPoint.x, sprayPoint.y) : undefined); })() : selectedResult)}
-              onChange={(e) => setNotationOverride(e.target.value)}
-              className="h-12 sm:h-14 flex-1 rounded-xl border-2 border-border/50 bg-muted/30 px-3 text-center text-base sm:text-lg font-bold tabular-nums placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
-            />
-            <Button
-              onClick={handleConfirmAtBat}
-              size="lg"
-              className="h-12 sm:h-14 px-6 sm:px-8 text-base sm:text-lg font-bold active:scale-[0.98] transition-transform glow-primary"
-            >
-              Confirm
-            </Button>
-          </div>
-        </div>
       )}
 
       {/* Play log */}
@@ -1033,73 +805,6 @@ export default function LiveScoringPage() {
             </div>
           </CardContent>
         </Card>
-      )}
-      {/* Half-inning transition overlay */}
-      {halfInningTransition && (
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md transition-opacity duration-700 ${halfInningTransition.fading ? "opacity-0" : "opacity-100"}`}
-          onClick={() => {
-            setHalfInningTransition((prev) => prev ? { ...prev, fading: true } : null);
-            setTimeout(() => setHalfInningTransition(null), 700);
-          }}
-        >
-          <div className="text-center animate-slide-up space-y-4">
-            {/* Animated baseball */}
-            <div className="flex justify-center">
-              <svg viewBox="0 0 24 24" className="h-20 w-20" fill="none" strokeWidth="1.5" style={{ animation: "spin-slow 2s ease-in-out" }}>
-                <defs>
-                  <linearGradient id="trans-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#08DDC8" />
-                    <stop offset="50%" stopColor="#83DD68" />
-                    <stop offset="100%" stopColor="#CF59F3" />
-                  </linearGradient>
-                </defs>
-                <circle cx="12" cy="12" r="10.5" stroke="url(#trans-grad)" />
-                <path d="M 6.5 3.5 Q 4 8 6 12 Q 8 16 6.5 20.5" stroke="url(#trans-grad)" strokeLinecap="round" />
-                <path d="M 17.5 3.5 Q 20 8 18 12 Q 16 16 17.5 20.5" stroke="url(#trans-grad)" strokeLinecap="round" />
-              </svg>
-            </div>
-
-            {/* Score */}
-            <div className="flex items-center justify-center gap-6">
-              <div className="text-center">
-                <div className="text-5xl font-extrabold tabular-nums text-gradient-bright">{halfInningTransition.score.us}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Us</div>
-              </div>
-              <div className="text-2xl text-muted-foreground font-bold">—</div>
-              <div className="text-center">
-                <div className="text-5xl font-extrabold tabular-nums text-gradient-bright">{halfInningTransition.score.them}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Them</div>
-              </div>
-            </div>
-
-            {/* Inning label */}
-            <div className="space-y-1">
-              <div className="text-lg font-bold text-gradient">
-                {halfInningTransition.fromHalf === "top" ? "Mid" : "End"} {halfInningTransition.inning}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {halfInningTransition.fromHalf === "top"
-                  ? "Switching to offense"
-                  : halfInningTransition.inning < 6 ? "Switching to defense" : "Switching to defense"}
-              </div>
-            </div>
-
-            {/* Tap to dismiss */}
-            <div className="text-xs text-muted-foreground/50 mt-6 animate-pulse">
-              Tap to continue
-            </div>
-          </div>
-
-          <style>{`
-            @keyframes spin-slow {
-              0% { transform: rotate(0deg) scale(0.5); opacity: 0; }
-              30% { transform: rotate(180deg) scale(1.1); opacity: 1; }
-              50% { transform: rotate(360deg) scale(1); }
-              100% { transform: rotate(360deg) scale(1); }
-            }
-          `}</style>
-        </div>
       )}
     </div>
   );

@@ -7,10 +7,9 @@ import type { PlateAppearanceResult, HitType } from "@/lib/scoring/types";
 interface SprayChartProps {
   onClick?: (x: number, y: number) => void;
   markers?: { x: number; y: number; result: PlateAppearanceResult }[];
-  ghostMarkers?: { x: number; y: number; result: PlateAppearanceResult; hitType?: HitType | null }[];
+  ghostMarkers?: { x: number; y: number; result: PlateAppearanceResult }[];
   selectedPoint?: { x: number; y: number } | null;
   hitType?: HitType | null;
-  runners?: { first: boolean; second: boolean; third: boolean };
   interactive?: boolean;
   className?: string;
 }
@@ -21,15 +20,13 @@ export function SprayChart({
   ghostMarkers = [],
   selectedPoint,
   hitType,
-  runners,
   interactive = true,
   className = "",
 }: SprayChartProps) {
-  // viewBox is "0 70 300 240" — x: 0-300, y: 70-310
   const getCoords = useCallback((svg: SVGSVGElement, clientX: number, clientY: number) => {
     const rect = svg.getBoundingClientRect();
     const x = ((clientX - rect.left) / rect.width) * 300;
-    const y = ((clientY - rect.top) / rect.height) * 240 + 70;
+    const y = ((clientY - rect.top) / rect.height) * 300;
     return { x, y };
   }, []);
 
@@ -53,8 +50,8 @@ export function SprayChart({
 
   return (
     <svg
-      viewBox="0 70 300 240"
-      className={`w-full select-none ${interactive ? "cursor-crosshair" : ""} ${className}`}
+      viewBox="0 0 300 300"
+      className={`w-full max-w-[300px] select-none ${interactive ? "cursor-crosshair" : ""} ${className}`}
       onClick={handleClick}
       onTouchEnd={handleTouch}
     >
@@ -69,11 +66,6 @@ export function SprayChart({
           <stop offset="50%" stopColor="rgba(131, 221, 104, 0.20)" />
           <stop offset="100%" stopColor="rgba(207, 89, 243, 0.15)" />
         </linearGradient>
-        <radialGradient id="dot-grad" cx="35%" cy="35%" r="65%">
-          <stop offset="0%" stopColor="#08DDC8" />
-          <stop offset="50%" stopColor="#83DD68" />
-          <stop offset="100%" stopColor="#CF59F3" />
-        </radialGradient>
       </defs>
 
       {/* Foul lines */}
@@ -81,7 +73,7 @@ export function SprayChart({
       <line x1="150" y1="280" x2="290" y2="140" stroke="url(#field-grad)" strokeWidth="1.5" opacity="0.4" />
 
       {/* Outfield fence arc */}
-      <path d="M 10 155 A 160 160 0 0 1 290 155" fill="none" stroke="url(#field-grad)" strokeWidth="2" opacity="0.5" />
+      <path d="M 10 140 A 198 198 0 0 1 290 140" fill="none" stroke="url(#field-grad)" strokeWidth="2" opacity="0.5" />
 
       {/* Infield diamond fill */}
       <path d="M 150 280 L 80 210 L 150 140 L 220 210 Z" fill="url(#field-grad-dim)" />
@@ -94,57 +86,23 @@ export function SprayChart({
 
       {/* Bases */}
       <rect x="145" y="275" width="10" height="10" fill="url(#field-grad)" transform="rotate(45 150 280)" />
-      {/* 1st base */}
-      <rect x="215" y="205" width="10" height="10"
-        fill={runners?.first ? "#08DDC8" : "url(#field-grad)"}
-        opacity={runners?.first ? 1 : 0.7}
-        transform="rotate(45 220 210)"
-      />
-      {runners?.first && (
-        <circle cx="220" cy="210" r="6" fill="#08DDC8" opacity="0.3">
-          <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
-        </circle>
-      )}
-      {/* 2nd base */}
-      <rect x="145" y="135" width="10" height="10"
-        fill={runners?.second ? "#08DDC8" : "url(#field-grad)"}
-        opacity={runners?.second ? 1 : 0.7}
-        transform="rotate(45 150 140)"
-      />
-      {runners?.second && (
-        <circle cx="150" cy="140" r="6" fill="#08DDC8" opacity="0.3">
-          <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
-        </circle>
-      )}
-      {/* 3rd base */}
-      <rect x="75" y="205" width="10" height="10"
-        fill={runners?.third ? "#08DDC8" : "url(#field-grad)"}
-        opacity={runners?.third ? 1 : 0.7}
-        transform="rotate(45 80 210)"
-      />
-      {runners?.third && (
-        <circle cx="80" cy="210" r="6" fill="#08DDC8" opacity="0.3">
-          <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
-        </circle>
-      )}
+      <rect x="75" y="205" width="10" height="10" fill="url(#field-grad)" opacity="0.7" transform="rotate(45 80 210)" />
+      <rect x="145" y="135" width="10" height="10" fill="url(#field-grad)" opacity="0.7" transform="rotate(45 150 140)" />
+      <rect x="215" y="205" width="10" height="10" fill="url(#field-grad)" opacity="0.7" transform="rotate(45 220 210)" />
 
       {/* Pitcher's mound */}
       <circle cx="150" cy="218" r="4" fill="none" stroke="url(#field-grad)" strokeWidth="1.5" opacity="0.5" />
 
       {/* Position labels */}
       {[
-        { x: 150, y: 212, label: "P" },
+        { x: 150, y: 226, label: "P" },
         { x: 150, y: 296, label: "C" },
-        { x: 215, y: 195, label: "1B" },
-        { x: 185, y: 163, label: "2B" },
-        { x: 85, y: 195, label: "3B" },
-        { x: 115, y: 163, label: "SS" },
+        { x: 235, y: 214, label: "1B" },
+        { x: 190, y: 178, label: "2B" },
+        { x: 65, y: 214, label: "3B" },
+        { x: 110, y: 178, label: "SS" },
         { x: 50, y: 155, label: "LF" },
-        { x: 115, y: 108, label: "LC" },
-        { x: 185, y: 108, label: "RC" },
+        { x: 150, y: 100, label: "CF" },
         { x: 250, y: 155, label: "RF" },
       ].map((pos) => (
         <text
@@ -153,7 +111,7 @@ export function SprayChart({
           y={pos.y}
           textAnchor="middle"
           fill="url(#field-grad)"
-          fontSize="8"
+          fontSize="11"
           fontWeight="bold"
           opacity="0.5"
         >
@@ -163,24 +121,14 @@ export function SprayChart({
 
       {/* Ghost markers — previous at-bats for this hitter */}
       {ghostMarkers.map((m, i) => (
-        <g key={`ghost-${i}`} opacity={interactive ? 0.2 : 0.7}>
-          {m.hitType && (
-            <TrajectoryPath
-              fromX={homeX}
-              fromY={homeY}
-              toX={m.x}
-              toY={m.y}
-              hitType={m.hitType}
-              ghost
-            />
-          )}
+        <g key={`ghost-${i}`} opacity="0.25">
           <circle
             cx={m.x}
             cy={m.y}
-            r="3.5"
+            r="5"
             fill={getResultColor(m.result)}
             stroke="#F7F7F7"
-            strokeWidth="0.75"
+            strokeWidth="1"
           />
         </g>
       ))}
@@ -210,26 +158,26 @@ export function SprayChart({
         />
       ))}
 
-      {/* Selected point — pulse animation with gradient */}
+      {/* Selected point — pulse animation */}
       {selectedPoint && (
         <>
           <circle
             cx={selectedPoint.x}
             cy={selectedPoint.y}
-            r="8"
-            fill="url(#dot-grad)"
+            r="12"
+            fill="#08DDC8"
             opacity="0.3"
           >
-            <animate attributeName="r" values="5;10;5" dur="1.5s" repeatCount="indefinite" />
+            <animate attributeName="r" values="8;14;8" dur="1.5s" repeatCount="indefinite" />
             <animate attributeName="opacity" values="0.4;0.1;0.4" dur="1.5s" repeatCount="indefinite" />
           </circle>
           <circle
             cx={selectedPoint.x}
             cy={selectedPoint.y}
-            r="5"
-            fill="url(#dot-grad)"
+            r="7"
+            fill="#08DDC8"
             stroke="#F7F7F7"
-            strokeWidth="1.5"
+            strokeWidth="2.5"
           />
         </>
       )}
@@ -253,14 +201,12 @@ function TrajectoryPath({
   toX,
   toY,
   hitType,
-  ghost = false,
 }: {
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
   hitType?: HitType | null;
-  ghost?: boolean;
 }) {
   const dx = toX - fromX;
   const dy = toY - fromY;
@@ -271,32 +217,14 @@ function TrajectoryPath({
   // Unit direction and perpendicular (for arc control points)
   const ux = dx / dist;
   const uy = dy / dist;
-  // Perpendicular — always points toward center of field (x=150)
-  // CCW perpendicular is (-uy, ux); flip it if the ball is hit to the right
-  // so the arc curves inward rather than outward
-  const midX = (fromX + toX) / 2;
-  const ccwX = -uy;
-  const ccwY = ux;
-  // Check if CCW perpendicular points toward center (x=150)
-  const towardCenter = (150 - midX) * ccwX;
-  const sign = towardCenter >= 0 ? 1 : -1;
-  const px = ccwX * sign;
-  const py = ccwY * sign;
+  // Perpendicular (rotated 90 degrees CCW) — points "up" relative to the trajectory
+  const px = -uy;
+  const py = ux;
 
   const color = "#08DDC8";
-  const strokeW = ghost ? 1 : 1.8;
-  const strokeOp = ghost ? 0.4 : 0.5;
-
-  // Straight line shadow behind all arc types (skip for ghost markers)
-  const shadowLine = ghost ? null : (
-    <line
-      x1={fromX} y1={fromY} x2={toX} y2={toY}
-      stroke="black" strokeWidth="1.6" opacity="0.25"
-    />
-  );
 
   if (!hitType) {
-    // Simple dashed line (no shadow needed, it IS the line)
+    // Simple dashed line
     return (
       <line
         x1={fromX} y1={fromY} x2={toX} y2={toY}
@@ -330,7 +258,7 @@ function TrajectoryPath({
     }
 
     return (
-      <>{shadowLine}<path d={d} fill="none" stroke={color} strokeWidth={strokeW} opacity={strokeOp} /></>
+      <path d={d} fill="none" stroke={color} strokeWidth="1.8" opacity="0.5" />
     );
   }
 
@@ -342,10 +270,10 @@ function TrajectoryPath({
     const cy = fromY + dy * peakT + py * arcHeight;
 
     return (
-      <>{shadowLine}<path
+      <path
         d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
-        fill="none" stroke={color} strokeWidth={strokeW} opacity={strokeOp}
-      /></>
+        fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
+      />
     );
   }
 
@@ -357,25 +285,25 @@ function TrajectoryPath({
     const cy = fromY + dy * peakT + py * arcHeight;
 
     return (
-      <>{shadowLine}<path
+      <path
         d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
-        fill="none" stroke={color} strokeWidth={strokeW} opacity={strokeOp}
-      /></>
+        fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
+      />
     );
   }
 
   if (hitType === "PU") {
-    // Pop up: exaggerated high arc, peaks at ~65% (closer to landing spot)
-    const peakT = 0.65;
+    // Pop up: exaggerated high arc, peaks at ~35% with extreme height
+    const peakT = 0.35;
     const arcHeight = dist * 0.55;
     const cx = fromX + dx * peakT + px * arcHeight;
     const cy = fromY + dy * peakT + py * arcHeight;
 
     return (
-      <>{shadowLine}<path
+      <path
         d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
-        fill="none" stroke={color} strokeWidth={strokeW} opacity={strokeOp}
-      /></>
+        fill="none" stroke={color} strokeWidth="1.8" opacity="0.5"
+      />
     );
   }
 

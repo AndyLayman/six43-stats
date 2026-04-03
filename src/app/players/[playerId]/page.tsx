@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatAvg } from "@/lib/stats/calculations";
 import { SprayChart } from "@/components/scoring/SprayChart";
 import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType } from "@/lib/scoring/types";
-
-type SprayFilter = "both" | "hits" | "outs";
 
 export default function PlayerDetailPage() {
   const params = useParams();
@@ -23,7 +20,6 @@ export default function PlayerDetailPage() {
   const [allPAs, setAllPAs] = useState<PlateAppearance[]>([]);
   const [gameLog, setGameLog] = useState<{ game_id: string; date: string; opponent: string; appearances: PlateAppearance[] }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sprayFilter, setSprayFilter] = useState<SprayFilter>("both");
 
   useEffect(() => {
     async function load() {
@@ -70,31 +66,13 @@ export default function PlayerDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/players" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-        All Players
-      </Link>
       <div className="flex items-center gap-4">
-        {player.photo_file ? (
-          <Image
-            src={supabase.storage.from("media").getPublicUrl(`player-${player.id}-photo`).data.publicUrl}
-            alt={player.name}
-            width={64}
-            height={64}
-            className="h-16 w-16 rounded-full object-cover border border-primary/30"
-          />
-        ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 font-bold text-2xl border border-primary/30 text-gradient-bright">
-            {player.number}
-          </div>
-        )}
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 font-bold text-2xl border border-primary/30 text-gradient-bright">
+          {player.number}
+        </div>
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-gradient">{player.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {player.bats || player.throws
-              ? `Bats: ${player.bats ?? "—"}, Throws: ${player.throws ?? "—"}`
-              : `#${player.number}`}
-          </p>
+          <p className="text-muted-foreground">#{player.number}</p>
         </div>
       </div>
 
@@ -123,62 +101,19 @@ export default function PlayerDetailPage() {
       {(() => {
         const sprayPAs = allPAs.filter((pa) => pa.spray_x != null && pa.spray_y != null);
         if (sprayPAs.length === 0) return null;
-
-        const filtered = sprayPAs.filter((pa) => {
-          if (sprayFilter === "hits") return pa.is_hit;
-          if (sprayFilter === "outs") return !pa.is_hit;
-          return true;
-        });
-
-        const ghostMarkers = filtered.map((pa) => ({
+        const markers = sprayPAs.map((pa) => ({
           x: pa.spray_x!,
           y: pa.spray_y!,
           result: pa.result as PlateAppearanceResult,
-          hitType: pa.hit_type as HitType | null,
         }));
-
         return (
           <Card className="glass border-border/50">
-            <CardHeader className="px-3 sm:px-6 flex flex-row items-center justify-between">
+            <CardHeader className="px-3 sm:px-6">
               <CardTitle className="text-gradient">Spray Chart</CardTitle>
-              <div className="flex rounded-lg overflow-hidden border border-border/50">
-                {([
-                  { value: "both", label: "Both" },
-                  { value: "hits", label: "Hits" },
-                  { value: "outs", label: "Outs" },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setSprayFilter(opt.value)}
-                    className={`px-3 py-1 text-xs font-medium transition-colors ${
-                      sprayFilter === opt.value
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
             </CardHeader>
             <CardContent className="px-1 pt-1 pb-3">
               <div className="max-w-md mx-auto">
-                <SprayChart ghostMarkers={ghostMarkers} interactive={false} />
-              </div>
-              <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2 px-3">
-                {[
-                  { label: "1B", color: "#22c55e" },
-                  { label: "2B", color: "#3b82f6" },
-                  { label: "3B", color: "#f59e0b" },
-                  { label: "HR", color: "#ef4444" },
-                  { label: "Out", color: "#9ca3af" },
-                  { label: "Error", color: "#f97316" },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-1.5">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-xs text-muted-foreground">{item.label}</span>
-                  </div>
-                ))}
+                <SprayChart markers={markers} interactive={false} />
               </div>
             </CardContent>
           </Card>
