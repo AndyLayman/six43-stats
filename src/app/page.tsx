@@ -49,11 +49,12 @@ export default function Dashboard() {
 
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4 stagger-children">
         {[
-          { label: "Players", value: players.length },
-          { label: "Games Played", value: games.filter((g) => g.status === "final").length },
+          { label: "Players", value: players.length, href: "/players" },
+          { label: "Games Played", value: games.filter((g) => g.status === "final").length, href: "/games" },
           {
             label: "Record",
             value: `${games.filter((g) => g.status === "final" && g.our_score > g.opponent_score).length}-${games.filter((g) => g.status === "final" && g.our_score < g.opponent_score).length}`,
+            href: "/games",
           },
           {
             label: "Team AVG",
@@ -63,25 +64,28 @@ export default function Dashboard() {
                     .toFixed(3)
                     .replace(/^0/, "")
                 : "---",
+            href: "/leaderboard",
           },
         ].map((stat) => (
-          <Card key={stat.label} className="card-hover glass gradient-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                {stat.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{stat.value}</div>
-            </CardContent>
-          </Card>
+          <Link key={stat.label} href={stat.href}>
+            <Card className="card-hover glass gradient-border h-full">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  {stat.label}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{stat.value}</div>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="glass border-border/50">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-gradient">Recent Games</CardTitle>
+            <Link href="/games" className="text-lg font-bold text-gradient hover:opacity-80 transition-opacity">Recent Games</Link>
           </CardHeader>
           <CardContent>
             {games.length === 0 ? (
@@ -122,7 +126,7 @@ export default function Dashboard() {
 
         <Card className="glass border-border/50">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-gradient">Batting Leaders</CardTitle>
+            <Link href="/leaderboard" className="text-lg font-bold text-gradient hover:opacity-80 transition-opacity">Batting Leaders</Link>
           </CardHeader>
           <CardContent>
             {battingStats.length === 0 ? (
@@ -130,12 +134,16 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3 stagger-children">
                 {battingStats.map((stat, i) => (
-                  <div key={stat.player_id} className="flex items-center justify-between">
+                  <Link
+                    key={stat.player_id}
+                    href={`/players/${stat.player_id}`}
+                    className="flex items-center justify-between rounded-xl p-2 -mx-2 hover:bg-accent transition-colors group"
+                  >
                     <div className="flex items-center gap-3">
                       <span className={`text-sm font-bold w-5 ${i === 0 ? "text-primary" : "text-muted-foreground"}`}>
                         {i + 1}
                       </span>
-                      <span className="font-semibold">{stat.player_name}</span>
+                      <span className="font-semibold group-hover:text-primary transition-colors">{stat.player_name}</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm tabular-nums">
                       <span className="text-gradient-bright font-semibold">
@@ -144,7 +152,7 @@ export default function Dashboard() {
                       <span className="text-muted-foreground">{stat.hits} H</span>
                       <span className="text-muted-foreground">{stat.rbis} RBI</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
