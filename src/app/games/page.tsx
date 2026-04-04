@@ -15,7 +15,24 @@ export default function GamesPage() {
   useEffect(() => {
     async function load() {
       const { data } = await supabase.from("games").select("*").order("date", { ascending: false });
-      setGames(data ?? []);
+      const sorted = (data ?? []).sort((a, b) => {
+        // Scheduled games first, sorted by closest date ascending
+        const aScheduled = a.status === "scheduled" ? 0 : 1;
+        const bScheduled = b.status === "scheduled" ? 0 : 1;
+        if (aScheduled !== bScheduled) return aScheduled - bScheduled;
+        // Scheduled: closest date first (ascending)
+        if (a.status === "scheduled" && b.status === "scheduled") {
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        }
+        // In-progress before final
+        const statusOrder: Record<string, number> = { in_progress: 0, final: 1 };
+        const aOrder = statusOrder[a.status] ?? 2;
+        const bOrder = statusOrder[b.status] ?? 2;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        // Otherwise most recent first
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+      setGames(sorted);
       setLoading(false);
     }
     load();
