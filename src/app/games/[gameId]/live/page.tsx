@@ -74,6 +74,7 @@ export default function LiveScoringPage() {
   const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult; hitType: HitType | null }[]>([]);
   const [inningPositions, setInningPositions] = useState<{ player_id: number; position: string }[]>([]);
   const [opponentName, setOpponentName] = useState<string>("Them");
+  const [hitProbability, setHitProbability] = useState<number | null>(null);
   const [ourTeamName, setOurTeamName] = useState<string>("Padres");
   const [gameLocation, setGameLocation] = useState<"home" | "away">("home");
   const [showPregame, setShowPregame] = useState(false);
@@ -511,6 +512,58 @@ export default function LiveScoringPage() {
     fetchHistory();
   }, [activeBatter?.playerId, activeBatter?.opponentBatterId]);
 
+  // Compute hit probability for the current batter
+  useEffect(() => {
+    if (!activeBatter) { setHitProbability(null); return; }
+    async function computeProbability() {
+      let query = supabase
+        .from("plate_appearances")
+        .select("result")
+        .order("created_at", { ascending: false });
+
+      if (activeBatter!.playerId) {
+        query = query.eq("player_id", activeBatter!.playerId);
+      } else if (activeBatter!.opponentBatterId) {
+        query = query.eq("opponent_batter_id", activeBatter!.opponentBatterId);
+      } else {
+        setHitProbability(null);
+        return;
+      }
+
+      const { data: allPAs } = await query;
+      if (!allPAs || allPAs.length === 0) {
+        setHitProbability(null);
+        return;
+      }
+
+      const hits = ["1B", "2B", "3B", "HR"];
+      const atBatResults = allPAs.filter((pa) => !["BB", "HBP", "SAC"].includes(pa.result));
+      if (atBatResults.length === 0) { setHitProbability(null); return; }
+
+      // Season batting average
+      const seasonHits = atBatResults.filter((pa) => hits.includes(pa.result)).length;
+      const seasonAvg = seasonHits / atBatResults.length;
+
+      // Recent form (last 10 ABs) — weighted heavier
+      const recent = atBatResults.slice(0, 10);
+      const recentHits = recent.filter((pa) => hits.includes(pa.result)).length;
+      const recentAvg = recent.length >= 3 ? recentHits / recent.length : seasonAvg;
+
+      // Blend: 40% season, 60% recent (recent form matters more in small samples)
+      const blended = atBatResults.length < 10
+        ? seasonAvg
+        : seasonAvg * 0.4 + recentAvg * 0.6;
+
+      // Situational boost: runners in scoring position adds a small bump
+      const risp = gameState?.runnerSecond || gameState?.runnerThird;
+      const situational = risp ? 0.03 : 0;
+
+      const prob = Math.min(Math.max(blended + situational, 0), 1);
+      setHitProbability(Math.round(prob * 100));
+    }
+    computeProbability();
+  }, [activeBatter?.playerId, activeBatter?.opponentBatterId, gameState?.runnerSecond, gameState?.runnerThird]);
+
   // Load lineup_assignments for the current inning (who plays what position)
   useEffect(() => {
     if (!gameState) return;
@@ -868,6 +921,25 @@ export default function LiveScoringPage() {
             <div className="text-center">
               <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Now Batting</div>
               <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
+              {hitProbability !== null && (
+                <div className="mt-1 flex items-center justify-center gap-1.5">
+                  <div className="h-1.5 w-20 rounded-full bg-muted/50 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${hitProbability}%`,
+                        backgroundColor: hitProbability >= 40 ? "#83DD68" : hitProbability >= 25 ? "#08DDC8" : "#FF6161",
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs font-bold tabular-nums" style={{
+                    color: hitProbability >= 40 ? "#83DD68" : hitProbability >= 25 ? "#08DDC8" : "#FF6161",
+                  }}>
+                    {hitProbability}%
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">hit</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
