@@ -78,6 +78,8 @@ export default function LiveScoringPage() {
   const [ourTeamName, setOurTeamName] = useState<string>("Padres");
   const [gameLocation, setGameLocation] = useState<"home" | "away">("home");
   const [showPregame, setShowPregame] = useState(false);
+  const [showEndGame, setShowEndGame] = useState(false);
+  const [gameNotes, setGameNotes] = useState("");
   const [gameDate, setGameDate] = useState<string>("");
 
   // Wake Lock to prevent screen sleep during scoring
@@ -459,13 +461,19 @@ export default function LiveScoringPage() {
     persistState(newState);
   }
 
-  async function handleEndGame() {
+  function handleEndGame() {
+    if (!gameState) return;
+    setShowEndGame(true);
+  }
+
+  async function handleFinalizeGame() {
     if (!gameState) return;
     await supabase.from("games").update({
       status: "final",
       our_score: gameState.ourScore,
       opponent_score: gameState.opponentScore,
       innings_played: gameState.currentHalf === "top" ? gameState.currentInning - 1 : gameState.currentInning,
+      notes: gameNotes.trim() || null,
     }).eq("id", gameId);
     router.push(`/games/${gameId}`);
   }
@@ -707,6 +715,69 @@ export default function LiveScoringPage() {
         >
           Start Game
         </Button>
+      </div>
+    );
+  }
+
+  if (showEndGame && gameState) {
+    const innings = gameState.currentHalf === "top" ? gameState.currentInning - 1 : gameState.currentInning;
+    const weWon = gameState.ourScore > gameState.opponentScore;
+    const tied = gameState.ourScore === gameState.opponentScore;
+    return (
+      <div className="space-y-4 max-w-lg mx-auto pb-24">
+        <h1 className="text-2xl font-extrabold tracking-tight text-gradient text-center">Game Over</h1>
+
+        {/* Final Score */}
+        <Card className="glass-strong gradient-border glow-primary">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-center gap-6">
+              <div className="text-center">
+                <div className="text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.ourScore}</div>
+                <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">{ourTeamName}</div>
+              </div>
+              <div className="text-2xl font-extrabold text-muted-foreground">-</div>
+              <div className="text-center">
+                <div className="text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.opponentScore}</div>
+                <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">{opponentName}</div>
+              </div>
+            </div>
+            <div className="text-center mt-2 text-sm text-muted-foreground">
+              {innings} inning{innings !== 1 ? "s" : ""} {tied ? "• Tied" : weWon ? "• Win" : "• Loss"}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Game Notes */}
+        <Card className="glass">
+          <CardContent className="p-4 space-y-2">
+            <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium">Game Notes</div>
+            <textarea
+              value={gameNotes}
+              onChange={(e) => setGameNotes(e.target.value)}
+              placeholder="Key plays, highlights, things to work on..."
+              rows={4}
+              className="w-full rounded-xl border-2 border-border/50 bg-muted/30 px-3 py-2.5 text-sm font-medium placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors resize-none"
+              autoFocus
+            />
+          </CardContent>
+        </Card>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            className="flex-1 h-12 text-base font-bold border-border/50"
+            onClick={() => setShowEndGame(false)}
+          >
+            Back
+          </Button>
+          <Button
+            className="flex-1 h-12 text-base font-bold glow-primary active:scale-[0.98] transition-transform"
+            onClick={handleFinalizeGame}
+          >
+            Save &amp; Finish
+          </Button>
+        </div>
       </div>
     );
   }

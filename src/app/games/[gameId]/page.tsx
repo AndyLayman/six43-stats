@@ -115,6 +115,16 @@ export default function GameDetailPage() {
         </Card>
       )}
 
+      {/* Game Notes */}
+      {game.notes && (
+        <Card className="glass">
+          <CardContent className="p-4">
+            <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Notes</div>
+            <div className="text-sm whitespace-pre-wrap">{game.notes}</div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Box Score — Our Team */}
       {lineup.length > 0 && (
         <Card className="glass border-border/50">
