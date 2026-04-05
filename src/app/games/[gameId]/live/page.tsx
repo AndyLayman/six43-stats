@@ -68,6 +68,8 @@ export default function LiveScoringPage() {
   const [loading, setLoading] = useState(true);
   const [playLog, setPlayLog] = useState<{ notation: string; playerName: string; inning: number; team: "us" | "them" }[]>([]);
   const [newOpponentName, setNewOpponentName] = useState("");
+  const [pitchCount, setPitchCount] = useState<{ balls: number; strikes: number }>({ balls: 0, strikes: 0 });
+  const [errorPosition, setErrorPosition] = useState<number | null>(null);
   const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult; hitType: HitType | null }[]>([]);
   const [inningPositions, setInningPositions] = useState<{ player_id: number; position: string }[]>([]);
 
@@ -283,6 +285,8 @@ export default function LiveScoringPage() {
     setNotationOverride(null);
     setRunnerAdvanceOverrides(null);
     setRbis(0);
+    setPitchCount({ balls: 0, strikes: 0 });
+    setErrorPosition(null);
 
     // Persist to DB in background
     void supabase.from("plate_appearances").insert({
@@ -322,6 +326,20 @@ export default function LiveScoringPage() {
           };
         })
         .filter((row): row is NonNullable<typeof row> => row !== null);
+
+      // If result is E and a position was selected, record the error fielding play
+      if (selectedResult === "E" && errorPosition) {
+        const errorPlayerId = resolvePositionToPlayerId(errorPosition, gameState.lineup, gameState.players, inningPositions);
+        if (errorPlayerId) {
+          fieldingRows.push({
+            game_id: gameId,
+            player_id: errorPlayerId,
+            inning: gameState.currentInning,
+            play_type: "E",
+            description: `E${errorPosition}`,
+          });
+        }
+      }
 
       if (fieldingRows.length > 0) {
         void supabase.from("fielding_plays").insert(fieldingRows).then();
@@ -774,6 +792,73 @@ export default function LiveScoringPage() {
       {/* At-bat flow — shared for both halves */}
       {activeBatter && (
         <>
+          {/* Pitch counter */}
+          <Card className="glass">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-extrabold tabular-nums text-gradient-bright">{pitchCount.balls}-{pitchCount.strikes}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">Count</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {[0, 1, 2, 3].map((i) => (
+                      <div key={`b-${i}`} className={`w-3 h-3 rounded-full border-2 transition-colors ${i < pitchCount.balls ? "bg-[#83DD68] border-[#83DD68]" : "bg-transparent border-muted-foreground/30"}`} />
+                    ))}
+                    <span className="text-[10px] text-muted-foreground ml-0.5">B</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {[0, 1, 2].map((i) => (
+                      <div key={`s-${i}`} className={`w-3 h-3 rounded-full border-2 transition-colors ${i < pitchCount.strikes ? "bg-[#FF6161] border-[#FF6161]" : "bg-transparent border-muted-foreground/30"}`} />
+                    ))}
+                    <span className="text-[10px] text-muted-foreground ml-0.5">S</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="h-11 w-16 rounded-xl text-sm font-bold border-2 border-[#83DD68]/30 bg-[#83DD68]/10 text-[#83DD68] active:scale-95 transition-all select-none"
+                    onClick={() => {
+                      const newBalls = pitchCount.balls + 1;
+                      if (newBalls >= 4) {
+                        setSelectedResult("BB");
+                        setPitchCount({ balls: 4, strikes: pitchCount.strikes });
+                      } else {
+                        setPitchCount({ ...pitchCount, balls: newBalls });
+                      }
+                    }}
+                  >
+                    Ball
+                  </button>
+                  <button
+                    className="h-11 w-16 rounded-xl text-sm font-bold border-2 border-[#FF6161]/30 bg-[#FF6161]/10 text-[#FF6161] active:scale-95 transition-all select-none"
+                    onClick={() => {
+                      const newStrikes = pitchCount.strikes + 1;
+                      if (newStrikes >= 3) {
+                        setSelectedResult("SO");
+                        setPitchCount({ balls: pitchCount.balls, strikes: 3 });
+                      } else {
+                        setPitchCount({ ...pitchCount, strikes: newStrikes });
+                      }
+                    }}
+                  >
+                    Strike
+                  </button>
+                  <button
+                    className="h-11 w-10 rounded-xl text-xs font-bold border-2 border-border/30 text-muted-foreground active:scale-95 transition-all select-none"
+                    onClick={() => {
+                      if (pitchCount.strikes < 2) {
+                        setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 });
+                      }
+                      // Foul with 2 strikes doesn't add a strike
+                    }}
+                  >
+                    Foul
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Spray chart + hit type */}
           <Card className="glass">
             <CardContent className="px-1 pt-1 pb-3 space-y-3">
@@ -860,6 +945,45 @@ export default function LiveScoringPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Error attribution — pick which fielder committed the error */}
+          {selectedResult === "E" && isOpponentBatting && gameState.lineup.length > 0 && (
+            <Card className="glass animate-slide-up border-[#f97316]/20">
+              <CardContent className="p-3 sm:p-4 space-y-2">
+                <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium">Who committed the error?</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { pos: 1, label: "P" },
+                    { pos: 2, label: "C" },
+                    { pos: 3, label: "1B" },
+                    { pos: 4, label: "2B" },
+                    { pos: 5, label: "3B" },
+                    { pos: 6, label: "SS" },
+                    { pos: 7, label: "LF" },
+                    { pos: 8, label: "CF" },
+                    { pos: 9, label: "RF" },
+                  ].map(({ pos, label }) => {
+                    const playerId = resolvePositionToPlayerId(pos, gameState.lineup, gameState.players, inningPositions);
+                    const player = playerId ? gameState.players.find((p) => p.id === playerId) : null;
+                    return (
+                      <button
+                        key={pos}
+                        className={`h-12 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none ${
+                          errorPosition === pos
+                            ? "bg-[#f97316] text-white border-transparent shadow-lg"
+                            : "bg-muted/30 text-foreground border-border/50 hover:bg-accent hover:border-border"
+                        }`}
+                        onClick={() => setErrorPosition(errorPosition === pos ? null : pos)}
+                      >
+                        <div>{label}</div>
+                        {player && <div className="text-[10px] opacity-70 truncate px-1">#{player.number}</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* RBIs — only when runs can plausibly score */}
           {selectedResult && selectedResult !== "SO" && selectedResult !== "DP" && (selectedResult === "HR" || gameState.runnerFirst || gameState.runnerSecond || gameState.runnerThird) && (
