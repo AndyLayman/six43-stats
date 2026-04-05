@@ -69,7 +69,7 @@ export default function LiveScoringPage() {
   const [playLog, setPlayLog] = useState<{ notation: string; playerName: string; inning: number; team: "us" | "them" }[]>([]);
   const [newOpponentName, setNewOpponentName] = useState("");
   const [pitchCount, setPitchCount] = useState<{ balls: number; strikes: number }>({ balls: 0, strikes: 0 });
-  const [errorPosition, setErrorPosition] = useState<number | null>(null);
+  const [errorPosition, setErrorPosition] = useState<{ pos: number; cf?: "LC" | "RC"; key: string } | null>(null);
   const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult; hitType: HitType | null }[]>([]);
   const [inningPositions, setInningPositions] = useState<{ player_id: number; position: string }[]>([]);
 
@@ -329,14 +329,14 @@ export default function LiveScoringPage() {
 
       // If result is E and a position was selected, record the error fielding play
       if (selectedResult === "E" && errorPosition) {
-        const errorPlayerId = resolvePositionToPlayerId(errorPosition, gameState.lineup, gameState.players, inningPositions);
+        const errorPlayerId = resolvePositionToPlayerId(errorPosition.pos, gameState.lineup, gameState.players, inningPositions, errorPosition.cf);
         if (errorPlayerId) {
           fieldingRows.push({
             game_id: gameId,
             player_id: errorPlayerId,
             inning: gameState.currentInning,
             play_type: "E",
-            description: `E${errorPosition}`,
+            description: `E${errorPosition.key}`,
           });
         }
       }
@@ -801,15 +801,15 @@ export default function LiveScoringPage() {
                     <div className="text-3xl font-extrabold tabular-nums text-gradient-bright">{pitchCount.balls}-{pitchCount.strikes}</div>
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">Count</div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {[0, 1, 2, 3].map((i) => (
-                      <div key={`b-${i}`} className={`w-3 h-3 rounded-full border-2 transition-colors ${i < pitchCount.balls ? "bg-[#83DD68] border-[#83DD68]" : "bg-transparent border-muted-foreground/30"}`} />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {Array.from({ length: pitchCount.balls }).map((_, i) => (
+                      <div key={`b-${i}`} className="w-3 h-3 rounded-full bg-[#83DD68] border-2 border-[#83DD68]" />
                     ))}
                     <span className="text-[10px] text-muted-foreground ml-0.5">B</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {[0, 1, 2].map((i) => (
-                      <div key={`s-${i}`} className={`w-3 h-3 rounded-full border-2 transition-colors ${i < pitchCount.strikes ? "bg-[#FF6161] border-[#FF6161]" : "bg-transparent border-muted-foreground/30"}`} />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {Array.from({ length: pitchCount.strikes }).map((_, i) => (
+                      <div key={`s-${i}`} className="w-3 h-3 rounded-full bg-[#FF6161] border-2 border-[#FF6161]" />
                     ))}
                     <span className="text-[10px] text-muted-foreground ml-0.5">S</span>
                   </div>
@@ -818,13 +818,7 @@ export default function LiveScoringPage() {
                   <button
                     className="h-11 w-16 rounded-xl text-sm font-bold border-2 border-[#83DD68]/30 bg-[#83DD68]/10 text-[#83DD68] active:scale-95 transition-all select-none"
                     onClick={() => {
-                      const newBalls = pitchCount.balls + 1;
-                      if (newBalls >= 4) {
-                        setSelectedResult("BB");
-                        setPitchCount({ balls: 4, strikes: pitchCount.strikes });
-                      } else {
-                        setPitchCount({ ...pitchCount, balls: newBalls });
-                      }
+                      setPitchCount({ ...pitchCount, balls: pitchCount.balls + 1 });
                     }}
                   >
                     Ball
@@ -832,13 +826,7 @@ export default function LiveScoringPage() {
                   <button
                     className="h-11 w-16 rounded-xl text-sm font-bold border-2 border-[#FF6161]/30 bg-[#FF6161]/10 text-[#FF6161] active:scale-95 transition-all select-none"
                     onClick={() => {
-                      const newStrikes = pitchCount.strikes + 1;
-                      if (newStrikes >= 3) {
-                        setSelectedResult("SO");
-                        setPitchCount({ balls: pitchCount.balls, strikes: 3 });
-                      } else {
-                        setPitchCount({ ...pitchCount, strikes: newStrikes });
-                      }
+                      setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 });
                     }}
                   >
                     Strike
@@ -846,10 +834,7 @@ export default function LiveScoringPage() {
                   <button
                     className="h-11 w-10 rounded-xl text-xs font-bold border-2 border-border/30 text-muted-foreground active:scale-95 transition-all select-none"
                     onClick={() => {
-                      if (pitchCount.strikes < 2) {
-                        setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 });
-                      }
-                      // Foul with 2 strikes doesn't add a strike
+                      setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 });
                     }}
                   >
                     Foul
@@ -951,7 +936,7 @@ export default function LiveScoringPage() {
             <Card className="glass animate-slide-up border-[#f97316]/20">
               <CardContent className="p-3 sm:p-4 space-y-2">
                 <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium">Who committed the error?</div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-5 gap-2">
                   {[
                     { pos: 1, label: "P" },
                     { pos: 2, label: "C" },
@@ -960,20 +945,22 @@ export default function LiveScoringPage() {
                     { pos: 5, label: "3B" },
                     { pos: 6, label: "SS" },
                     { pos: 7, label: "LF" },
-                    { pos: 8, label: "CF" },
+                    { pos: 8, label: "LC", cf: "LC" as const },
+                    { pos: 8, label: "RC", cf: "RC" as const },
                     { pos: 9, label: "RF" },
-                  ].map(({ pos, label }) => {
-                    const playerId = resolvePositionToPlayerId(pos, gameState.lineup, gameState.players, inningPositions);
+                  ].map(({ pos, label, cf }) => {
+                    const posKey = cf ? `${pos}-${cf}` : `${pos}`;
+                    const playerId = resolvePositionToPlayerId(pos, gameState.lineup, gameState.players, inningPositions, cf);
                     const player = playerId ? gameState.players.find((p) => p.id === playerId) : null;
                     return (
                       <button
-                        key={pos}
+                        key={posKey}
                         className={`h-12 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none ${
-                          errorPosition === pos
+                          errorPosition?.key === posKey
                             ? "bg-[#f97316] text-white border-transparent shadow-lg"
                             : "bg-muted/30 text-foreground border-border/50 hover:bg-accent hover:border-border"
                         }`}
-                        onClick={() => setErrorPosition(errorPosition === pos ? null : pos)}
+                        onClick={() => setErrorPosition(errorPosition?.key === posKey ? null : { pos, cf, key: label })}
                       >
                         <div>{label}</div>
                         {player && <div className="text-[10px] opacity-70 truncate px-1">#{player.number}</div>}
