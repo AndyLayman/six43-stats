@@ -1,19 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { MobileNav } from "@/components/mobile-nav";
 import { LiveGameTicker } from "@/components/live-game-ticker";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "BaseballStats",
@@ -31,7 +20,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0f1117",
+  themeColor: "#0A0A0A",
 };
 
 const NAV_LINKS = [
@@ -49,8 +38,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className="h-full antialiased dark"
     >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+      </head>
       <body className="min-h-full flex flex-col">
         {/* Animated mesh gradient background */}
         <div aria-hidden className="ambient-bg-mesh">
@@ -67,9 +61,9 @@ export default function RootLayout({
                 <svg viewBox="0 0 24 24" className="h-7 w-7 transition-transform group-hover:scale-110" fill="none" strokeWidth="1.5">
                   <defs>
                     <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="oklch(0.75 0.17 165)" />
-                      <stop offset="50%" stopColor="oklch(0.72 0.14 220)" />
-                      <stop offset="100%" stopColor="oklch(0.70 0.12 280)" />
+                      <stop offset="0%" stopColor="#08DDC8" />
+                      <stop offset="50%" stopColor="#83DD68" />
+                      <stop offset="100%" stopColor="#CF59F3" />
                     </linearGradient>
                   </defs>
                   <circle cx="12" cy="12" r="10.5" stroke="url(#logo-grad)" />

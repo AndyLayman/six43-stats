@@ -103,27 +103,27 @@ export function LiveGameTicker() {
       <div className="flex items-center gap-1">
         <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0">
           {/* Diamond lines */}
-          <line x1="12" y1="20" x2="4" y2="12" stroke="oklch(0.45 0.01 260)" strokeWidth="1" />
-          <line x1="4" y1="12" x2="12" y2="4" stroke="oklch(0.45 0.01 260)" strokeWidth="1" />
-          <line x1="12" y1="4" x2="20" y2="12" stroke="oklch(0.45 0.01 260)" strokeWidth="1" />
-          <line x1="20" y1="12" x2="12" y2="20" stroke="oklch(0.45 0.01 260)" strokeWidth="1" />
+          <line x1="12" y1="20" x2="4" y2="12" stroke="#3A3A3A" strokeWidth="1" />
+          <line x1="4" y1="12" x2="12" y2="4" stroke="#3A3A3A" strokeWidth="1" />
+          <line x1="12" y1="4" x2="20" y2="12" stroke="#3A3A3A" strokeWidth="1" />
+          <line x1="20" y1="12" x2="12" y2="20" stroke="#3A3A3A" strokeWidth="1" />
           {/* Bases */}
           <rect x="10.5" y="18.5" width="3" height="3" rx="0.5"
-            fill="oklch(0.25 0.01 260)" stroke="oklch(0.45 0.01 260)" strokeWidth="0.5"
+            fill="#141414" stroke="#3A3A3A" strokeWidth="0.5"
             transform="rotate(45 12 20)" />
           <rect x="2.5" y="10.5" width="3" height="3" rx="0.5"
-            fill={game.runnerThird ? "oklch(0.72 0.19 160)" : "oklch(0.25 0.01 260)"}
-            stroke={game.runnerThird ? "oklch(0.72 0.19 160)" : "oklch(0.45 0.01 260)"}
+            fill={game.runnerThird ? "#08DDC8" : "#141414"}
+            stroke={game.runnerThird ? "#08DDC8" : "#3A3A3A"}
             strokeWidth="0.5"
             transform="rotate(45 4 12)" />
           <rect x="10.5" y="2.5" width="3" height="3" rx="0.5"
-            fill={game.runnerSecond ? "oklch(0.72 0.19 160)" : "oklch(0.25 0.01 260)"}
-            stroke={game.runnerSecond ? "oklch(0.72 0.19 160)" : "oklch(0.45 0.01 260)"}
+            fill={game.runnerSecond ? "#08DDC8" : "#141414"}
+            stroke={game.runnerSecond ? "#08DDC8" : "#3A3A3A"}
             strokeWidth="0.5"
             transform="rotate(45 12 4)" />
           <rect x="18.5" y="10.5" width="3" height="3" rx="0.5"
-            fill={game.runnerFirst ? "oklch(0.72 0.19 160)" : "oklch(0.25 0.01 260)"}
-            stroke={game.runnerFirst ? "oklch(0.72 0.19 160)" : "oklch(0.45 0.01 260)"}
+            fill={game.runnerFirst ? "#08DDC8" : "#141414"}
+            stroke={game.runnerFirst ? "#08DDC8" : "#3A3A3A"}
             strokeWidth="0.5"
             transform="rotate(45 20 12)" />
         </svg>

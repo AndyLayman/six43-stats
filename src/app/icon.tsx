@@ -16,9 +16,9 @@ export default function Icon() {
       >
         <defs>
           <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#34d399" />
-            <stop offset="50%" stopColor="#60a5fa" />
-            <stop offset="100%" stopColor="#a78bfa" />
+            <stop offset="0%" stopColor="#08DDC8" />
+            <stop offset="50%" stopColor="#83DD68" />
+            <stop offset="100%" stopColor="#CF59F3" />
           </linearGradient>
         </defs>
         <circle cx="12" cy="12" r="10.5" stroke="url(#g)" />

@@ -354,20 +354,20 @@ export function resolvePositionToPlayerId(
 // Get a color for spray chart markers based on result
 export function getResultColor(result: PlateAppearanceResult): string {
   switch (result) {
-    case "1B": return "#22c55e"; // green
-    case "2B": return "#3b82f6"; // blue
+    case "1B": return "#83DD68"; // green (design system)
+    case "2B": return "#08DDC8"; // teal (design system)
     case "3B": return "#f59e0b"; // amber
-    case "HR": return "#ef4444"; // red
+    case "HR": return "#FF6161"; // danger (design system)
     case "BB":
-    case "HBP": return "#8b5cf6"; // purple
-    case "SO": return "#6b7280"; // gray
+    case "HBP": return "#CF59F3"; // purple (design system)
+    case "SO": return "#5A5A5A"; // gray-600 (design system)
     case "GO":
     case "FO":
     case "FC":
     case "DP":
-    case "SAC": return "#9ca3af"; // light gray
+    case "SAC": return "#8A8A8A"; // gray-400 (design system)
     case "E":
     case "ROE": return "#f97316"; // orange
-    default: return "#6b7280";
+    default: return "#5A5A5A";
   }
 }

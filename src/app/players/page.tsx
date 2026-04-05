@@ -172,7 +172,7 @@ export default function PlayersPage() {
         <h1 className="text-3xl font-extrabold tracking-tight text-gradient">Players</h1>
         <Button
           onClick={() => setShowOrder(true)}
-          className="bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 text-white font-semibold"
+          className="bg-gradient-to-r from-[#08DDC8] via-[#83DD68] to-[#CF59F3] text-white font-semibold"
         >
           Optimized Order
         </Button>
@@ -189,7 +189,7 @@ export default function PlayersPage() {
             <div className="space-y-2">
               {optimizedOrder.map((p, i) => (
                 <div key={p.id} className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 via-blue-500 to-purple-500 font-bold text-white text-sm shrink-0">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#08DDC8] via-[#83DD68] to-[#CF59F3] font-bold text-white text-sm shrink-0">
                     {i + 1}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -224,7 +224,7 @@ export default function PlayersPage() {
             <Table className="[&_td]:py-3">
               <TableHeader>
                 <TableRow className="border-border/50">
-                  <TableHead className="sticky left-0 z-10 bg-zinc-950 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)] text-center w-10 px-2">#</TableHead>
+                  <TableHead className="sticky left-0 z-10 bg-[#0A0A0A] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)] text-center w-10 px-2">#</TableHead>
                   <TableHead className="whitespace-nowrap">Name</TableHead>
                   <TableHead className="text-center whitespace-nowrap">AVG</TableHead>
                   <TableHead className="text-center whitespace-nowrap">G</TableHead>
@@ -247,7 +247,7 @@ export default function PlayersPage() {
               <TableBody>
                 {players.map((p) => (
                   <TableRow key={p.id} className="border-border/30 hover:bg-accent/30 transition-colors">
-                    <TableCell className="sticky left-0 z-10 bg-zinc-950 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)] text-center w-10 px-2 font-bold tabular-nums">
+                    <TableCell className="sticky left-0 z-10 bg-[#0A0A0A] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)] text-center w-10 px-2 font-bold tabular-nums">
                       {p.number}
                     </TableCell>
                     <TableCell className="font-medium whitespace-nowrap">
