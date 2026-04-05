@@ -95,12 +95,20 @@ export default function GameDetailPage() {
       {(game.status === "final" || game.status === "in_progress") && (
         <Card className="glass gradient-border glow-primary">
           <CardContent className="p-6">
-            <div className="text-center">
-              <div className="text-5xl font-extrabold tabular-nums text-gradient-bright">
-                {game.our_score} <span className="text-gradient text-3xl">-</span> {game.opponent_score}
+            <div className="flex items-center justify-center gap-4">
+              <div className="text-center flex-1">
+                <div className="text-5xl font-extrabold tabular-nums text-gradient-bright">{game.our_score}</div>
+                <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Home</div>
               </div>
-              <div className="text-muted-foreground mt-1">
-                {game.innings_played > 0 ? `${game.innings_played} innings` : ""}
+              <div className="text-center">
+                <div className="text-gradient text-3xl font-extrabold">-</div>
+                {game.innings_played > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">{game.innings_played} inn</div>
+                )}
+              </div>
+              <div className="text-center flex-1">
+                <div className="text-5xl font-extrabold tabular-nums text-gradient-bright">{game.opponent_score}</div>
+                <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium truncate max-w-[120px] mx-auto">{game.opponent}</div>
               </div>
             </div>
           </CardContent>

@@ -72,6 +72,7 @@ export default function LiveScoringPage() {
   const [errorPosition, setErrorPosition] = useState<{ pos: number; cf?: "LC" | "RC"; key: string } | null>(null);
   const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult; hitType: HitType | null }[]>([]);
   const [inningPositions, setInningPositions] = useState<{ player_id: number; position: string }[]>([]);
+  const [opponentName, setOpponentName] = useState<string>("Them");
 
   // Wake Lock to prevent screen sleep during scoring
   useEffect(() => {
@@ -109,6 +110,7 @@ export default function LiveScoringPage() {
       const lineup: GameLineup[] = lineupRes.data ?? [];
       const players: Player[] = playersRes.data ?? [];
       const oppLineup: OpponentBatter[] = opponentLineupRes.data ?? [];
+      if (gameRes.data?.opponent) setOpponentName(gameRes.data.opponent);
 
       let state: GameState;
       if (stateRes.data) {
@@ -534,7 +536,7 @@ export default function LiveScoringPage() {
           <div className="flex items-center justify-between">
             <div className="text-center flex-1">
               <div className="text-4xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.ourScore}</div>
-              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Us</div>
+              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Home</div>
             </div>
             <div className="text-center px-3">
               {/* Base runners diamond — tap occupied base for stolen base */}
@@ -596,7 +598,7 @@ export default function LiveScoringPage() {
             </div>
             <div className="text-center flex-1">
               <div className="text-4xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.opponentScore}</div>
-              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium">Them</div>
+              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium truncate max-w-[100px]">{opponentName}</div>
             </div>
           </div>
         </CardContent>
