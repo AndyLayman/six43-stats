@@ -7,7 +7,7 @@ import "./globals.css";
 const isStaging = process.env.NEXT_PUBLIC_APP_ENV === "staging";
 
 export const metadata: Metadata = {
-  title: isStaging ? "BaseballStats [STAGE]" : "BaseballStats",
+  title: isStaging ? "[STAGE] Baseball Stats" : "Baseball Stats",
   description: "Baseball stats tracking and live scoring",
   manifest: "/manifest.json",
   icons: {
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: isStaging ? "BaseballStats [STAGE]" : "BaseballStats",
+    title: isStaging ? "[STAGE] Baseball Stats" : "Baseball Stats",
   },
 };
 
