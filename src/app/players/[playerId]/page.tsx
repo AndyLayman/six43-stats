@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatAvg } from "@/lib/stats/calculations";
 import { SprayChart } from "@/components/scoring/SprayChart";
 import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType } from "@/lib/scoring/types";
+import { StatTip } from "@/components/stat-tip";
 
 type SprayFilter = "both" | "hits" | "outs";
 
@@ -112,7 +113,7 @@ export default function PlayerDetailPage() {
             <Card key={s.label} className="glass gradient-border card-hover">
               <CardContent className="p-4 text-center">
                 <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{s.value}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{s.label}</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium"><StatTip label={s.label} /></div>
               </CardContent>
             </Card>
           ))}
@@ -219,7 +220,7 @@ export default function PlayerDetailPage() {
                   ].map((s) => (
                     <div key={s.label} className="text-center p-2 rounded-lg bg-muted/30 border border-border/30">
                       <div className="text-lg font-bold tabular-nums">{s.value}</div>
-                      <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{s.label}</div>
+                      <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider"><StatTip label={s.label} /></div>
                     </div>
                   ))}
                 </div>
@@ -228,21 +229,21 @@ export default function PlayerDetailPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-border/50">
-                        <TableHead>G</TableHead>
-                        <TableHead>PA</TableHead>
-                        <TableHead>AB</TableHead>
-                        <TableHead>H</TableHead>
-                        <TableHead>2B</TableHead>
-                        <TableHead>3B</TableHead>
-                        <TableHead>HR</TableHead>
-                        <TableHead>RBI</TableHead>
-                        <TableHead>BB</TableHead>
-                        <TableHead>SO</TableHead>
-                        <TableHead>SB</TableHead>
-                        <TableHead>AVG</TableHead>
-                        <TableHead>OBP</TableHead>
-                        <TableHead>SLG</TableHead>
-                        <TableHead>OPS</TableHead>
+                        <TableHead><StatTip label="G" /></TableHead>
+                        <TableHead><StatTip label="PA" /></TableHead>
+                        <TableHead><StatTip label="AB" /></TableHead>
+                        <TableHead><StatTip label="H" /></TableHead>
+                        <TableHead><StatTip label="2B" /></TableHead>
+                        <TableHead><StatTip label="3B" /></TableHead>
+                        <TableHead><StatTip label="HR" /></TableHead>
+                        <TableHead><StatTip label="RBI" /></TableHead>
+                        <TableHead><StatTip label="BB" /></TableHead>
+                        <TableHead><StatTip label="SO" /></TableHead>
+                        <TableHead><StatTip label="SB" /></TableHead>
+                        <TableHead><StatTip label="AVG" /></TableHead>
+                        <TableHead><StatTip label="OBP" /></TableHead>
+                        <TableHead><StatTip label="SLG" /></TableHead>
+                        <TableHead><StatTip label="OPS" /></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -291,7 +292,7 @@ export default function PlayerDetailPage() {
                   ].map((s) => (
                     <div key={s.label} className="text-center p-2 rounded-lg bg-muted/30 border border-border/30">
                       <div className="text-lg font-bold tabular-nums">{s.value}</div>
-                      <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{s.label}</div>
+                      <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider"><StatTip label={s.label} /></div>
                     </div>
                   ))}
                 </div>
@@ -299,12 +300,12 @@ export default function PlayerDetailPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-border/50">
-                        <TableHead>G</TableHead>
-                        <TableHead>PO</TableHead>
-                        <TableHead>A</TableHead>
-                        <TableHead>E</TableHead>
-                        <TableHead>TC</TableHead>
-                        <TableHead>FLD%</TableHead>
+                        <TableHead><StatTip label="G" /></TableHead>
+                        <TableHead><StatTip label="PO" /></TableHead>
+                        <TableHead><StatTip label="A" /></TableHead>
+                        <TableHead><StatTip label="E" /></TableHead>
+                        <TableHead><StatTip label="TC" /></TableHead>
+                        <TableHead><StatTip label="FLD%" /></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatAvg } from "@/lib/stats/calculations";
 import type { Game, GameLineup, Player, PlateAppearance, OpponentBatter } from "@/lib/scoring/types";
+import { StatTip } from "@/components/stat-tip";
 
 export default function GameDetailPage() {
   const params = useParams();
@@ -142,9 +143,9 @@ export default function GameDetailPage() {
                         {inn}
                       </TableHead>
                     ))}
-                    <TableHead className="text-center px-2">AB</TableHead>
-                    <TableHead className="text-center px-2">H</TableHead>
-                    <TableHead className="text-center px-2">RBI</TableHead>
+                    <TableHead className="text-center px-2"><StatTip label="AB" /></TableHead>
+                    <TableHead className="text-center px-2"><StatTip label="H" /></TableHead>
+                    <TableHead className="text-center px-2"><StatTip label="RBI" /></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -200,9 +201,9 @@ export default function GameDetailPage() {
                         {inn}
                       </TableHead>
                     ))}
-                    <TableHead className="text-center px-2">AB</TableHead>
-                    <TableHead className="text-center px-2">H</TableHead>
-                    <TableHead className="text-center px-2">RBI</TableHead>
+                    <TableHead className="text-center px-2"><StatTip label="AB" /></TableHead>
+                    <TableHead className="text-center px-2"><StatTip label="H" /></TableHead>
+                    <TableHead className="text-center px-2"><StatTip label="RBI" /></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

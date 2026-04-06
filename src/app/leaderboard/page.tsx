@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatAvg } from "@/lib/stats/calculations";
 import type { BattingStats, FieldingStats } from "@/lib/scoring/types";
+import { StatTip } from "@/components/stat-tip";
 
 type SortKey = keyof BattingStats;
 
@@ -65,7 +66,7 @@ export default function LeaderboardPage() {
       className="cursor-pointer hover:text-primary transition-colors select-none px-2 py-3"
       onClick={() => handleSort(field)}
     >
-      {label} {sortBy === field ? (sortAsc ? "\u25B2" : "\u25BC") : ""}
+      <StatTip label={label}>{label} {sortBy === field ? (sortAsc ? "\u25B2" : "\u25BC") : ""}</StatTip>
     </TableHead>
   );
 
@@ -137,7 +138,7 @@ export default function LeaderboardPage() {
                             ].map((s) => (
                               <div key={s.label} className="text-xs">
                                 <div className="font-bold tabular-nums">{s.value}</div>
-                                <div className="text-muted-foreground uppercase tracking-wider">{s.label}</div>
+                                <div className="text-muted-foreground uppercase tracking-wider"><StatTip label={s.label} /></div>
                               </div>
                             ))}
                           </div>
@@ -249,12 +250,12 @@ export default function LeaderboardPage() {
                       <TableRow className="border-border/50">
                         <TableHead className="w-8">#</TableHead>
                         <TableHead>Player</TableHead>
-                        <TableHead>G</TableHead>
-                        <TableHead>PO</TableHead>
-                        <TableHead>A</TableHead>
-                        <TableHead>E</TableHead>
-                        <TableHead>TC</TableHead>
-                        <TableHead>FLD%</TableHead>
+                        <TableHead><StatTip label="G" /></TableHead>
+                        <TableHead><StatTip label="PO" /></TableHead>
+                        <TableHead><StatTip label="A" /></TableHead>
+                        <TableHead><StatTip label="E" /></TableHead>
+                        <TableHead><StatTip label="TC" /></TableHead>
+                        <TableHead><StatTip label="FLD%" /></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
