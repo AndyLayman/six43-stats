@@ -66,6 +66,24 @@ export default function PracticesPage() {
         </Button>
       </div>
 
+      {/* Quick links */}
+      <div className="flex gap-3">
+        <Link
+          href="/practices/drills"
+          className="flex-1 rounded-xl border-2 border-border/50 bg-muted/30 p-3 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+        >
+          <div className="font-semibold text-sm group-hover:text-primary transition-colors">Drill Library</div>
+          <div className="text-xs text-muted-foreground">Create & manage reusable drills</div>
+        </Link>
+        <Link
+          href="/practices/templates"
+          className="flex-1 rounded-xl border-2 border-border/50 bg-muted/30 p-3 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+        >
+          <div className="font-semibold text-sm group-hover:text-primary transition-colors">Plan Templates</div>
+          <div className="text-xs text-muted-foreground">Pre-built practice structures</div>
+        </Link>
+      </div>
+
       {showNew && (
         <Card className="glass animate-slide-up">
           <CardContent className="p-4 space-y-3">

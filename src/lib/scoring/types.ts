@@ -193,3 +193,54 @@ export interface PracticeNote {
   focus_area: string | null;
   created_at: string;
 }
+
+export interface Drill {
+  id: string;
+  name: string;
+  description: string;
+  duration_minutes: number | null;
+  category: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PracticePlanTemplate {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface PracticePlanTemplateItem {
+  id: string;
+  template_id: string;
+  drill_id: string | null;
+  label: string;
+  duration_minutes: number;
+  sort_order: number;
+}
+
+export interface PracticePlanItem {
+  id: string;
+  practice_id: string;
+  drill_id: string | null;
+  label: string;
+  duration_minutes: number;
+  sort_order: number;
+  completed: boolean;
+}
+
+export interface ActionItem {
+  id: string;
+  practice_id: string | null;
+  player_id: number | null;
+  text: string;
+  completed: boolean;
+  created_at: string;
+}
+
+export interface PracticeAttendance {
+  id: string;
+  practice_id: string;
+  player_id: number;
+  present: boolean;
+}

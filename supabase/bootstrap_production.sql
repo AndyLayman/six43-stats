@@ -234,3 +234,75 @@ CREATE TABLE IF NOT EXISTS practice_notes (
   focus_area TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ============================================================
+-- Drill Library
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS drills (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  duration_minutes INTEGER,
+  category TEXT NOT NULL DEFAULT 'General',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- Practice Plan Templates
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS practice_plan_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS practice_plan_template_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id UUID NOT NULL REFERENCES practice_plan_templates(id) ON DELETE CASCADE,
+  drill_id UUID REFERENCES drills(id) ON DELETE SET NULL,
+  label TEXT NOT NULL,
+  duration_minutes INTEGER NOT NULL DEFAULT 10,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- ============================================================
+-- Practice Plan Items (per-practice schedule)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS practice_plan_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  practice_id UUID NOT NULL REFERENCES practices(id) ON DELETE CASCADE,
+  drill_id UUID REFERENCES drills(id) ON DELETE SET NULL,
+  label TEXT NOT NULL,
+  duration_minutes INTEGER NOT NULL DEFAULT 10,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  completed BOOLEAN DEFAULT FALSE
+);
+
+-- ============================================================
+-- Action Items (carry forward between practices)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS action_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  practice_id UUID REFERENCES practices(id) ON DELETE SET NULL,
+  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- Practice Attendance
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS practice_attendance (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  practice_id UUID NOT NULL REFERENCES practices(id) ON DELETE CASCADE,
+  player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  present BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE(practice_id, player_id)
+);
