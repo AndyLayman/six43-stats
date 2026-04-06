@@ -79,7 +79,7 @@ export default function PlayerDetailPage() {
       <div className="flex items-center gap-4">
         {player.photo_file ? (
           <Image
-            src={supabase.storage.from("media").getPublicUrl(player.photo_file!).data.publicUrl}
+            src={supabase.storage.from("media").getPublicUrl(`player-${player.id}-photo`).data.publicUrl}
             alt={player.name}
             width={64}
             height={64}
