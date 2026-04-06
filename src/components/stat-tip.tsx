@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 const STAT_DEFINITIONS: Record<string, string> = {
@@ -28,61 +28,69 @@ const STAT_DEFINITIONS: Record<string, string> = {
 };
 
 export function StatTip({ label, children }: { label: string; children?: React.ReactNode }) {
-  const [show, setShow] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const definition = STAT_DEFINITIONS[label];
 
-  const updatePos = useCallback(() => {
+  const showTip = useCallback(() => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     setPos({
-      top: rect.top + window.scrollY - 4,
+      top: rect.top - 6,
       left: rect.left + rect.width / 2,
     });
   }, []);
 
-  useEffect(() => {
-    if (show) updatePos();
-  }, [show, updatePos]);
+  const hideTip = useCallback(() => setPos(null), []);
 
   if (!definition) return <>{children ?? label}</>;
 
   return (
     <span
       ref={ref}
-      className="relative inline-block cursor-help"
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
-      onTouchStart={() => setShow((s) => !s)}
+      className="inline-block cursor-help"
+      onMouseEnter={showTip}
+      onMouseLeave={hideTip}
+      onTouchStart={() => pos ? hideTip() : showTip()}
     >
       <span className="border-b border-dotted border-muted-foreground/40">{children ?? label}</span>
-      {show && pos && createPortal(
-        <span
-          className="fixed z-[9999] pointer-events-none"
+      {pos && typeof document !== "undefined" && createPortal(
+        <div
           style={{
-            top: `${pos.top}px`,
-            left: `${pos.left}px`,
+            position: "fixed",
+            top: pos.top,
+            left: pos.left,
             transform: "translate(-50%, -100%)",
+            zIndex: 99999,
+            pointerEvents: "none",
           }}
         >
-          <span
-            className="inline-block px-2 py-1 rounded shadow-md font-medium"
-            style={{ fontSize: "11px", lineHeight: "1", background: "#222", color: "#eee" }}
+          <div
+            style={{
+              background: "#222",
+              color: "#eee",
+              fontSize: 11,
+              lineHeight: 1.3,
+              padding: "4px 8px",
+              borderRadius: 6,
+              fontWeight: 500,
+              whiteSpace: "nowrap",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            }}
           >
             {definition}
-          </span>
-          <span
-            className="block mx-auto"
+          </div>
+          <div
             style={{
               width: 0,
               height: 0,
+              margin: "0 auto",
               borderLeft: "4px solid transparent",
               borderRight: "4px solid transparent",
               borderTop: "4px solid #222",
             }}
           />
-        </span>,
+        </div>,
         document.body
       )}
     </span>
