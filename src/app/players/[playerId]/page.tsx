@@ -78,11 +78,10 @@ export default function PlayerDetailPage() {
       </Link>
       <div className="flex items-center gap-4">
         {player.photo_file ? (
-          <Image
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
             src={supabase.storage.from("media").getPublicUrl(`player-${player.id}-photo`).data.publicUrl}
             alt={player.name}
-            width={64}
-            height={64}
             className="h-16 w-16 rounded-full object-cover border border-primary/30"
           />
         ) : (
