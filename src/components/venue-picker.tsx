@@ -119,18 +119,18 @@ export function VenuePicker({ venue, venueAddress, onVenueChange, onAddressChang
 
       {/* Manage venues modal */}
       <Dialog open={showManage} onOpenChange={setShowManage}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm [&>*]:min-w-0">
           <DialogHeader>
             <DialogTitle>{editId ? "Edit Venue" : "New Venue"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-hidden">
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Name</label>
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 placeholder="e.g. Poway Sportsplex Field 3"
-                className="h-11 text-base bg-input/50 border-border/50 focus:border-primary/50"
+                className="h-11 text-base bg-input/50 border-border/50 focus:border-primary/50 min-w-0 w-full"
                 autoFocus
               />
             </div>
@@ -140,18 +140,18 @@ export function VenuePicker({ venue, venueAddress, onVenueChange, onAddressChang
                 value={editAddress}
                 onChange={setEditAddress}
                 placeholder="123 Main St, City, State ZIP"
-                className="h-11 text-base bg-input/50 border-border/50 focus:border-primary/50"
+                className="h-11 text-base bg-input/50 border-border/50 focus:border-primary/50 min-w-0 w-full"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="space-y-2">
               <Button
-                className="flex-1 h-10 text-sm font-bold glow-primary"
+                className="w-full h-11 text-sm font-bold glow-primary"
                 onClick={handleSave}
                 disabled={saving || !editName.trim()}
               >
                 {saving ? "Saving..." : editId ? "Update" : "Save Venue"}
               </Button>
-              <Button variant="outline" className="h-10 text-sm" onClick={() => setShowManage(false)}>
+              <Button variant="outline" className="w-full h-10 text-sm" onClick={() => setShowManage(false)}>
                 Cancel
               </Button>
             </div>
