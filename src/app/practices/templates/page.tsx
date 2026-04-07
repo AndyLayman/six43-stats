@@ -242,8 +242,8 @@ export default function PlanTemplatesPage() {
             ))}
 
             {/* Dotted placeholder — next block slot */}
-            <div className="rounded-xl border-2 border-dashed border-border/40 p-4">
-              <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-3 text-center">
+            <div className="rounded-xl border-2 border-dashed border-border/40 p-6">
+              <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium mb-4 text-center">
                 Add block #{editItems.length + 1}
               </div>
 
@@ -277,20 +277,20 @@ export default function PlanTemplatesPage() {
                   </div>
 
                   {/* Drill options */}
-                  <div className="grid grid-cols-2 gap-1.5 mb-3">
+                  <div className="grid grid-cols-2 gap-2 mb-4">
                     {filteredDrills.map((drill) => (
                       <button
                         key={drill.id}
                         onClick={() => addDrillToTemplate(drill)}
-                        className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-left hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-[0.98] group"
+                        className="flex items-center gap-3 rounded-xl border-2 border-border/40 bg-muted/20 px-4 py-3.5 text-left hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-[0.98] group"
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-medium truncate group-hover:text-primary transition-colors">{drill.name}</div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {drill.duration_minutes ? `${drill.duration_minutes}m` : ""}{drill.duration_minutes && drill.category ? " · " : ""}{drill.category}
+                          <div className="text-sm font-medium truncate group-hover:text-primary transition-colors">{drill.name}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {drill.duration_minutes ? `${drill.duration_minutes} min` : ""}{drill.duration_minutes && drill.category ? " · " : ""}{drill.category}
                           </div>
                         </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40 group-hover:text-primary shrink-0 transition-colors"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40 group-hover:text-primary shrink-0 transition-colors"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                       </button>
                     ))}
                   </div>
