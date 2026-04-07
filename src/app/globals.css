@@ -4,9 +4,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* White calendar icon in date inputs */
+/* Date input fixes for iOS Safari */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  max-width: 100%;
+}
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
 }
 
 @theme inline {

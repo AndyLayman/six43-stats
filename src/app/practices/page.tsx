@@ -102,7 +102,7 @@ export default function PracticesPage() {
                   className="h-12 text-base bg-input/50 border-border/50 focus:border-primary/50"
                 />
               </div>
-              <div>
+              <div className="overflow-hidden">
                 <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Date</label>
                 <Input
                   type="date"
