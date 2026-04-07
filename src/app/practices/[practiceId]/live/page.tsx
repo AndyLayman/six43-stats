@@ -11,6 +11,7 @@ import { RichEditor } from "@/components/rich-editor";
 import type {
   Practice, PracticeNote, Player, Drill,
   PracticePlanItem, ActionItem, PracticeAttendance,
+  PracticeSquadGroup, PracticeSquadMember,
 } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
 import { CustomSelect } from "@/components/custom-select";
@@ -53,12 +54,19 @@ export default function LivePracticePage() {
   const [newActionText, setNewActionText] = useState("");
   const [newActionPlayer, setNewActionPlayer] = useState<number | null>(null);
 
+  // Squad split (saved from setup page)
+  const [savedSquadGroups, setSavedSquadGroups] = useState<PracticeSquadGroup[]>([]);
+  const [savedSquadMembers, setSavedSquadMembers] = useState<PracticeSquadMember[]>([]);
+  // Ad-hoc random split (only used if no saved squads)
+  const [squadCount, setSquadCount] = useState<number>(0);
+  const [squads, setSquads] = useState<number[][]>([]);
+
   // Share
   const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
     async function load() {
-      const [practiceRes, playersRes, planRes, drillsRes, attendanceRes, notesRes, actionRes, openActionRes] = await Promise.all([
+      const [practiceRes, playersRes, planRes, drillsRes, attendanceRes, notesRes, actionRes, openActionRes, squadGroupsRes] = await Promise.all([
         supabase.from("practices").select("*").eq("id", practiceId).single(),
         supabase.from("players").select("*").order("sort_order"),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
@@ -67,6 +75,7 @@ export default function LivePracticePage() {
         supabase.from("practice_notes").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").is("completed", false).is("practice_id", null).order("created_at"),
+        supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
       ]);
 
       setPractice(practiceRes.data);
@@ -77,6 +86,15 @@ export default function LivePracticePage() {
       setNotes(notesRes.data ?? []);
       setActionItems(actionRes.data ?? []);
       setOpenActionItems(openActionRes.data ?? []);
+
+      // Load saved squad groups & members
+      const groups = (squadGroupsRes.data ?? []) as PracticeSquadGroup[];
+      setSavedSquadGroups(groups);
+      if (groups.length > 0) {
+        const groupIds = groups.map((g) => g.id);
+        const { data: members } = await supabase.from("practice_squad_members").select("*").in("group_id", groupIds);
+        setSavedSquadMembers(members ?? []);
+      }
 
       const attMap = new Map<number, boolean>();
       for (const a of (attendanceRes.data ?? []) as PracticeAttendance[]) {
@@ -197,6 +215,22 @@ export default function LivePracticePage() {
     }
   }
 
+  // ---- Squad Split ----
+  function splitSquad(count: number) {
+    const presentPlayers = players.filter((p) => attendance.get(p.id) === true);
+    if (presentPlayers.length === 0) return;
+    setSquadCount(count);
+    const shuffled = [...presentPlayers].sort(() => Math.random() - 0.5);
+    const groups: number[][] = Array.from({ length: count }, () => []);
+    shuffled.forEach((p, i) => groups[i % count].push(p.id));
+    setSquads(groups);
+  }
+
+  function clearSquads() {
+    setSquadCount(0);
+    setSquads([]);
+  }
+
   if (loading || !practice) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -281,6 +315,131 @@ export default function LivePracticePage() {
           <p className="text-[10px] text-muted-foreground mt-2">Tap: present (green), tap again: absent (red), tap again: reset.</p>
         </CardContent>
       </Card>
+
+      {/* Split Squad — saved groups from setup page */}
+      {savedSquadGroups.length > 0 && (() => {
+        const groupColors = [
+          { bg: "bg-blue-500/15", text: "text-blue-400", border: "border-blue-500/30", label: "Blue" },
+          { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/30", label: "Gold" },
+          { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", label: "Green" },
+          { bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/30", label: "Purple" },
+        ];
+        return (
+          <Card className="glass">
+            <CardHeader className="pb-2 px-4">
+              <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium">
+                Split Squad
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(savedSquadGroups.length, 2)}, 1fr)` }}>
+                {savedSquadGroups.map((group) => {
+                  const color = groupColors[group.color_index] ?? groupColors[0];
+                  const memberIds = savedSquadMembers.filter((m) => m.group_id === group.id).map((m) => m.player_id);
+                  const members = players.filter((p) => memberIds.includes(p.id));
+                  return (
+                    <div key={group.id} className={`rounded-xl border-2 ${color.border} ${color.bg} p-3`}>
+                      <div className={`text-xs font-bold ${color.text} mb-2`}>
+                        {group.name} ({members.length})
+                      </div>
+                      <div className="space-y-1">
+                        {members.map((p) => {
+                          const isPresent = attendance.get(p.id);
+                          return (
+                            <div key={p.id} className={`text-xs font-medium ${isPresent === false ? "line-through text-muted-foreground/50" : ""}`}>
+                              #{p.number} {firstName(p)}
+                              {isPresent === false && <span className="text-[10px] ml-1 text-red-400/60">(absent)</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Split Squad — ad-hoc random (only if no saved groups) */}
+      {savedSquadGroups.length === 0 && presentCount >= 2 && (
+        <Card className="glass">
+          <CardHeader className="pb-2 px-4">
+            <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">
+              <span>Split Squad</span>
+              {squadCount > 0 && (
+                <button onClick={clearSquads} className="text-xs normal-case font-normal text-muted-foreground hover:text-destructive transition-colors">
+                  Clear
+                </button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="flex gap-2 mb-3">
+              {[2, 3, 4].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => splitSquad(n)}
+                  className={`flex-1 h-9 rounded-xl text-xs font-bold border-2 transition-all active:scale-95 select-none ${
+                    squadCount === n
+                      ? "bg-primary/20 text-primary border-primary/40"
+                      : "bg-muted/30 text-foreground border-border/50 hover:border-primary/30"
+                  }`}
+                >
+                  {n} Groups
+                </button>
+              ))}
+              {squadCount > 0 && (
+                <button
+                  onClick={() => splitSquad(squadCount)}
+                  className="h-9 w-9 rounded-xl text-xs font-bold border-2 bg-muted/30 text-muted-foreground border-border/50 hover:border-primary/30 transition-all active:scale-95 select-none flex items-center justify-center shrink-0"
+                  title="Re-shuffle"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                </button>
+              )}
+            </div>
+
+            {squadCount > 0 && squads.length > 0 && (() => {
+              const groupColors = [
+                { bg: "bg-blue-500/15", text: "text-blue-400", border: "border-blue-500/30", label: "Blue" },
+                { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/30", label: "Gold" },
+                { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", label: "Green" },
+                { bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/30", label: "Purple" },
+              ];
+              return (
+                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(squadCount, 2)}, 1fr)` }}>
+                  {squads.map((group, gi) => {
+                    const color = groupColors[gi];
+                    return (
+                      <div key={gi} className={`rounded-xl border-2 ${color.border} ${color.bg} p-3`}>
+                        <div className={`text-xs font-bold ${color.text} mb-2`}>
+                          {color.label} ({group.length})
+                        </div>
+                        <div className="space-y-1">
+                          {group.map((pid) => {
+                            const p = players.find((pl) => pl.id === pid);
+                            return p ? (
+                              <div key={pid} className="text-xs font-medium">
+                                #{p.number} {firstName(p)}
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {squadCount === 0 && (
+              <p className="text-[10px] text-muted-foreground">Split present players into random groups for drills or scrimmages.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Practice Plan — full details */}
       {planItems.length > 0 && (
