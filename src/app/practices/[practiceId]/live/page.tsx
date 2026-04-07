@@ -11,6 +11,7 @@ import { RichEditor } from "@/components/rich-editor";
 import type {
   Practice, PracticeNote, Player, Drill,
   PracticePlanItem, ActionItem, PracticeAttendance,
+  SquadGroup, SquadMember,
 } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
 import { CustomSelect } from "@/components/custom-select";
@@ -53,12 +54,19 @@ export default function LivePracticePage() {
   const [newActionText, setNewActionText] = useState("");
   const [newActionPlayer, setNewActionPlayer] = useState<number | null>(null);
 
+  // Squad groups
+  const [squadGroups, setSquadGroups] = useState<SquadGroup[]>([]);
+  const [squadMembers, setSquadMembers] = useState<SquadMember[]>([]);
+  const [showSquads, setShowSquads] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+
   // Share
   const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
     async function load() {
-      const [practiceRes, playersRes, planRes, drillsRes, attendanceRes, notesRes, actionRes, openActionRes] = await Promise.all([
+      const [practiceRes, playersRes, planRes, drillsRes, attendanceRes, notesRes, actionRes, openActionRes, groupsRes, membersRes] = await Promise.all([
         supabase.from("practices").select("*").eq("id", practiceId).single(),
         supabase.from("players").select("*").order("sort_order"),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
@@ -67,6 +75,8 @@ export default function LivePracticePage() {
         supabase.from("practice_notes").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").is("completed", false).is("practice_id", null).order("created_at"),
+        supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
+        supabase.from("practice_squad_members").select("*"),
       ]);
 
       setPractice(practiceRes.data);
@@ -82,6 +92,11 @@ export default function LivePracticePage() {
       for (const a of (attendanceRes.data ?? []) as PracticeAttendance[]) {
         attMap.set(a.player_id, a.present);
       }
+      const groups = (groupsRes.data ?? []) as SquadGroup[];
+      setSquadGroups(groups);
+      const groupIds = new Set(groups.map((g) => g.id));
+      setSquadMembers(((membersRes.data ?? []) as SquadMember[]).filter((m) => groupIds.has(m.group_id)));
+      if (groups.length > 0) setShowSquads(true);
       setAttendance(attMap);
       setAttendanceLoaded(true);
       setLoading(false);
@@ -171,6 +186,98 @@ export default function LivePracticePage() {
     setActionItems(actionItems.filter((a) => a.id !== id));
     setOpenActionItems(openActionItems.filter((a) => a.id !== id));
     await supabase.from("action_items").delete().eq("id", id);
+  }
+
+  // ---- Squad Groups ----
+  const GROUP_COLORS = [
+    { bg: "bg-teal-500/20", text: "text-teal-400", border: "border-teal-500/40" },
+    { bg: "bg-purple-500/20", text: "text-purple-400", border: "border-purple-500/40" },
+    { bg: "bg-amber-500/20", text: "text-amber-400", border: "border-amber-500/40" },
+    { bg: "bg-blue-500/20", text: "text-blue-400", border: "border-blue-500/40" },
+    { bg: "bg-rose-500/20", text: "text-rose-400", border: "border-rose-500/40" },
+    { bg: "bg-green-500/20", text: "text-green-400", border: "border-green-500/40" },
+  ];
+
+  async function addSquadGroup() {
+    const nextIndex = squadGroups.length;
+    const { data } = await supabase
+      .from("practice_squad_groups")
+      .insert({ practice_id: practiceId, name: `Group ${nextIndex + 1}`, color_index: nextIndex % GROUP_COLORS.length, sort_order: nextIndex })
+      .select()
+      .single();
+    if (data) {
+      setSquadGroups([...squadGroups, data]);
+      setShowSquads(true);
+    }
+  }
+
+  async function deleteSquadGroup(groupId: string) {
+    await supabase.from("practice_squad_members").delete().eq("group_id", groupId);
+    await supabase.from("practice_squad_groups").delete().eq("id", groupId);
+    setSquadMembers(squadMembers.filter((m) => m.group_id !== groupId));
+    setSquadGroups(squadGroups.filter((g) => g.id !== groupId));
+  }
+
+  async function renameSquadGroup(groupId: string, name: string) {
+    await supabase.from("practice_squad_groups").update({ name }).eq("id", groupId);
+    setSquadGroups(squadGroups.map((g) => (g.id === groupId ? { ...g, name } : g)));
+    setEditingGroupId(null);
+  }
+
+  async function assignToGroup(playerId: number, groupId: string) {
+    // Remove from any existing group first
+    const existing = squadMembers.find((m) => m.player_id === playerId);
+    if (existing) {
+      if (existing.group_id === groupId) {
+        // Tapping same group = unassign
+        await supabase.from("practice_squad_members").delete().eq("id", existing.id);
+        setSquadMembers(squadMembers.filter((m) => m.id !== existing.id));
+        return;
+      }
+      await supabase.from("practice_squad_members").delete().eq("id", existing.id);
+      setSquadMembers(squadMembers.filter((m) => m.id !== existing.id));
+    }
+    const { data } = await supabase
+      .from("practice_squad_members")
+      .insert({ group_id: groupId, player_id: playerId })
+      .select()
+      .single();
+    if (data) {
+      setSquadMembers([...squadMembers.filter((m) => m.player_id !== playerId), data]);
+    }
+  }
+
+  async function randomizeGroups() {
+    if (squadGroups.length < 2) return;
+    // Use present players only (or all if no attendance taken)
+    const eligible = attendance.size > 0
+      ? players.filter((p) => attendance.get(p.id) === true)
+      : players;
+    // Shuffle
+    const shuffled = [...eligible].sort(() => Math.random() - 0.5);
+    // Delete existing members
+    const groupIds = squadGroups.map((g) => g.id);
+    for (const gid of groupIds) {
+      await supabase.from("practice_squad_members").delete().eq("group_id", gid);
+    }
+    // Distribute round-robin
+    const newMembers: SquadMember[] = [];
+    for (let i = 0; i < shuffled.length; i++) {
+      const groupId = groupIds[i % groupIds.length];
+      const { data } = await supabase
+        .from("practice_squad_members")
+        .insert({ group_id: groupId, player_id: shuffled[i].id })
+        .select()
+        .single();
+      if (data) newMembers.push(data);
+    }
+    setSquadMembers(newMembers);
+  }
+
+  function getPlayerGroup(playerId: number): SquadGroup | undefined {
+    const member = squadMembers.find((m) => m.player_id === playerId);
+    if (!member) return undefined;
+    return squadGroups.find((g) => g.id === member.group_id);
   }
 
   // ---- Share ----
@@ -280,6 +387,123 @@ export default function LivePracticePage() {
           </div>
           <p className="text-[10px] text-muted-foreground mt-2">Tap: present (green), tap again: absent (red), tap again: reset.</p>
         </CardContent>
+      </Card>
+
+      {/* Squad Split */}
+      <Card className="glass">
+        <CardHeader className="pb-2 px-4">
+          <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">
+            <span>Squad Split</span>
+            <div className="flex items-center gap-2">
+              {squadGroups.length >= 2 && (
+                <Button variant="ghost" className="h-7 px-2 text-xs" onClick={randomizeGroups}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>
+                  Randomize
+                </Button>
+              )}
+              <Button variant="ghost" className="h-7 px-2 text-xs" onClick={addSquadGroup}>
+                + Group
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        {squadGroups.length > 0 && showSquads && (
+          <CardContent className="px-4 pb-4 space-y-3">
+            {squadGroups.map((group) => {
+              const color = GROUP_COLORS[group.color_index % GROUP_COLORS.length];
+              const members = squadMembers.filter((m) => m.group_id === group.id);
+              const groupPlayers = members.map((m) => players.find((p) => p.id === m.player_id)).filter(Boolean) as Player[];
+              const unassigned = players.filter((p) => !squadMembers.find((m) => m.player_id === p.id));
+
+              return (
+                <div key={group.id} className={`rounded-xl border-2 ${color.border} ${color.bg} p-3`}>
+                  <div className="flex items-center justify-between mb-2">
+                    {editingGroupId === group.id ? (
+                      <Input
+                        value={editingGroupName}
+                        onChange={(e) => setEditingGroupName(e.target.value)}
+                        onBlur={() => renameSquadGroup(group.id, editingGroupName)}
+                        onKeyDown={(e) => e.key === "Enter" && renameSquadGroup(group.id, editingGroupName)}
+                        className="h-7 text-sm w-32 bg-transparent border-border/50"
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}
+                        className={`text-sm font-bold ${color.text}`}
+                      >
+                        {group.name} ({groupPlayers.length})
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteSquadGroup(group.id)}
+                      className="text-muted-foreground hover:text-destructive transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {groupPlayers.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => assignToGroup(p.id, group.id)}
+                        className={`h-8 px-2.5 rounded-lg text-xs font-bold ${color.border} ${color.bg} ${color.text} border transition-all active:scale-95 select-none`}
+                      >
+                        #{p.number} {firstName(p)}
+                      </button>
+                    ))}
+                    {groupPlayers.length === 0 && (
+                      <span className="text-xs text-muted-foreground italic">No players assigned</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Unassigned players */}
+            {(() => {
+              const unassigned = players.filter((p) => !squadMembers.find((m) => m.player_id === p.id));
+              if (unassigned.length === 0) return null;
+              return (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1.5">Tap a player to assign to a group:</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {unassigned.map((p) => {
+                      const isPresent = attendance.get(p.id);
+                      const isAbsent = isPresent === false;
+                      return (
+                        <div key={p.id} className="relative group">
+                          <div className={`h-8 px-2.5 rounded-lg text-xs font-bold border-2 border-border/50 bg-muted/30 flex items-center gap-1 ${isAbsent ? "opacity-40 line-through" : ""}`}>
+                            #{p.number} {firstName(p)}
+                          </div>
+                          {!isAbsent && squadGroups.length > 0 && (
+                            <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full hidden group-hover:flex gap-1 bg-background/95 backdrop-blur rounded-lg p-1 border border-border/50 shadow-lg z-10">
+                              {squadGroups.map((g) => {
+                                const c = GROUP_COLORS[g.color_index % GROUP_COLORS.length];
+                                return (
+                                  <button
+                                    key={g.id}
+                                    onClick={() => assignToGroup(p.id, g.id)}
+                                    className={`h-6 px-2 rounded text-[10px] font-bold ${c.bg} ${c.text} ${c.border} border transition-all active:scale-95`}
+                                    title={g.name}
+                                  >
+                                    {g.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <p className="text-[10px] text-muted-foreground">Tap a group name to rename. Hover over unassigned players to pick a group. Use Randomize to auto-split present players.</p>
+          </CardContent>
+        )}
       </Card>
 
       {/* Practice Plan — full details */}
