@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import type {
   Practice, Player, Drill,
   PracticePlanItem, PracticePlanTemplate, PracticePlanTemplateItem,
+  SquadGroup, SquadMember,
 } from "@/lib/scoring/types";
+import { firstName } from "@/lib/player-name";
 import { VenuePicker } from "@/components/venue-picker";
 
 export default function PracticeSetupPage() {
@@ -32,6 +34,13 @@ export default function PracticeSetupPage() {
   const [planSearchQuery, setPlanSearchQuery] = useState("");
   const [planShowAll, setPlanShowAll] = useState(false);
 
+  // Squad groups
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [squadGroups, setSquadGroups] = useState<SquadGroup[]>([]);
+  const [squadMembers, setSquadMembers] = useState<SquadMember[]>([]);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+
   // Venue editing
   const [editingVenue, setEditingVenue] = useState(false);
   const [venue, setVenue] = useState("");
@@ -39,12 +48,15 @@ export default function PracticeSetupPage() {
 
   useEffect(() => {
     async function load() {
-      const [practiceRes, planRes, templatesRes, templateItemsRes, drillsRes] = await Promise.all([
+      const [practiceRes, planRes, templatesRes, templateItemsRes, drillsRes, playersRes, groupsRes, membersRes] = await Promise.all([
         supabase.from("practices").select("*").eq("id", practiceId).single(),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
         supabase.from("practice_plan_templates").select("*").order("name"),
         supabase.from("practice_plan_template_items").select("*").order("sort_order"),
         supabase.from("drills").select("*").order("name"),
+        supabase.from("players").select("*").order("sort_order"),
+        supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
+        supabase.from("practice_squad_members").select("*"),
       ]);
 
       setPractice(practiceRes.data);
@@ -52,12 +64,110 @@ export default function PracticeSetupPage() {
       setTemplates(templatesRes.data ?? []);
       setTemplateItems(templateItemsRes.data ?? []);
       setDrills(drillsRes.data ?? []);
+      setPlayers(playersRes.data ?? []);
+      const groups = (groupsRes.data ?? []) as SquadGroup[];
+      setSquadGroups(groups);
+      const groupIds = new Set(groups.map((g) => g.id));
+      setSquadMembers(((membersRes.data ?? []) as SquadMember[]).filter((m) => groupIds.has(m.group_id)));
       setVenue(practiceRes.data?.venue ?? "");
       setVenueAddress(practiceRes.data?.venue_address ?? "");
       setLoading(false);
     }
     load();
   }, [practiceId]);
+
+  // ---- Squad Groups ----
+  const GROUP_COLORS = [
+    { bg: "bg-teal-500/20", text: "text-teal-400", border: "border-teal-500/40" },
+    { bg: "bg-purple-500/20", text: "text-purple-400", border: "border-purple-500/40" },
+    { bg: "bg-amber-500/20", text: "text-amber-400", border: "border-amber-500/40" },
+    { bg: "bg-blue-500/20", text: "text-blue-400", border: "border-blue-500/40" },
+    { bg: "bg-rose-500/20", text: "text-rose-400", border: "border-rose-500/40" },
+    { bg: "bg-green-500/20", text: "text-green-400", border: "border-green-500/40" },
+  ];
+
+  async function addSquadGroup() {
+    const nextIndex = squadGroups.length;
+    const { data } = await supabase
+      .from("practice_squad_groups")
+      .insert({ practice_id: practiceId, name: `Group ${nextIndex + 1}`, color_index: nextIndex % GROUP_COLORS.length, sort_order: nextIndex })
+      .select()
+      .single();
+    if (data) setSquadGroups([...squadGroups, data]);
+  }
+
+  async function deleteSquadGroup(groupId: string) {
+    await supabase.from("practice_squad_members").delete().eq("group_id", groupId);
+    await supabase.from("practice_squad_groups").delete().eq("id", groupId);
+    setSquadMembers(squadMembers.filter((m) => m.group_id !== groupId));
+    setSquadGroups(squadGroups.filter((g) => g.id !== groupId));
+  }
+
+  async function renameSquadGroup(groupId: string, name: string) {
+    await supabase.from("practice_squad_groups").update({ name }).eq("id", groupId);
+    setSquadGroups(squadGroups.map((g) => (g.id === groupId ? { ...g, name } : g)));
+    setEditingGroupId(null);
+  }
+
+  async function assignToGroup(playerId: number, groupId: string) {
+    const existing = squadMembers.find((m) => m.player_id === playerId);
+    if (existing) {
+      if (existing.group_id === groupId) {
+        await supabase.from("practice_squad_members").delete().eq("id", existing.id);
+        setSquadMembers(squadMembers.filter((m) => m.id !== existing.id));
+        return;
+      }
+      await supabase.from("practice_squad_members").delete().eq("id", existing.id);
+    }
+    const { data } = await supabase
+      .from("practice_squad_members")
+      .insert({ group_id: groupId, player_id: playerId })
+      .select()
+      .single();
+    if (data) setSquadMembers([...squadMembers.filter((m) => m.player_id !== playerId), data]);
+  }
+
+  async function randomizeGroups() {
+    if (squadGroups.length < 2) return;
+    const shuffled = [...players].sort(() => Math.random() - 0.5);
+    const groupIds = squadGroups.map((g) => g.id);
+    for (const gid of groupIds) {
+      await supabase.from("practice_squad_members").delete().eq("group_id", gid);
+    }
+    const newMembers: SquadMember[] = [];
+    for (let i = 0; i < shuffled.length; i++) {
+      const groupId = groupIds[i % groupIds.length];
+      const { data } = await supabase
+        .from("practice_squad_members")
+        .insert({ group_id: groupId, player_id: shuffled[i].id })
+        .select()
+        .single();
+      if (data) newMembers.push(data);
+    }
+    setSquadMembers(newMembers);
+  }
+
+  async function addSquadSplitBlock() {
+    // Add a squad split block to the practice plan
+    const { data } = await supabase
+      .from("practice_plan_items")
+      .insert({
+        practice_id: practiceId,
+        label: "Squad Split",
+        duration_minutes: 0,
+        sort_order: planItems.length,
+        completed: false,
+      })
+      .select()
+      .single();
+    if (data) setPlanItems([...planItems, data]);
+    // Ensure at least 2 groups exist
+    if (squadGroups.length === 0) {
+      const g1 = await supabase.from("practice_squad_groups").insert({ practice_id: practiceId, name: "Group 1", color_index: 0, sort_order: 0 }).select().single();
+      const g2 = await supabase.from("practice_squad_groups").insert({ practice_id: practiceId, name: "Group 2", color_index: 1, sort_order: 1 }).select().single();
+      if (g1.data && g2.data) setSquadGroups([g1.data, g2.data]);
+    }
+  }
 
   // ---- Venue ----
   async function saveVenue() {
@@ -234,43 +344,157 @@ export default function PracticeSetupPage() {
           {/* Plan items — numbered blocks with reorder */}
           {planItems.length > 0 && (
             <div className="space-y-2">
-              {planItems.map((item, idx) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-3 rounded-xl border-2 border-border/50 bg-muted/20 p-3 group"
-                >
-                  <span className="text-xs text-muted-foreground font-bold w-5 shrink-0">{idx + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{item.label}</div>
-                    {item.drill_id && (
-                      <div className="text-[10px] text-primary/60">From drill library</div>
+              {planItems.map((item, idx) => {
+                const isSquadSplit = item.label === "Squad Split" && !item.drill_id;
+
+                return (
+                  <div key={item.id} className="rounded-xl border-2 border-border/50 bg-muted/20 overflow-hidden">
+                    <div className="flex items-center gap-3 p-3 group">
+                      <span className="text-xs text-muted-foreground font-bold w-5 shrink-0">{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                          {isSquadSplit && (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                          )}
+                          {item.label}
+                        </div>
+                        {item.drill_id && (
+                          <div className="text-[10px] text-primary/60">From drill library</div>
+                        )}
+                        {isSquadSplit && (
+                          <div className="text-[10px] text-primary/60">{squadGroups.length} group{squadGroups.length !== 1 ? "s" : ""} · {squadMembers.length} assigned</div>
+                        )}
+                      </div>
+                      {!isSquadSplit && <span className="text-xs text-muted-foreground shrink-0">{item.duration_minutes}m</span>}
+                      <div className="flex gap-0.5 shrink-0">
+                        <button
+                          onClick={() => movePlanItem(idx, "up")}
+                          disabled={idx === 0}
+                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                        </button>
+                        <button
+                          onClick={() => movePlanItem(idx, "down")}
+                          disabled={idx === planItems.length - 1}
+                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <button
+                          onClick={() => deletePlanItem(item.id)}
+                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive transition-all"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Squad Split inline editor */}
+                    {isSquadSplit && (
+                      <div className="px-3 pb-3 space-y-2 border-t border-border/30 pt-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Button variant="ghost" className="h-7 px-2 text-xs" onClick={addSquadGroup}>+ Group</Button>
+                          {squadGroups.length >= 2 && (
+                            <Button variant="ghost" className="h-7 px-2 text-xs" onClick={randomizeGroups}>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>
+                              Randomize
+                            </Button>
+                          )}
+                        </div>
+
+                        {squadGroups.map((group) => {
+                          const color = GROUP_COLORS[group.color_index % GROUP_COLORS.length];
+                          const groupPlayers = squadMembers
+                            .filter((m) => m.group_id === group.id)
+                            .map((m) => players.find((p) => p.id === m.player_id))
+                            .filter(Boolean) as Player[];
+
+                          return (
+                            <div key={group.id} className={`rounded-xl border-2 ${color.border} ${color.bg} p-3`}>
+                              <div className="flex items-center justify-between mb-2">
+                                {editingGroupId === group.id ? (
+                                  <Input
+                                    value={editingGroupName}
+                                    onChange={(e) => setEditingGroupName(e.target.value)}
+                                    onBlur={() => renameSquadGroup(group.id, editingGroupName)}
+                                    onKeyDown={(e) => e.key === "Enter" && renameSquadGroup(group.id, editingGroupName)}
+                                    className="h-7 text-sm w-32 bg-transparent border-border/50"
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <button
+                                    onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}
+                                    className={`text-sm font-bold ${color.text}`}
+                                  >
+                                    {group.name} ({groupPlayers.length})
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => deleteSquadGroup(group.id)}
+                                  className="text-muted-foreground hover:text-destructive transition-all"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {groupPlayers.map((p) => (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => assignToGroup(p.id, group.id)}
+                                    className={`h-8 px-2.5 rounded-lg text-xs font-bold ${color.border} ${color.bg} ${color.text} border transition-all active:scale-95 select-none`}
+                                  >
+                                    #{p.number} {firstName(p)}
+                                  </button>
+                                ))}
+                                {groupPlayers.length === 0 && (
+                                  <span className="text-xs text-muted-foreground italic">No players assigned</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Unassigned players */}
+                        {(() => {
+                          const unassigned = players.filter((p) => !squadMembers.find((m) => m.player_id === p.id));
+                          if (unassigned.length === 0 || squadGroups.length === 0) return null;
+                          return (
+                            <div>
+                              <div className="text-xs text-muted-foreground mb-1.5">Unassigned — tap a group color to assign:</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {unassigned.map((p) => (
+                                  <div key={p.id} className="relative group/player">
+                                    <div className="h-8 px-2.5 rounded-lg text-xs font-bold border-2 border-border/50 bg-muted/30 flex items-center cursor-pointer">
+                                      #{p.number} {firstName(p)}
+                                    </div>
+                                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full hidden group-hover/player:flex gap-1 bg-background/95 backdrop-blur rounded-lg p-1 border border-border/50 shadow-lg z-10">
+                                      {squadGroups.map((g) => {
+                                        const c = GROUP_COLORS[g.color_index % GROUP_COLORS.length];
+                                        return (
+                                          <button
+                                            key={g.id}
+                                            onClick={() => assignToGroup(p.id, g.id)}
+                                            className={`h-6 px-2 rounded text-[10px] font-bold ${c.bg} ${c.text} ${c.border} border transition-all active:scale-95`}
+                                          >
+                                            {g.name}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        <p className="text-[10px] text-muted-foreground">Tap group name to rename. Hover unassigned players to pick a group.</p>
+                      </div>
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground shrink-0">{item.duration_minutes}m</span>
-                  <div className="flex gap-0.5 shrink-0">
-                    <button
-                      onClick={() => movePlanItem(idx, "up")}
-                      disabled={idx === 0}
-                      className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
-                    </button>
-                    <button
-                      onClick={() => movePlanItem(idx, "down")}
-                      disabled={idx === planItems.length - 1}
-                      className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                    </button>
-                    <button
-                      onClick={() => deletePlanItem(item.id)}
-                      className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive transition-all"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -386,6 +610,21 @@ export default function PracticeSetupPage() {
                 </>
               );
             })()}
+
+            {/* Squad Split block */}
+            {!planItems.some((i) => i.label === "Squad Split" && !i.drill_id) && (
+              <button
+                onClick={addSquadSplitBlock}
+                className="w-full flex items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 px-4 py-3.5 text-left hover:border-primary/50 hover:bg-primary/10 transition-all active:scale-[0.98] group"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-primary">Squad Split</div>
+                  <div className="text-xs text-muted-foreground">Split team into groups for station rotations</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/40 group-hover:text-primary shrink-0 transition-colors"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+              </button>
+            )}
 
             {/* Custom block input */}
             {showAddBlock ? (
