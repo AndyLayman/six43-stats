@@ -76,6 +76,7 @@ export default function LivePracticePage() {
   const [planItems, setPlanItems] = useState<PracticePlanItem[]>([]);
   const [drills, setDrills] = useState<Drill[]>([]);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [expandedGroupDrill, setExpandedGroupDrill] = useState<string | null>(null);
 
   // Attendance
   const [attendance, setAttendance] = useState<Map<number, boolean>>(new Map());
@@ -502,16 +503,18 @@ export default function LivePracticePage() {
                   {isSquadSplit && squadGroups.length > 0 && (
                     <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragStart={handleSquadDragStart} onDragEnd={handleSquadDragEnd}>
                       <div className="px-3 pb-3 border-t border-border/30 pt-3 space-y-3">
-                        {!squadAutoAssigned && presentCount > 0 && (
-                          <Button variant="outline" className="w-full h-9 text-xs font-bold border-primary/30 text-primary" onClick={autoAssignPlayers}>
-                            Auto-Assign {presentCount} Present Players
-                          </Button>
-                        )}
-                        {squadAutoAssigned && (
-                          <Button variant="ghost" className="h-7 text-[10px] text-muted-foreground" onClick={autoAssignPlayers}>
-                            Re-shuffle players
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          className="w-full h-9 text-xs font-bold border-primary/30 text-primary disabled:opacity-40"
+                          onClick={autoAssignPlayers}
+                          disabled={presentCount === 0}
+                        >
+                          {squadAutoAssigned
+                            ? "Re-shuffle Players"
+                            : presentCount > 0
+                            ? `Auto-Assign ${presentCount} Present Players`
+                            : "Auto-Assign Players (mark attendance first)"}
+                        </Button>
 
                         <div className="grid grid-cols-2 gap-2">
                           {squadGroups.map((group) => {
@@ -529,12 +532,30 @@ export default function LivePracticePage() {
                                 {/* Drills in this group */}
                                 {groupDrills.length > 0 && (
                                   <div className="space-y-1 mb-2">
-                                    {groupDrills.map((gi) => (
-                                      <div key={gi.id} className={`text-[10px] font-medium ${color.text} opacity-80 flex items-center gap-1`}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                                        {gi.label}{gi.duration_minutes > 0 ? ` (${gi.duration_minutes}m)` : ""}
-                                      </div>
-                                    ))}
+                                    {groupDrills.map((gi) => {
+                                      const giDrill = getDrill(gi.drill_id);
+                                      const isGiExpanded = expandedGroupDrill === gi.id;
+                                      return (
+                                        <div key={gi.id}>
+                                          <button
+                                            onClick={() => setExpandedGroupDrill(isGiExpanded ? null : gi.id)}
+                                            className={`w-full text-left text-[10px] font-medium ${color.text} opacity-80 flex items-center gap-1 hover:opacity-100 transition-opacity`}
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 transition-transform ${isGiExpanded ? "rotate-90" : ""}`}><path d="m9 18 6-6-6-6"/></svg>
+                                            <span className="truncate">{gi.label}{gi.duration_minutes > 0 ? ` (${gi.duration_minutes}m)` : ""}</span>
+                                          </button>
+                                          {isGiExpanded && giDrill?.description && !isEmptyHtml(giDrill.description) && (
+                                            <div
+                                              className="mt-1 ml-3 text-[10px] text-muted-foreground prose prose-invert max-w-none"
+                                              dangerouslySetInnerHTML={{ __html: giDrill.description }}
+                                            />
+                                          )}
+                                          {isGiExpanded && (!giDrill?.description || isEmptyHtml(giDrill.description ?? "")) && (
+                                            <p className="mt-1 ml-3 text-[10px] text-muted-foreground italic">No description.</p>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 )}
 
