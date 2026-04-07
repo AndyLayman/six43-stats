@@ -26,7 +26,7 @@ import {
 } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 
-function DraggableDrillItem({ item, color }: { item: PracticePlanItem; color?: { bg: string; text: string; border: string } }) {
+function DraggableDrillItem({ item, color, onRemove }: { item: PracticePlanItem; color?: { bg: string; text: string; border: string }; onRemove?: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `item-${item.id}`,
     data: { itemId: item.id },
@@ -37,11 +37,42 @@ function DraggableDrillItem({ item, color }: { item: PracticePlanItem; color?: {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`flex items-center gap-2 h-8 px-2.5 rounded-lg text-xs font-bold ${c.border} ${c.bg} ${c.text} border transition-all select-none cursor-grab active:cursor-grabbing touch-manipulation ${isDragging ? "opacity-30" : ""}`}
+      className={`flex items-center gap-2 h-8 px-2.5 rounded-lg text-xs font-bold ${c.border} ${c.bg} ${c.text} border transition-all select-none cursor-grab active:cursor-grabbing touch-none ${isDragging ? "opacity-30" : ""}`}
     >
       <span className="truncate flex-1">{item.label}</span>
       {item.duration_minutes > 0 && <span className="text-[10px] opacity-60 shrink-0">{item.duration_minutes}m</span>}
+      {onRemove && (
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="text-muted-foreground/40 hover:text-destructive transition-colors shrink-0 ml-0.5 cursor-pointer"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      )}
     </div>
+  );
+}
+
+function PlanItemDragHandle({ itemId }: { itemId: string }) {
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `item-${itemId}`,
+    data: { itemId },
+  });
+  return (
+    <button
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground/40 hover:text-muted-foreground shrink-0 p-0.5"
+      tabIndex={-1}
+      aria-label="Drag to assign to group"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
+        <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+      </svg>
+    </button>
   );
 }
 
@@ -406,56 +437,61 @@ export default function PracticeSetupPage() {
 
           {/* Plan items — numbered blocks with reorder */}
           {planItems.length > 0 && (
-            <div className="space-y-2">
-              {planItems.map((item, idx) => {
-                const isSquadSplit = item.label === "Squad Split" && !item.drill_id;
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <div className="space-y-2">
+                {planItems.filter((item) => !item.group_id).map((item) => {
+                  const fullIdx = planItems.findIndex((i) => i.id === item.id);
+                  const isSquadSplit = item.label === "Squad Split" && !item.drill_id;
 
-                return (
-                  <div key={item.id} className="rounded-xl border-2 border-border/50 bg-muted/20 overflow-hidden">
-                    <div className="flex items-center gap-3 p-3 group">
-                      <span className="text-xs text-muted-foreground font-bold w-5 shrink-0">{idx + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate flex items-center gap-1.5">
-                          {isSquadSplit && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-xl border-2 border-border/50 bg-muted/20 overflow-hidden transition-opacity ${activeDragId === item.id ? "opacity-30" : ""}`}
+                    >
+                      <div className="flex items-center gap-3 p-3 group">
+                        {!isSquadSplit && <PlanItemDragHandle itemId={item.id} />}
+                        <span className="text-xs text-muted-foreground font-bold w-5 shrink-0">{fullIdx + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                            {isSquadSplit && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            )}
+                            {item.label}
+                          </div>
+                          {item.drill_id && (
+                            <div className="text-[10px] text-primary/60">From drill library</div>
                           )}
-                          {item.label}
+                          {isSquadSplit && (
+                            <div className="text-[10px] text-primary/60">{squadGroups.length} group{squadGroups.length !== 1 ? "s" : ""} · {planItems.filter((i) => i.group_id).length} drill{planItems.filter((i) => i.group_id).length !== 1 ? "s" : ""}</div>
+                          )}
                         </div>
-                        {item.drill_id && (
-                          <div className="text-[10px] text-primary/60">From drill library</div>
-                        )}
-                        {isSquadSplit && (
-                          <div className="text-[10px] text-primary/60">{squadGroups.length} group{squadGroups.length !== 1 ? "s" : ""} · {planItems.filter((i) => i.group_id).length} drill{planItems.filter((i) => i.group_id).length !== 1 ? "s" : ""}</div>
-                        )}
+                        {!isSquadSplit && <span className="text-xs text-muted-foreground shrink-0">{item.duration_minutes}m</span>}
+                        <div className="flex gap-0.5 shrink-0">
+                          <button
+                            onClick={() => movePlanItem(fullIdx, "up")}
+                            disabled={fullIdx === 0}
+                            className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                          </button>
+                          <button
+                            onClick={() => movePlanItem(fullIdx, "down")}
+                            disabled={fullIdx === planItems.length - 1}
+                            className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                          </button>
+                          <button
+                            onClick={() => deletePlanItem(item.id)}
+                            className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive transition-all"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                          </button>
+                        </div>
                       </div>
-                      {!isSquadSplit && <span className="text-xs text-muted-foreground shrink-0">{item.duration_minutes}m</span>}
-                      <div className="flex gap-0.5 shrink-0">
-                        <button
-                          onClick={() => movePlanItem(idx, "up")}
-                          disabled={idx === 0}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
-                        </button>
-                        <button
-                          onClick={() => movePlanItem(idx, "down")}
-                          disabled={idx === planItems.length - 1}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                        </button>
-                        <button
-                          onClick={() => deletePlanItem(item.id)}
-                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive transition-all"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Squad Split inline editor */}
-                    {isSquadSplit && (
-                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                      {/* Squad Split inline editor */}
+                      {isSquadSplit && (
                         <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
                           <div className="flex items-center gap-2">
                             <Button variant="ghost" className="h-7 px-2 text-xs" onClick={addSquadGroup}>+ Group</Button>
@@ -496,10 +532,10 @@ export default function PracticeSetupPage() {
                                   </div>
                                   <div className="flex flex-col gap-1 flex-1 min-h-[2.5rem]">
                                     {groupItems.map((gi) => (
-                                      <DraggableDrillItem key={gi.id} item={gi} color={color} />
+                                      <DraggableDrillItem key={gi.id} item={gi} color={color} onRemove={() => assignItemToGroup(gi.id, null)} />
                                     ))}
                                     {groupItems.length === 0 && (
-                                      <span className="text-[10px] text-muted-foreground italic">Drag drills here</span>
+                                      <span className="text-[10px] text-muted-foreground italic">Drag items here</span>
                                     )}
                                   </div>
                                   {/* Quick add drill to this group */}
@@ -523,27 +559,26 @@ export default function PracticeSetupPage() {
                             })}
                           </div>
 
-                          <p className="text-[10px] text-muted-foreground">Drag drills between groups. Use the dropdown to add drills to each group. Tap group name to rename.</p>
+                          <p className="text-[10px] text-muted-foreground">Drag plan items or drills into groups. Use the dropdown to add drills directly. Tap group name to rename.</p>
                         </div>
-
-                        <DragOverlay>
-                          {activeDragId ? (() => {
-                            const item = planItems.find((i) => i.id === activeDragId);
-                            if (!item) return null;
-                            return (
-                              <div className="flex items-center gap-2 h-8 px-2.5 rounded-lg text-xs font-bold border-2 border-primary/60 bg-primary/20 text-primary shadow-lg cursor-grabbing">
-                                <span className="truncate">{item.label}</span>
-                                {item.duration_minutes > 0 && <span className="text-[10px] opacity-60">{item.duration_minutes}m</span>}
-                              </div>
-                            );
-                          })() : null}
-                        </DragOverlay>
-                      </DndContext>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <DragOverlay>
+                {activeDragId ? (() => {
+                  const draggedItem = planItems.find((i) => i.id === activeDragId);
+                  if (!draggedItem) return null;
+                  return (
+                    <div className="flex items-center gap-2 h-8 px-2.5 rounded-lg text-xs font-bold border-2 border-primary/60 bg-primary/20 text-primary shadow-lg cursor-grabbing">
+                      <span className="truncate">{draggedItem.label}</span>
+                      {draggedItem.duration_minutes > 0 && <span className="text-[10px] opacity-60">{draggedItem.duration_minutes}m</span>}
+                    </div>
+                  );
+                })() : null}
+              </DragOverlay>
+            </DndContext>
           )}
 
           {/* Dotted placeholder — add next block */}
