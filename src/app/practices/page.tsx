@@ -92,25 +92,23 @@ export default function PracticesPage() {
       {showNew && (
         <Card className="glass animate-slide-up">
           <CardContent className="p-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
-              <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Title</label>
-                <Input
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Practice"
-                  className="h-12 text-base bg-input/50 border-border/50 focus:border-primary/50"
-                />
-              </div>
-              <div className="overflow-hidden">
-                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Date</label>
-                <Input
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="h-12 text-base w-full bg-input/50 border-border/50 focus:border-primary/50"
-                />
-              </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Title</label>
+              <Input
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="Practice"
+                className="h-12 text-base bg-input/50 border-border/50 focus:border-primary/50"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Date</label>
+              <Input
+                type="date"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                className="h-12 text-base w-full bg-input/50 border-border/50 focus:border-primary/50"
+              />
             </div>
             {/* Venue */}
             <div>
