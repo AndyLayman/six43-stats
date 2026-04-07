@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { RichEditor } from "@/components/rich-editor";
 import type { Drill } from "@/lib/scoring/types";
 
-const CATEGORIES = ["General", "Hitting", "Fielding", "Throwing", "Baserunning", "Conditioning", "Team", "Game", "Catcher"];
+const CATEGORIES = ["General", "Warm Up", "Hitting", "Fielding", "Throwing", "Baserunning", "Conditioning", "Team", "Game", "Catcher"];
 
 export default function DrillLibraryPage() {
   const [drills, setDrills] = useState<Drill[]>([]);
