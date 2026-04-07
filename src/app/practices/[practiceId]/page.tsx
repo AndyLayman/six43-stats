@@ -123,6 +123,8 @@ export default function PracticeSetupPage() {
   const [squadGroups, setSquadGroups] = useState<SquadGroup[]>([]);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
+  const [editingDurationId, setEditingDurationId] = useState<string | null>(null);
+  const [editingDurationValue, setEditingDurationValue] = useState("");
 
   // Drag and drop
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -189,6 +191,13 @@ export default function PracticeSetupPage() {
     setPlanItems(planItems.map((i) => i.group_id === groupId ? { ...i, group_id: null } : i));
     await supabase.from("practice_squad_groups").delete().eq("id", groupId);
     setSquadGroups(squadGroups.filter((g) => g.id !== groupId));
+  }
+
+  async function saveDuration(itemId: string, minutes: number) {
+    const clamped = Math.max(0, minutes);
+    await supabase.from("practice_plan_items").update({ duration_minutes: clamped }).eq("id", itemId);
+    setPlanItems(planItems.map((i) => i.id === itemId ? { ...i, duration_minutes: clamped } : i));
+    setEditingDurationId(null);
   }
 
   async function renameSquadGroup(groupId: string, name: string) {
@@ -479,7 +488,34 @@ export default function PracticeSetupPage() {
                             <div className="text-[10px] text-primary/60">{squadGroups.length} group{squadGroups.length !== 1 ? "s" : ""} · {planItems.filter((i) => i.group_id).length} drill{planItems.filter((i) => i.group_id).length !== 1 ? "s" : ""}</div>
                           )}
                         </div>
-                        {!isSquadSplit && <span className="text-xs text-muted-foreground shrink-0">{item.duration_minutes}m</span>}
+                        {!isSquadSplit && (
+                          editingDurationId === item.id ? (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <input
+                                type="number"
+                                value={editingDurationValue}
+                                onChange={(e) => setEditingDurationValue(e.target.value)}
+                                onBlur={() => saveDuration(item.id, parseInt(editingDurationValue) || 0)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveDuration(item.id, parseInt(editingDurationValue) || 0);
+                                  if (e.key === "Escape") setEditingDurationId(null);
+                                }}
+                                className="w-12 h-6 text-xs text-center bg-input/50 border border-border/50 rounded px-1"
+                                autoFocus
+                                min={0}
+                              />
+                              <span className="text-xs text-muted-foreground">m</span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingDurationId(item.id); setEditingDurationValue(String(item.duration_minutes)); }}
+                              className="text-xs text-muted-foreground shrink-0 hover:text-primary transition-colors tabular-nums"
+                              title="Click to edit duration"
+                            >
+                              {item.duration_minutes}m
+                            </button>
+                          )
+                        )}
                         <div className="flex gap-0.5 shrink-0">
                           <button
                             onClick={() => movePlanItem(fullIdx, "up")}
