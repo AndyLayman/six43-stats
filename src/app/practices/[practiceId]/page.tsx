@@ -339,7 +339,7 @@ export default function PracticeDetailPage() {
       </Card>
 
       {/* Practice Plan */}
-      <Card className="glass">
+      <Card className="glass overflow-visible">
         <CardHeader className="pb-2 px-4">
           <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">
             <span>Practice Plan</span>
@@ -350,7 +350,7 @@ export default function PracticeDetailPage() {
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-3">
+        <CardContent className="px-4 pb-4 space-y-3 overflow-visible">
           {/* Load from template */}
           {planItems.length === 0 && templates.length > 0 && (
             <div className="flex gap-2 flex-wrap">
@@ -582,7 +582,7 @@ export default function PracticeDetailPage() {
       </Card>
 
       {/* Action Items */}
-      <Card className="glass">
+      <Card className="glass overflow-visible">
         <CardHeader className="pb-2 px-4">
           <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">
             <span>Action Items</span>
@@ -593,7 +593,7 @@ export default function PracticeDetailPage() {
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-3">
+        <CardContent className="px-4 pb-4 space-y-3 overflow-visible">
           {actionItems.length > 0 && (
             <div className="space-y-1">
               {actionItems.map((item) => (
