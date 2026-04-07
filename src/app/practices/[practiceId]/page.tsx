@@ -14,6 +14,57 @@ import type {
 } from "@/lib/scoring/types";
 import { firstName } from "@/lib/player-name";
 import { VenuePicker } from "@/components/venue-picker";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+
+function DraggablePlayer({ player, color }: { player: Player; color?: { bg: string; text: string; border: string } }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `player-${player.id}`,
+    data: { playerId: player.id },
+  });
+  const c = color ?? { bg: "bg-muted/30", text: "text-foreground", border: "border-border/50" };
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={`h-7 px-2 rounded-lg text-xs font-bold ${c.border} ${c.bg} ${c.text} border transition-all select-none text-left truncate cursor-grab active:cursor-grabbing touch-manipulation ${isDragging ? "opacity-30" : ""}`}
+    >
+      #{player.number} {firstName(player)}
+    </div>
+  );
+}
+
+function DroppableGroup({ groupId, children, color }: { groupId: string; children: React.ReactNode; color: { bg: string; text: string; border: string } }) {
+  const { isOver, setNodeRef } = useDroppable({ id: `group-${groupId}` });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-xl border-2 ${color.border} ${color.bg} p-2.5 flex flex-col transition-all ${isOver ? "ring-2 ring-primary/50 scale-[1.02]" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DroppableUnassigned({ children }: { children: React.ReactNode }) {
+  const { isOver, setNodeRef } = useDroppable({ id: "unassigned" });
+  return (
+    <div ref={setNodeRef} className={`transition-all rounded-lg p-1 -m-1 ${isOver ? "ring-2 ring-border/50 bg-muted/20" : ""}`}>
+      {children}
+    </div>
+  );
+}
 
 export default function PracticeSetupPage() {
   const params = useParams();
@@ -40,6 +91,13 @@ export default function PracticeSetupPage() {
   const [squadMembers, setSquadMembers] = useState<SquadMember[]>([]);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
+
+  // Drag and drop
+  const [activeDragId, setActiveDragId] = useState<number | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+  );
 
   // Venue editing
   const [editingVenue, setEditingVenue] = useState(false);
@@ -166,6 +224,31 @@ export default function PracticeSetupPage() {
       const g1 = await supabase.from("practice_squad_groups").insert({ practice_id: practiceId, name: "Group 1", color_index: 0, sort_order: 0 }).select().single();
       const g2 = await supabase.from("practice_squad_groups").insert({ practice_id: practiceId, name: "Group 2", color_index: 1, sort_order: 1 }).select().single();
       if (g1.data && g2.data) setSquadGroups([g1.data, g2.data]);
+    }
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    const playerId = event.active.data.current?.playerId as number;
+    setActiveDragId(playerId);
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over) return;
+    const playerId = active.data.current?.playerId as number;
+    const overId = over.id as string;
+
+    if (overId === "unassigned") {
+      // Remove from current group
+      const existing = squadMembers.find((m) => m.player_id === playerId);
+      if (existing) {
+        await supabase.from("practice_squad_members").delete().eq("id", existing.id);
+        setSquadMembers(squadMembers.filter((m) => m.id !== existing.id));
+      }
+    } else if (overId.startsWith("group-")) {
+      const groupId = overId.replace("group-", "");
+      await assignToGroup(playerId, groupId);
     }
   }
 
@@ -392,108 +475,101 @@ export default function PracticeSetupPage() {
 
                     {/* Squad Split inline editor */}
                     {isSquadSplit && (
-                      <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" className="h-7 px-2 text-xs" onClick={addSquadGroup}>+ Group</Button>
-                          {squadGroups.length >= 2 && (
-                            <Button variant="ghost" className="h-7 px-2 text-xs" onClick={randomizeGroups}>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>
-                              Randomize
-                            </Button>
-                          )}
+                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                        <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" className="h-7 px-2 text-xs" onClick={addSquadGroup}>+ Group</Button>
+                            {squadGroups.length >= 2 && (
+                              <Button variant="ghost" className="h-7 px-2 text-xs" onClick={randomizeGroups}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>
+                                Randomize
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Groups side by side */}
+                          <div className="grid grid-cols-2 gap-2">
+                            {squadGroups.map((group) => {
+                              const color = GROUP_COLORS[group.color_index % GROUP_COLORS.length];
+                              const groupPlayers = squadMembers
+                                .filter((m) => m.group_id === group.id)
+                                .map((m) => players.find((p) => p.id === m.player_id))
+                                .filter(Boolean) as Player[];
+
+                              return (
+                                <DroppableGroup key={group.id} groupId={group.id} color={color}>
+                                  <div className="flex items-center justify-between mb-2">
+                                    {editingGroupId === group.id ? (
+                                      <Input
+                                        value={editingGroupName}
+                                        onChange={(e) => setEditingGroupName(e.target.value)}
+                                        onBlur={() => renameSquadGroup(group.id, editingGroupName)}
+                                        onKeyDown={(e) => e.key === "Enter" && renameSquadGroup(group.id, editingGroupName)}
+                                        className="h-6 text-xs w-24 bg-transparent border-border/50"
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <button
+                                        onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}
+                                        className={`text-xs font-bold ${color.text}`}
+                                      >
+                                        {group.name} ({groupPlayers.length})
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => deleteSquadGroup(group.id)}
+                                      className="text-muted-foreground hover:text-destructive transition-all"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                    </button>
+                                  </div>
+                                  <div className="flex flex-col gap-1 flex-1 min-h-[2rem]">
+                                    {groupPlayers.map((p) => (
+                                      <DraggablePlayer key={p.id} player={p} color={color} />
+                                    ))}
+                                    {groupPlayers.length === 0 && (
+                                      <span className="text-[10px] text-muted-foreground italic">Drop here</span>
+                                    )}
+                                  </div>
+                                </DroppableGroup>
+                              );
+                            })}
+                          </div>
+
+                          {/* Unassigned players */}
+                          {(() => {
+                            const unassigned = players.filter((p) => !squadMembers.find((m) => m.player_id === p.id));
+                            if (unassigned.length === 0 && !activeDragId) return null;
+                            return (
+                              <DroppableUnassigned>
+                                <div className="text-xs text-muted-foreground mb-1.5">Unassigned — drag into a group:</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {unassigned.map((p) => (
+                                    <DraggablePlayer key={p.id} player={p} />
+                                  ))}
+                                  {unassigned.length === 0 && (
+                                    <span className="text-[10px] text-muted-foreground italic">Drop here to unassign</span>
+                                  )}
+                                </div>
+                              </DroppableUnassigned>
+                            );
+                          })()}
+
+                          <p className="text-[10px] text-muted-foreground">Drag players between groups. Tap group name to rename.</p>
                         </div>
 
-                        {/* Groups side by side */}
-                        <div className="grid grid-cols-2 gap-2">
-                          {squadGroups.map((group) => {
-                            const color = GROUP_COLORS[group.color_index % GROUP_COLORS.length];
-                            const groupPlayers = squadMembers
-                              .filter((m) => m.group_id === group.id)
-                              .map((m) => players.find((p) => p.id === m.player_id))
-                              .filter(Boolean) as Player[];
-
+                        <DragOverlay>
+                          {activeDragId ? (() => {
+                            const p = players.find((p) => p.id === activeDragId);
+                            if (!p) return null;
                             return (
-                              <div key={group.id} className={`rounded-xl border-2 ${color.border} ${color.bg} p-2.5 flex flex-col`}>
-                                <div className="flex items-center justify-between mb-2">
-                                  {editingGroupId === group.id ? (
-                                    <Input
-                                      value={editingGroupName}
-                                      onChange={(e) => setEditingGroupName(e.target.value)}
-                                      onBlur={() => renameSquadGroup(group.id, editingGroupName)}
-                                      onKeyDown={(e) => e.key === "Enter" && renameSquadGroup(group.id, editingGroupName)}
-                                      className="h-6 text-xs w-24 bg-transparent border-border/50"
-                                      autoFocus
-                                    />
-                                  ) : (
-                                    <button
-                                      onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}
-                                      className={`text-xs font-bold ${color.text}`}
-                                    >
-                                      {group.name} ({groupPlayers.length})
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => deleteSquadGroup(group.id)}
-                                    className="text-muted-foreground hover:text-destructive transition-all"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                  </button>
-                                </div>
-                                <div className="flex flex-col gap-1 flex-1">
-                                  {groupPlayers.map((p) => (
-                                    <button
-                                      key={p.id}
-                                      onClick={() => assignToGroup(p.id, group.id)}
-                                      className={`h-7 px-2 rounded-lg text-xs font-bold ${color.border} ${color.bg} ${color.text} border transition-all active:scale-95 select-none text-left truncate`}
-                                    >
-                                      #{p.number} {firstName(p)}
-                                    </button>
-                                  ))}
-                                  {groupPlayers.length === 0 && (
-                                    <span className="text-[10px] text-muted-foreground italic">Empty</span>
-                                  )}
-                                </div>
+                              <div className="h-7 px-2 rounded-lg text-xs font-bold border-2 border-primary/60 bg-primary/20 text-primary shadow-lg cursor-grabbing">
+                                #{p.number} {firstName(p)}
                               </div>
                             );
-                          })}
-                        </div>
-
-                        {/* Unassigned players */}
-                        {(() => {
-                          const unassigned = players.filter((p) => !squadMembers.find((m) => m.player_id === p.id));
-                          if (unassigned.length === 0 || squadGroups.length === 0) return null;
-                          return (
-                            <div>
-                              <div className="text-xs text-muted-foreground mb-1.5">Unassigned — tap to assign:</div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {unassigned.map((p) => (
-                                  <div key={p.id} className="relative group/player">
-                                    <div className="h-7 px-2 rounded-lg text-xs font-bold border-2 border-border/50 bg-muted/30 flex items-center cursor-pointer">
-                                      #{p.number} {firstName(p)}
-                                    </div>
-                                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full hidden group-hover/player:flex gap-1 bg-background/95 backdrop-blur rounded-lg p-1 border border-border/50 shadow-lg z-10">
-                                      {squadGroups.map((g) => {
-                                        const c = GROUP_COLORS[g.color_index % GROUP_COLORS.length];
-                                        return (
-                                          <button
-                                            key={g.id}
-                                            onClick={() => assignToGroup(p.id, g.id)}
-                                            className={`h-6 px-2 rounded text-[10px] font-bold ${c.bg} ${c.text} ${c.border} border transition-all active:scale-95`}
-                                          >
-                                            {g.name}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        <p className="text-[10px] text-muted-foreground">Tap group name to rename. Hover unassigned players to pick a group.</p>
-                      </div>
+                          })() : null}
+                        </DragOverlay>
+                      </DndContext>
                     )}
                   </div>
                 );
