@@ -54,6 +54,18 @@ function DraggableDrillItem({ item, color, onRemove }: { item: PracticePlanItem;
   );
 }
 
+function DroppableMainPlan() {
+  const { isOver, setNodeRef } = useDroppable({ id: "main-plan" });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg border-2 border-dashed p-2 text-center transition-all ${isOver ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30" : "border-border/30"}`}
+    >
+      <span className="text-[10px] text-muted-foreground">Drop here to remove from group</span>
+    </div>
+  );
+}
+
 function PlanItemDragHandle({ itemId }: { itemId: string }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `item-${itemId}`,
@@ -255,7 +267,9 @@ export default function PracticeSetupPage() {
     const itemId = active.data.current?.itemId as string;
     const overId = over.id as string;
 
-    if (overId.startsWith("group-")) {
+    if (overId === "main-plan") {
+      await assignItemToGroup(itemId, null);
+    } else if (overId.startsWith("group-")) {
       const groupId = overId.replace("group-", "");
       await assignItemToGroup(itemId, groupId);
     }
@@ -559,7 +573,8 @@ export default function PracticeSetupPage() {
                             })}
                           </div>
 
-                          <p className="text-[10px] text-muted-foreground">Drag plan items or drills into groups. Use the dropdown to add drills directly. Tap group name to rename.</p>
+                          <DroppableMainPlan />
+                          <p className="text-[10px] text-muted-foreground">Drag between groups or drop above to remove from group. Use the dropdown to add drills directly. Tap group name to rename.</p>
                         </div>
                       )}
                     </div>
