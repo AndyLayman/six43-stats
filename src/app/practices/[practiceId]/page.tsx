@@ -392,8 +392,8 @@ export default function PracticeSetupPage() {
 
                     {/* Squad Split inline editor */}
                     {isSquadSplit && (
-                      <div className="px-3 pb-3 space-y-2 border-t border-border/30 pt-3">
-                        <div className="flex items-center gap-2 mb-2">
+                      <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
+                        <div className="flex items-center gap-2">
                           <Button variant="ghost" className="h-7 px-2 text-xs" onClick={addSquadGroup}>+ Group</Button>
                           {squadGroups.length >= 2 && (
                             <Button variant="ghost" className="h-7 px-2 text-xs" onClick={randomizeGroups}>
@@ -403,57 +403,60 @@ export default function PracticeSetupPage() {
                           )}
                         </div>
 
-                        {squadGroups.map((group) => {
-                          const color = GROUP_COLORS[group.color_index % GROUP_COLORS.length];
-                          const groupPlayers = squadMembers
-                            .filter((m) => m.group_id === group.id)
-                            .map((m) => players.find((p) => p.id === m.player_id))
-                            .filter(Boolean) as Player[];
+                        {/* Groups side by side */}
+                        <div className="grid grid-cols-2 gap-2">
+                          {squadGroups.map((group) => {
+                            const color = GROUP_COLORS[group.color_index % GROUP_COLORS.length];
+                            const groupPlayers = squadMembers
+                              .filter((m) => m.group_id === group.id)
+                              .map((m) => players.find((p) => p.id === m.player_id))
+                              .filter(Boolean) as Player[];
 
-                          return (
-                            <div key={group.id} className={`rounded-xl border-2 ${color.border} ${color.bg} p-3`}>
-                              <div className="flex items-center justify-between mb-2">
-                                {editingGroupId === group.id ? (
-                                  <Input
-                                    value={editingGroupName}
-                                    onChange={(e) => setEditingGroupName(e.target.value)}
-                                    onBlur={() => renameSquadGroup(group.id, editingGroupName)}
-                                    onKeyDown={(e) => e.key === "Enter" && renameSquadGroup(group.id, editingGroupName)}
-                                    className="h-7 text-sm w-32 bg-transparent border-border/50"
-                                    autoFocus
-                                  />
-                                ) : (
+                            return (
+                              <div key={group.id} className={`rounded-xl border-2 ${color.border} ${color.bg} p-2.5 flex flex-col`}>
+                                <div className="flex items-center justify-between mb-2">
+                                  {editingGroupId === group.id ? (
+                                    <Input
+                                      value={editingGroupName}
+                                      onChange={(e) => setEditingGroupName(e.target.value)}
+                                      onBlur={() => renameSquadGroup(group.id, editingGroupName)}
+                                      onKeyDown={(e) => e.key === "Enter" && renameSquadGroup(group.id, editingGroupName)}
+                                      className="h-6 text-xs w-24 bg-transparent border-border/50"
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <button
+                                      onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}
+                                      className={`text-xs font-bold ${color.text}`}
+                                    >
+                                      {group.name} ({groupPlayers.length})
+                                    </button>
+                                  )}
                                   <button
-                                    onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}
-                                    className={`text-sm font-bold ${color.text}`}
+                                    onClick={() => deleteSquadGroup(group.id)}
+                                    className="text-muted-foreground hover:text-destructive transition-all"
                                   >
-                                    {group.name} ({groupPlayers.length})
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                                   </button>
-                                )}
-                                <button
-                                  onClick={() => deleteSquadGroup(group.id)}
-                                  className="text-muted-foreground hover:text-destructive transition-all"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                </button>
+                                </div>
+                                <div className="flex flex-col gap-1 flex-1">
+                                  {groupPlayers.map((p) => (
+                                    <button
+                                      key={p.id}
+                                      onClick={() => assignToGroup(p.id, group.id)}
+                                      className={`h-7 px-2 rounded-lg text-xs font-bold ${color.border} ${color.bg} ${color.text} border transition-all active:scale-95 select-none text-left truncate`}
+                                    >
+                                      #{p.number} {firstName(p)}
+                                    </button>
+                                  ))}
+                                  {groupPlayers.length === 0 && (
+                                    <span className="text-[10px] text-muted-foreground italic">Empty</span>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {groupPlayers.map((p) => (
-                                  <button
-                                    key={p.id}
-                                    onClick={() => assignToGroup(p.id, group.id)}
-                                    className={`h-8 px-2.5 rounded-lg text-xs font-bold ${color.border} ${color.bg} ${color.text} border transition-all active:scale-95 select-none`}
-                                  >
-                                    #{p.number} {firstName(p)}
-                                  </button>
-                                ))}
-                                {groupPlayers.length === 0 && (
-                                  <span className="text-xs text-muted-foreground italic">No players assigned</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
 
                         {/* Unassigned players */}
                         {(() => {
@@ -461,11 +464,11 @@ export default function PracticeSetupPage() {
                           if (unassigned.length === 0 || squadGroups.length === 0) return null;
                           return (
                             <div>
-                              <div className="text-xs text-muted-foreground mb-1.5">Unassigned — tap a group color to assign:</div>
+                              <div className="text-xs text-muted-foreground mb-1.5">Unassigned — tap to assign:</div>
                               <div className="flex flex-wrap gap-1.5">
                                 {unassigned.map((p) => (
                                   <div key={p.id} className="relative group/player">
-                                    <div className="h-8 px-2.5 rounded-lg text-xs font-bold border-2 border-border/50 bg-muted/30 flex items-center cursor-pointer">
+                                    <div className="h-7 px-2 rounded-lg text-xs font-bold border-2 border-border/50 bg-muted/30 flex items-center cursor-pointer">
                                       #{p.number} {firstName(p)}
                                     </div>
                                     <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full hidden group-hover/player:flex gap-1 bg-background/95 backdrop-blur rounded-lg p-1 border border-border/50 shadow-lg z-10">
