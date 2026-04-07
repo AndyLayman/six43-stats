@@ -11,6 +11,7 @@ import { RichEditor } from "@/components/rich-editor";
 import type {
   Practice, PracticeNote, Player, Drill,
   PracticePlanItem, ActionItem, PracticeAttendance,
+  PracticeSquadGroup, PracticeSquadMember,
 } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
 import { CustomSelect } from "@/components/custom-select";
@@ -53,16 +54,19 @@ export default function LivePracticePage() {
   const [newActionText, setNewActionText] = useState("");
   const [newActionPlayer, setNewActionPlayer] = useState<number | null>(null);
 
-  // Squad split
-  const [squadCount, setSquadCount] = useState<number>(0); // 0 = not split
-  const [squads, setSquads] = useState<number[][]>([]); // arrays of player IDs
+  // Squad split (saved from setup page)
+  const [savedSquadGroups, setSavedSquadGroups] = useState<PracticeSquadGroup[]>([]);
+  const [savedSquadMembers, setSavedSquadMembers] = useState<PracticeSquadMember[]>([]);
+  // Ad-hoc random split (only used if no saved squads)
+  const [squadCount, setSquadCount] = useState<number>(0);
+  const [squads, setSquads] = useState<number[][]>([]);
 
   // Share
   const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
     async function load() {
-      const [practiceRes, playersRes, planRes, drillsRes, attendanceRes, notesRes, actionRes, openActionRes] = await Promise.all([
+      const [practiceRes, playersRes, planRes, drillsRes, attendanceRes, notesRes, actionRes, openActionRes, squadGroupsRes] = await Promise.all([
         supabase.from("practices").select("*").eq("id", practiceId).single(),
         supabase.from("players").select("*").order("sort_order"),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
@@ -71,6 +75,7 @@ export default function LivePracticePage() {
         supabase.from("practice_notes").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").is("completed", false).is("practice_id", null).order("created_at"),
+        supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
       ]);
 
       setPractice(practiceRes.data);
@@ -81,6 +86,15 @@ export default function LivePracticePage() {
       setNotes(notesRes.data ?? []);
       setActionItems(actionRes.data ?? []);
       setOpenActionItems(openActionRes.data ?? []);
+
+      // Load saved squad groups & members
+      const groups = (squadGroupsRes.data ?? []) as PracticeSquadGroup[];
+      setSavedSquadGroups(groups);
+      if (groups.length > 0) {
+        const groupIds = groups.map((g) => g.id);
+        const { data: members } = await supabase.from("practice_squad_members").select("*").in("group_id", groupIds);
+        setSavedSquadMembers(members ?? []);
+      }
 
       const attMap = new Map<number, boolean>();
       for (const a of (attendanceRes.data ?? []) as PracticeAttendance[]) {
@@ -302,8 +316,54 @@ export default function LivePracticePage() {
         </CardContent>
       </Card>
 
-      {/* Split Squad */}
-      {presentCount >= 2 && (
+      {/* Split Squad — saved groups from setup page */}
+      {savedSquadGroups.length > 0 && (() => {
+        const groupColors = [
+          { bg: "bg-blue-500/15", text: "text-blue-400", border: "border-blue-500/30", label: "Blue" },
+          { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/30", label: "Gold" },
+          { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", label: "Green" },
+          { bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/30", label: "Purple" },
+        ];
+        return (
+          <Card className="glass">
+            <CardHeader className="pb-2 px-4">
+              <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium">
+                Split Squad
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(savedSquadGroups.length, 2)}, 1fr)` }}>
+                {savedSquadGroups.map((group) => {
+                  const color = groupColors[group.color_index] ?? groupColors[0];
+                  const memberIds = savedSquadMembers.filter((m) => m.group_id === group.id).map((m) => m.player_id);
+                  const members = players.filter((p) => memberIds.includes(p.id));
+                  return (
+                    <div key={group.id} className={`rounded-xl border-2 ${color.border} ${color.bg} p-3`}>
+                      <div className={`text-xs font-bold ${color.text} mb-2`}>
+                        {group.name} ({members.length})
+                      </div>
+                      <div className="space-y-1">
+                        {members.map((p) => {
+                          const isPresent = attendance.get(p.id);
+                          return (
+                            <div key={p.id} className={`text-xs font-medium ${isPresent === false ? "line-through text-muted-foreground/50" : ""}`}>
+                              #{p.number} {firstName(p)}
+                              {isPresent === false && <span className="text-[10px] ml-1 text-red-400/60">(absent)</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Split Squad — ad-hoc random (only if no saved groups) */}
+      {savedSquadGroups.length === 0 && presentCount >= 2 && (
         <Card className="glass">
           <CardHeader className="pb-2 px-4">
             <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">

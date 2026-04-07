@@ -10,8 +10,10 @@ import { Input } from "@/components/ui/input";
 import type {
   Practice, Player, Drill,
   PracticePlanItem, PracticePlanTemplate, PracticePlanTemplateItem,
+  PracticeSquadGroup, PracticeSquadMember,
 } from "@/lib/scoring/types";
 import { VenuePicker } from "@/components/venue-picker";
+import { firstName } from "@/lib/player-name";
 
 export default function PracticeSetupPage() {
   const params = useParams();
@@ -37,14 +39,22 @@ export default function PracticeSetupPage() {
   const [venue, setVenue] = useState("");
   const [venueAddress, setVenueAddress] = useState("");
 
+  // Squad split planning
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [squadGroups, setSquadGroups] = useState<PracticeSquadGroup[]>([]);
+  const [squadMembers, setSquadMembers] = useState<PracticeSquadMember[]>([]);
+  const [showSquadSetup, setShowSquadSetup] = useState(false);
+
   useEffect(() => {
     async function load() {
-      const [practiceRes, planRes, templatesRes, templateItemsRes, drillsRes] = await Promise.all([
+      const [practiceRes, planRes, templatesRes, templateItemsRes, drillsRes, playersRes, squadGroupsRes] = await Promise.all([
         supabase.from("practices").select("*").eq("id", practiceId).single(),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
         supabase.from("practice_plan_templates").select("*").order("name"),
         supabase.from("practice_plan_template_items").select("*").order("sort_order"),
         supabase.from("drills").select("*").order("name"),
+        supabase.from("players").select("*").order("sort_order"),
+        supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
       ]);
 
       setPractice(practiceRes.data);
@@ -52,6 +62,16 @@ export default function PracticeSetupPage() {
       setTemplates(templatesRes.data ?? []);
       setTemplateItems(templateItemsRes.data ?? []);
       setDrills(drillsRes.data ?? []);
+      setPlayers(playersRes.data ?? []);
+
+      const groups = (squadGroupsRes.data ?? []) as PracticeSquadGroup[];
+      setSquadGroups(groups);
+      if (groups.length > 0) {
+        setShowSquadSetup(true);
+        const groupIds = groups.map((g) => g.id);
+        const { data: members } = await supabase.from("practice_squad_members").select("*").in("group_id", groupIds);
+        setSquadMembers(members ?? []);
+      }
       setVenue(practiceRes.data?.venue ?? "");
       setVenueAddress(practiceRes.data?.venue_address ?? "");
       setLoading(false);
@@ -123,6 +143,83 @@ export default function PracticeSetupPage() {
       .select()
       .single();
     if (data) setPlanItems([...planItems, data]);
+  }
+
+  // ---- Squad Split ----
+  const GROUP_COLORS = [
+    { name: "Blue", bg: "bg-blue-500/15", text: "text-blue-400", border: "border-blue-500/30" },
+    { name: "Gold", bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/30" },
+    { name: "Green", bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30" },
+    { name: "Purple", bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/30" },
+  ];
+
+  async function createSquadGroups(count: number) {
+    // Delete existing groups for this practice (cascade deletes members)
+    await supabase.from("practice_squad_groups").delete().eq("practice_id", practiceId);
+    const rows = Array.from({ length: count }, (_, i) => ({
+      practice_id: practiceId,
+      name: GROUP_COLORS[i].name,
+      color_index: i,
+      sort_order: i,
+    }));
+    const { data } = await supabase.from("practice_squad_groups").insert(rows).select();
+    setSquadGroups(data ?? []);
+    setSquadMembers([]);
+    setShowSquadSetup(true);
+  }
+
+  async function deleteAllSquadGroups() {
+    await supabase.from("practice_squad_groups").delete().eq("practice_id", practiceId);
+    setSquadGroups([]);
+    setSquadMembers([]);
+    setShowSquadSetup(false);
+  }
+
+  async function randomizeSquads() {
+    if (squadGroups.length === 0) return;
+    // Remove all existing members
+    const groupIds = squadGroups.map((g) => g.id);
+    for (const gid of groupIds) {
+      await supabase.from("practice_squad_members").delete().eq("group_id", gid);
+    }
+    // Shuffle all players into groups
+    const shuffled = [...players].sort(() => Math.random() - 0.5);
+    const newMembers: { group_id: string; player_id: number }[] = [];
+    shuffled.forEach((p, i) => {
+      newMembers.push({ group_id: squadGroups[i % squadGroups.length].id, player_id: p.id });
+    });
+    const { data } = await supabase.from("practice_squad_members").insert(newMembers).select();
+    setSquadMembers(data ?? []);
+  }
+
+  async function assignPlayerToGroup(playerId: number, groupId: string) {
+    // Remove from any current group
+    const existing = squadMembers.filter((m) => m.player_id === playerId);
+    for (const m of existing) {
+      await supabase.from("practice_squad_members").delete().eq("id", m.id);
+    }
+    // Add to new group
+    const { data } = await supabase.from("practice_squad_members").insert({ group_id: groupId, player_id: playerId }).select().single();
+    const filtered = squadMembers.filter((m) => m.player_id !== playerId);
+    if (data) setSquadMembers([...filtered, data]);
+  }
+
+  async function removePlayerFromSquad(playerId: number) {
+    const existing = squadMembers.filter((m) => m.player_id === playerId);
+    for (const m of existing) {
+      await supabase.from("practice_squad_members").delete().eq("id", m.id);
+    }
+    setSquadMembers(squadMembers.filter((m) => m.player_id !== playerId));
+  }
+
+  function getGroupMembers(groupId: string): Player[] {
+    const memberIds = squadMembers.filter((m) => m.group_id === groupId).map((m) => m.player_id);
+    return players.filter((p) => memberIds.includes(p.id));
+  }
+
+  function getUnassignedPlayers(): Player[] {
+    const assignedIds = new Set(squadMembers.map((m) => m.player_id));
+    return players.filter((p) => !assignedIds.has(p.id));
   }
 
   async function movePlanItem(idx: number, direction: "up" | "down") {
@@ -419,6 +516,127 @@ export default function PracticeSetupPage() {
               </button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Squad Split Planning */}
+      <Card className="glass overflow-visible">
+        <CardHeader className="pb-2 px-4">
+          <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">
+            <span>Split Squad</span>
+            {squadGroups.length > 0 && (
+              <button onClick={deleteAllSquadGroups} className="text-xs normal-case font-normal text-muted-foreground hover:text-destructive transition-colors">
+                Clear
+              </button>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          {squadGroups.length === 0 ? (
+            <div>
+              <p className="text-xs text-muted-foreground mb-3">Create groups to split the squad for drills or scrimmages.</p>
+              <div className="flex gap-2">
+                {[2, 3, 4].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => createSquadGroups(n)}
+                    className="flex-1 h-9 rounded-xl text-xs font-bold border-2 bg-muted/30 text-foreground border-border/50 hover:border-primary/30 transition-all active:scale-95 select-none"
+                  >
+                    {n} Groups
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Group count switcher + actions */}
+              <div className="flex gap-2">
+                {[2, 3, 4].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => createSquadGroups(n)}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold border-2 transition-all active:scale-95 select-none ${
+                      squadGroups.length === n
+                        ? "bg-primary/20 text-primary border-primary/40"
+                        : "bg-muted/30 text-foreground border-border/50 hover:border-primary/30"
+                    }`}
+                  >
+                    {n} Groups
+                  </button>
+                ))}
+                <button
+                  onClick={randomizeSquads}
+                  className="h-9 px-3 rounded-xl text-xs font-bold border-2 bg-muted/30 text-muted-foreground border-border/50 hover:border-primary/30 transition-all active:scale-95 select-none flex items-center gap-1.5 shrink-0"
+                  title="Randomize"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                  Randomize
+                </button>
+              </div>
+
+              {/* Groups */}
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(squadGroups.length, 2)}, 1fr)` }}>
+                {squadGroups.map((group) => {
+                  const color = GROUP_COLORS[group.color_index] ?? GROUP_COLORS[0];
+                  const members = getGroupMembers(group.id);
+                  return (
+                    <div key={group.id} className={`rounded-xl border-2 ${color.border} ${color.bg} p-3`}>
+                      <div className={`text-xs font-bold ${color.text} mb-2`}>
+                        {group.name} ({members.length})
+                      </div>
+                      <div className="space-y-1 mb-2">
+                        {members.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between group/member">
+                            <span className="text-xs font-medium">#{p.number} {firstName(p)}</span>
+                            <button
+                              onClick={() => removePlayerFromSquad(p.id)}
+                              className="opacity-0 group-hover/member:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Drop zone: unassigned players can be added here */}
+                      {getUnassignedPlayers().length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {getUnassignedPlayers().map((p) => (
+                            <button
+                              key={p.id}
+                              onClick={() => assignPlayerToGroup(p.id, group.id)}
+                              className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-muted/40 text-muted-foreground border border-border/30 hover:border-primary/40 hover:text-primary transition-all active:scale-95"
+                            >
+                              +#{p.number}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Unassigned players */}
+              {getUnassignedPlayers().length > 0 && (
+                <div>
+                  <div className="text-xs text-muted-foreground font-medium mb-1.5">
+                    Unassigned ({getUnassignedPlayers().length})
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {getUnassignedPlayers().map((p) => (
+                      <span
+                        key={p.id}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-muted/30 text-muted-foreground border border-border/50"
+                      >
+                        #{p.number} {firstName(p)}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">Tap a +# button inside a group to assign, or use Randomize.</p>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
