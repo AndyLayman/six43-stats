@@ -18,6 +18,7 @@ import { CustomSelect } from "@/components/custom-select";
 import { ChainAwardPicker } from "@/components/chain-award-picker";
 
 const FOCUS_AREAS = ["Hitting", "Fielding", "Throwing", "Baserunning", "Attitude", "Other"];
+const CATEGORIES = ["General", "Warm Up", "Hitting", "Fielding", "Throwing", "Baserunning", "Conditioning", "Team", "Game", "Catcher"];
 
 export default function PracticeDetailPage() {
   const params = useParams();
@@ -47,6 +48,7 @@ export default function PracticeDetailPage() {
   const [newBlockLabel, setNewBlockLabel] = useState("");
   const [newBlockDuration, setNewBlockDuration] = useState("10");
   const [drills, setDrills] = useState<Drill[]>([]);
+  const [planFilterCategory, setPlanFilterCategory] = useState<string | null>(null);
 
   // Action items
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
@@ -214,6 +216,19 @@ export default function PracticeDetailPage() {
     if (data) setPlanItems([...planItems, data]);
   }
 
+  async function movePlanItem(idx: number, direction: "up" | "down") {
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= planItems.length) return;
+    const copy = [...planItems];
+    [copy[idx], copy[newIdx]] = [copy[newIdx], copy[idx]];
+    setPlanItems(copy);
+    // Update sort_order in DB
+    await Promise.all([
+      supabase.from("practice_plan_items").update({ sort_order: newIdx }).eq("id", copy[newIdx].id),
+      supabase.from("practice_plan_items").update({ sort_order: idx }).eq("id", copy[idx].id),
+    ]);
+  }
+
   // ---- Action Items ----
   async function addActionItem() {
     if (!newActionText.trim()) return;
@@ -367,87 +382,152 @@ export default function PracticeDetailPage() {
             </div>
           )}
 
-          {/* Plan items */}
+          {/* Plan items — numbered blocks with reorder */}
           {planItems.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-2">
               {planItems.map((item, idx) => (
-                <div key={item.id} className="flex items-center gap-2 group">
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 rounded-xl border-2 border-border/50 bg-muted/20 p-3 group"
+                >
                   <button
                     onClick={() => togglePlanItem(item.id, !item.completed)}
-                    className={`h-5 w-5 rounded border-2 shrink-0 flex items-center justify-center transition-all ${
+                    className={`h-6 w-6 rounded-lg border-2 shrink-0 flex items-center justify-center text-xs font-bold transition-all ${
                       item.completed
                         ? "bg-primary/20 border-primary/40 text-primary"
-                        : "border-border/50 hover:border-primary/40"
+                        : "border-border/50 text-muted-foreground hover:border-primary/40"
                     }`}
                   >
-                    {item.completed && (
+                    {item.completed ? (
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    ) : (
+                      idx + 1
                     )}
                   </button>
-                  <span className={`flex-1 text-sm ${item.completed ? "line-through text-muted-foreground" : ""}`}>
-                    {item.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{item.duration_minutes}m</span>
-                  <button
-                    onClick={() => deletePlanItem(item.id)}
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-medium truncate ${item.completed ? "line-through text-muted-foreground" : ""}`}>
+                      {item.label}
+                    </div>
+                    {item.drill_id && (
+                      <div className="text-[10px] text-primary/60">From drill library</div>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">{item.duration_minutes}m</span>
+                  <div className="flex gap-0.5 shrink-0">
+                    <button
+                      onClick={() => movePlanItem(idx, "up")}
+                      disabled={idx === 0}
+                      className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                    </button>
+                    <button
+                      onClick={() => movePlanItem(idx, "down")}
+                      disabled={idx === planItems.length - 1}
+                      className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    <button
+                      onClick={() => deletePlanItem(item.id)}
+                      className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Add block */}
-          {showAddBlock ? (
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
+          {/* Dotted placeholder — add next block */}
+          <div className="rounded-xl border-2 border-dashed border-border/40 p-6">
+            <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium mb-4 text-center">
+              Add block #{planItems.length + 1}
+            </div>
+
+            {/* Category filter chips */}
+            {drills.length > 0 && (
+              <>
+                <div className="flex gap-1.5 flex-wrap justify-center mb-3">
+                  <button
+                    onClick={() => setPlanFilterCategory(null)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all active:scale-95 select-none ${
+                      !planFilterCategory
+                        ? "bg-primary/20 text-primary border-primary/40"
+                        : "bg-muted/30 text-muted-foreground border-border/50"
+                    }`}
+                  >
+                    All
+                  </button>
+                  {CATEGORIES.filter((cat) => drills.some((d) => d.category === cat)).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setPlanFilterCategory(planFilterCategory === cat ? null : cat)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all active:scale-95 select-none ${
+                        planFilterCategory === cat
+                          ? "bg-primary/20 text-primary border-primary/40"
+                          : "bg-muted/30 text-muted-foreground border-border/50"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Drill grid */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {(planFilterCategory ? drills.filter((d) => d.category === planFilterCategory) : drills).map((drill) => (
+                    <button
+                      key={drill.id}
+                      onClick={() => addDrillToPlan(drill)}
+                      className="flex items-center gap-3 rounded-xl border-2 border-border/40 bg-muted/20 px-4 py-3.5 text-left hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-[0.98] group"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate group-hover:text-primary transition-colors">{drill.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {drill.duration_minutes ? `${drill.duration_minutes} min` : ""}{drill.duration_minutes && drill.category ? " · " : ""}{drill.category}
+                        </div>
+                      </div>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40 group-hover:text-primary shrink-0 transition-colors"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Custom block input */}
+            {showAddBlock ? (
+              <div className="flex gap-2 items-center">
                 <Input
                   value={newBlockLabel}
                   onChange={(e) => setNewBlockLabel(e.target.value)}
                   placeholder="Block name"
-                  className="h-9 text-sm bg-input/50 border-border/50"
+                  className="flex-1 h-9 text-sm bg-input/50 border-border/50"
                   autoFocus
                   onKeyDown={(e) => e.key === "Enter" && addPlanBlock()}
                 />
+                <Input
+                  type="number"
+                  value={newBlockDuration}
+                  onChange={(e) => setNewBlockDuration(e.target.value)}
+                  className="w-14 h-9 text-sm bg-input/50 border-border/50 text-center"
+                />
+                <span className="text-xs text-muted-foreground">min</span>
+                <Button variant="outline" className="h-9 text-xs shrink-0" onClick={addPlanBlock}>Add</Button>
+                <Button variant="outline" className="h-9 text-xs shrink-0" onClick={() => setShowAddBlock(false)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </Button>
               </div>
-              <Input
-                type="number"
-                value={newBlockDuration}
-                onChange={(e) => setNewBlockDuration(e.target.value)}
-                className="w-16 h-9 text-sm bg-input/50 border-border/50 text-center"
-              />
-              <span className="text-xs text-muted-foreground mb-2">min</span>
-              <Button variant="outline" className="h-9 text-xs" onClick={addPlanBlock}>Add</Button>
-              <Button variant="outline" className="h-9 text-xs" onClick={() => setShowAddBlock(false)}>Cancel</Button>
-            </div>
-          ) : (
-            <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" className="h-8 text-xs border-border/50" onClick={() => setShowAddBlock(true)}>
-                + Add Block
-              </Button>
-              {drills.length > 0 && (
-                <div className="relative group">
-                  <Button variant="outline" className="h-8 text-xs border-border/50">
-                    + From Drill Library
-                  </Button>
-                  <div className="absolute top-full left-0 mt-1 w-56 max-h-48 overflow-y-auto rounded-xl bg-card border border-border/50 shadow-lg z-20 hidden group-focus-within:block group-hover:block">
-                    {drills.map((d) => (
-                      <button
-                        key={d.id}
-                        onClick={() => addDrillToPlan(d)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex justify-between"
-                      >
-                        <span className="truncate">{d.name}</span>
-                        {d.duration_minutes && <span className="text-xs text-muted-foreground ml-2">{d.duration_minutes}m</span>}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+            ) : (
+              <button
+                onClick={() => setShowAddBlock(true)}
+                className="w-full rounded-lg border border-dashed border-border/40 py-2 text-xs text-muted-foreground hover:text-primary hover:border-primary/40 transition-all active:scale-[0.98]"
+              >
+                + Custom block (not from library)
+              </button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
