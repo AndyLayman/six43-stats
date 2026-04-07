@@ -175,21 +175,12 @@ export default function LivePracticePage() {
 
   // ---- Share ----
   async function handleShare() {
-    const planText = planItems.map((item, idx) => {
-      const drill = getDrill(item.drill_id);
-      return `${idx + 1}. ${item.label} (${item.duration_minutes} min)${drill?.description ? "\n   " + drill.description.replace(/<[^>]*>/g, "").slice(0, 120) : ""}`;
-    }).join("\n");
-
-    const text = [
-      `${practice?.title} — ${new Date(practice!.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
-      practice?.venue ? `Location: ${practice.venue}` : "",
-      `\nPractice Plan (${totalPlanMinutes} min):`,
-      planText,
-    ].filter(Boolean).join("\n");
+    const shareUrl = `${window.location.origin}/practices/${practiceId}/share`;
+    const title = `${practice?.title} — ${new Date(practice!.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`;
 
     if (navigator.share) {
       try {
-        await navigator.share({ title: practice?.title, text });
+        await navigator.share({ title, url: shareUrl });
         return;
       } catch {
         // fallback to clipboard
@@ -197,8 +188,8 @@ export default function LivePracticePage() {
     }
 
     try {
-      await navigator.clipboard.writeText(text);
-      setShareMessage("Copied to clipboard!");
+      await navigator.clipboard.writeText(shareUrl);
+      setShareMessage("Link copied!");
       setTimeout(() => setShareMessage(""), 2000);
     } catch {
       setShareMessage("Could not share");
