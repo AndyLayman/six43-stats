@@ -142,7 +142,7 @@ export default function NewGamePage() {
                 className="h-12 text-base bg-input/50 border-border/50 focus:border-primary/50"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 [&>*]:min-w-0">
               <div>
                 <Label htmlFor="date">Date</Label>
                 <Input
@@ -150,7 +150,7 @@ export default function NewGamePage() {
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="h-12 text-base bg-input/50 border-border/50 focus:border-primary/50"
+                  className="h-12 text-base w-full bg-input/50 border-border/50 focus:border-primary/50"
                 />
               </div>
               <div>
