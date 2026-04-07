@@ -256,3 +256,13 @@ export interface Venue {
   address: string;
   created_at: string;
 }
+
+export interface ChainAward {
+  id: string;
+  player_id: number;
+  award_type: "game_chain" | "hard_worker";
+  source_type: "game" | "practice";
+  source_id: string;
+  date: string;
+  created_at: string;
+}

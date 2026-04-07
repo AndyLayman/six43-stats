@@ -15,6 +15,7 @@ import type {
 } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
 import { CustomSelect } from "@/components/custom-select";
+import { ChainAwardPicker } from "@/components/chain-award-picker";
 
 const FOCUS_AREAS = ["Hitting", "Fielding", "Throwing", "Baserunning", "Attitude", "Other"];
 
@@ -651,6 +652,21 @@ export default function PracticeDetailPage() {
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground">Uncompleted items carry forward to future practices.</p>
+        </CardContent>
+      </Card>
+
+      {/* Chain Awards */}
+      <Card className="glass">
+        <CardHeader className="pb-2 px-4">
+          <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium">Chain Awards</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <ChainAwardPicker
+            players={players}
+            sourceType="practice"
+            sourceId={practiceId}
+            date={practice.date}
+          />
         </CardContent>
       </Card>
 

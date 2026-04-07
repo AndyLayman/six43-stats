@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatAvg } from "@/lib/stats/calculations";
 import { SprayChart } from "@/components/scoring/SprayChart";
 import { ProgressionChart } from "@/components/progression-chart";
-import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType } from "@/lib/scoring/types";
+import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType, ChainAward } from "@/lib/scoring/types";
 import { fullName } from "@/lib/player-name";
 import { StatTip } from "@/components/stat-tip";
 
@@ -27,20 +27,23 @@ export default function PlayerDetailPage() {
   const [gameLog, setGameLog] = useState<{ game_id: string; date: string; opponent: string; appearances: PlateAppearance[] }[]>([]);
   const [loading, setLoading] = useState(true);
   const [sprayFilter, setSprayFilter] = useState<SprayFilter>("both");
+  const [chainAwards, setChainAwards] = useState<ChainAward[]>([]);
 
   useEffect(() => {
     async function load() {
-      const [playerRes, battingRes, fieldingRes, pasRes, gamesRes] = await Promise.all([
+      const [playerRes, battingRes, fieldingRes, pasRes, gamesRes, awardsRes] = await Promise.all([
         supabase.from("players").select("*").eq("id", playerId).single(),
         supabase.from("batting_stats_season").select("*").eq("player_id", playerId).single(),
         supabase.from("fielding_stats_season").select("*").eq("player_id", playerId).single(),
         supabase.from("plate_appearances").select("*").eq("player_id", playerId).order("created_at"),
         supabase.from("games").select("*").eq("status", "final").order("date", { ascending: false }),
+        supabase.from("chain_awards").select("*").eq("player_id", playerId).order("date", { ascending: false }),
       ]);
 
       setPlayer(playerRes.data);
       setBattingStats(battingRes.data);
       setFieldingStats(fieldingRes.data);
+      setChainAwards(awardsRes.data ?? []);
 
       const games = gamesRes.data ?? [];
       const pas: PlateAppearance[] = pasRes.data ?? [];
@@ -119,6 +122,43 @@ export default function PlayerDetailPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Chain Awards */}
+      {chainAwards.length > 0 && (
+        <Card className="glass border-border/50">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="text-gradient">Chain Awards</CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6">
+            <div className="space-y-2">
+              {chainAwards.map((award) => (
+                <div
+                  key={award.id}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2 border ${
+                    award.award_type === "game_chain"
+                      ? "bg-amber-500/10 border-amber-500/30"
+                      : "bg-blue-500/10 border-blue-500/30"
+                  }`}
+                >
+                  <span className="text-xl">
+                    {award.award_type === "game_chain" ? "🏆" : "💪"}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-bold ${
+                      award.award_type === "game_chain" ? "text-amber-400" : "text-blue-400"
+                    }`}>
+                      {award.award_type === "game_chain" ? "Game Chain" : "Hard Worker"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(award.date + "T00:00:00").toLocaleDateString()} · {award.source_type === "game" ? "Game" : "Practice"}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Spray Chart */}

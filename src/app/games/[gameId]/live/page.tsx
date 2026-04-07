@@ -21,6 +21,7 @@ import { getDefaultRunnerAdvances, canDoublePlay } from "@/lib/scoring/baseball-
 import { isAtBat, isHit, totalBases } from "@/lib/stats/calculations";
 import type { GameState, PlateAppearanceResult, RecordAtBatPayload, RunnerAdvance, Player, GameLineup, OpponentBatter, HitType } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
+import { ChainAwardPicker } from "@/components/chain-award-picker";
 
 const RESULT_BUTTONS: { result: PlateAppearanceResult; label: string; color: string }[] = [
   { result: "1B", label: "1B", color: "bg-[#22c55e] hover:bg-[#2ad468] active:bg-[#1aab50]" },
@@ -759,6 +760,18 @@ export default function LiveScoringPage() {
               rows={4}
               className="w-full rounded-xl border-2 border-border/50 bg-muted/30 px-3 py-2.5 text-sm font-medium placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors resize-none"
               autoFocus
+            />
+          </CardContent>
+        </Card>
+
+        {/* Chain Awards */}
+        <Card className="glass">
+          <CardContent className="p-4">
+            <ChainAwardPicker
+              players={gameState.players}
+              sourceType="game"
+              sourceId={gameId}
+              date={gameDate}
             />
           </CardContent>
         </Card>

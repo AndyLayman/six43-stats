@@ -324,3 +324,17 @@ ALTER TABLE games ADD COLUMN IF NOT EXISTS venue TEXT;
 ALTER TABLE games ADD COLUMN IF NOT EXISTS venue_address TEXT;
 ALTER TABLE practices ADD COLUMN IF NOT EXISTS venue TEXT;
 ALTER TABLE practices ADD COLUMN IF NOT EXISTS venue_address TEXT;
+
+-- ============================================================
+-- Chain Awards (Game Chain, Hard Worker)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS chain_awards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  award_type TEXT NOT NULL CHECK (award_type IN ('game_chain', 'hard_worker')),
+  source_type TEXT NOT NULL CHECK (source_type IN ('game', 'practice')),
+  source_id UUID NOT NULL,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
