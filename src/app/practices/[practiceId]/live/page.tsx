@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -873,7 +874,7 @@ export default function LivePracticePage() {
       </Button>
 
       {/* Summary Modal */}
-      {showEndSummary && (
+      {showEndSummary && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowEndSummary(false)}>
           <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-center">
@@ -930,7 +931,8 @@ export default function LivePracticePage() {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
