@@ -80,7 +80,7 @@ export function CustomSelect({ value, onChange, options, placeholder = "Select..
       {open && (
         <div
           ref={listRef}
-          className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-xl border-2 border-border/50 bg-card shadow-xl overflow-hidden animate-slide-up"
+          className="absolute top-full left-0 right-0 mt-1 z-30 rounded-xl border-2 border-border/50 bg-card shadow-xl overflow-hidden animate-slide-up"
           style={{ maxHeight: "200px", overflowY: "auto" }}
         >
           {options.map((opt) => (
