@@ -796,6 +796,12 @@ export default function PracticeSetupPage() {
       </Card>
 
       {/* Start Practice button */}
+      {practice.completed ? (
+        <div className="flex items-center justify-center gap-2 h-14 rounded-xl border-2 border-green-500/30 bg-green-500/10 text-green-400 font-bold text-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>
+          Practice Complete
+        </div>
+      ) : (
       <Link
         href={`/practices/${practiceId}/live`}
         className="block w-full"
@@ -805,6 +811,7 @@ export default function PracticeSetupPage() {
           Start Practice
         </Button>
       </Link>
+      )}
     </div>
   );
 }
