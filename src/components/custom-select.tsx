@@ -48,8 +48,8 @@ export function CustomSelect({ value, onChange, options, placeholder = "Select..
       const spaceBelow = window.innerHeight - rect.bottom - 8;
       const shouldDropUp = dropUp || spaceBelow < maxHeight;
       setPos({
-        top: shouldDropUp ? rect.top + window.scrollY - maxHeight - 4 : rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
+        top: shouldDropUp ? rect.top - maxHeight - 4 : rect.bottom + 4,
+        left: rect.left,
         width: rect.width,
       });
     }
