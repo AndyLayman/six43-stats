@@ -538,9 +538,7 @@ function GameRow({
             </>
           ) : game.status === "in_progress" ? (
             <Badge className="bg-primary/20 text-primary border border-primary/30 animate-pulse">Live</Badge>
-          ) : (
-            <Badge variant="outline" className="border-border/50 text-muted-foreground">Scheduled</Badge>
-          )}
+          ) : null}
         </div>
 
         {/* Delete button in select mode */}
