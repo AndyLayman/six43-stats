@@ -9,10 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
-  Practice, Drill,
+  Practice, Drill, Player,
   PracticePlanItem, PracticePlanTemplate, PracticePlanTemplateItem,
+  PracticeAttendance, PracticeNote, ActionItem,
   SquadGroup,
 } from "@/lib/scoring/types";
+import { fullName, firstName } from "@/lib/player-name";
 import { VenuePicker } from "@/components/venue-picker";
 import {
   DndContext,
@@ -139,6 +141,12 @@ export default function PracticeSetupPage() {
   const [venue, setVenue] = useState("");
   const [venueAddress, setVenueAddress] = useState("");
 
+  // Review data (loaded for completed practices)
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [attendance, setAttendance] = useState<Map<number, boolean>>(new Map());
+  const [notes, setNotes] = useState<PracticeNote[]>([]);
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+
   useEffect(() => {
     async function load() {
       const [practiceRes, planRes, templatesRes, templateItemsRes, drillsRes, groupsRes] = await Promise.all([
@@ -158,6 +166,25 @@ export default function PracticeSetupPage() {
       setSquadGroups((groupsRes.data ?? []) as SquadGroup[]);
       setVenue(practiceRes.data?.venue ?? "");
       setVenueAddress(practiceRes.data?.venue_address ?? "");
+
+      // Load review data for completed practices
+      if (practiceRes.data?.completed) {
+        const [playersRes, attRes, notesRes, actionsRes] = await Promise.all([
+          supabase.from("players").select("*").order("sort_order"),
+          supabase.from("practice_attendance").select("*").eq("practice_id", practiceId),
+          supabase.from("practice_notes").select("*").eq("practice_id", practiceId).order("created_at"),
+          supabase.from("action_items").select("*").eq("practice_id", practiceId).order("created_at"),
+        ]);
+        setPlayers(playersRes.data ?? []);
+        const attMap = new Map<number, boolean>();
+        for (const a of (attRes.data ?? []) as PracticeAttendance[]) {
+          attMap.set(a.player_id, a.present);
+        }
+        setAttendance(attMap);
+        setNotes(notesRes.data ?? []);
+        setActionItems(actionsRes.data ?? []);
+      }
+
       setLoading(false);
     }
     load();
@@ -401,11 +428,183 @@ export default function PracticeSetupPage() {
                 Directions
               </a>
             )}
-            <button onClick={() => setEditingVenue(true)} className="text-xs text-muted-foreground hover:text-primary transition-colors">Edit</button>
+            {!practice.completed && <button onClick={() => setEditingVenue(true)} className="text-xs text-muted-foreground hover:text-primary transition-colors">Edit</button>}
           </div>
         )}
       </div>
 
+      {practice.completed ? (
+        /* ============ COMPLETED PRACTICE REVIEW ============ */
+        <>
+          {/* Attendance summary */}
+          {attendance.size > 0 && (
+            <Card className="glass">
+              <CardHeader className="pb-2 px-4">
+                <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">
+                  <span>Attendance</span>
+                  <span className="text-xs normal-case font-normal">
+                    {[...attendance.values()].filter(Boolean).length} present
+                    {[...attendance.values()].filter((v) => v === false).length > 0 && ` · ${[...attendance.values()].filter((v) => v === false).length} absent`}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {players.filter((p) => attendance.has(p.id)).map((p) => {
+                    const present = attendance.get(p.id);
+                    return (
+                      <div
+                        key={p.id}
+                        className={`h-10 rounded-xl text-xs font-bold border-2 flex items-center justify-center truncate px-1 ${
+                          present
+                            ? "bg-green-500/20 text-green-400 border-green-500/40"
+                            : "bg-red-500/15 text-red-400/60 border-red-500/30 line-through"
+                        }`}
+                      >
+                        #{p.number} {firstName(p)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Practice Plan (read-only) */}
+          <Card className="glass">
+            <CardHeader className="pb-2 px-4">
+              <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">
+                <span>Practice Plan</span>
+                {planItems.length > 0 && (
+                  <span className="text-xs normal-case font-normal">
+                    {planItems.filter((i) => i.completed).length}/{planItems.filter((i) => !i.group_id).length} done · {topLevelItems.reduce((s, i) => s + i.duration_minutes, 0)} min
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="space-y-2">
+                {planItems.filter((i) => !i.group_id).map((item, idx) => {
+                  const isSquadSplit = item.label === "Squad Split" && !item.drill_id;
+                  const groupItems = isSquadSplit ? planItems.filter((i) => i.group_id) : [];
+                  return (
+                    <div key={item.id} className="rounded-xl border-2 border-border/50 bg-muted/20 p-3">
+                      <div className="flex items-center gap-3">
+                        {!isSquadSplit && (
+                          <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${item.completed ? "bg-green-500/20 border border-green-500/40" : "bg-muted/50 border border-border/50"}`}>
+                            {item.completed && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
+                            )}
+                          </div>
+                        )}
+                        {isSquadSplit && (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        )}
+                        <span className={`flex-1 text-sm font-medium ${item.completed ? "line-through text-muted-foreground" : ""}`}>{item.label}</span>
+                        {!isSquadSplit && <span className="text-xs text-muted-foreground tabular-nums">{item.duration_minutes}m</span>}
+                      </div>
+                      {isSquadSplit && squadGroups.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-border/30">
+                          {squadGroups.map((group) => {
+                            const color = GROUP_COLORS[group.color_index % GROUP_COLORS.length];
+                            const items = groupItems.filter((i) => i.group_id === group.id);
+                            return (
+                              <div key={group.id} className={`rounded-lg border ${color.border} ${color.bg} p-2`}>
+                                <div className={`text-xs font-bold ${color.text} mb-1`}>{group.name}</div>
+                                {items.map((gi) => (
+                                  <div key={gi.id} className="text-xs text-muted-foreground truncate">{gi.label}{gi.duration_minutes > 0 && ` · ${gi.duration_minutes}m`}</div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notes */}
+          {notes.length > 0 && (
+            <Card className="glass">
+              <CardHeader className="pb-2 px-4">
+                <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium">Player Notes</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                {(() => {
+                  const byPlayer = new Map<number, PracticeNote[]>();
+                  for (const n of notes) {
+                    const arr = byPlayer.get(n.player_id) ?? [];
+                    arr.push(n);
+                    byPlayer.set(n.player_id, arr);
+                  }
+                  return [...byPlayer.entries()].map(([pid, pNotes]) => {
+                    const player = players.find((p) => p.id === pid);
+                    return (
+                      <div key={pid}>
+                        <div className="text-sm font-semibold mb-1">#{player?.number} {player ? fullName(player) : ""}</div>
+                        {pNotes.map((n) => (
+                          <div key={n.id} className="flex items-start gap-2 mb-1">
+                            {n.focus_area && (
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary border border-primary/30 shrink-0">{n.focus_area}</span>
+                            )}
+                            <span className="text-sm prose prose-invert prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: n.note }} />
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  });
+                })()}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Team Notes */}
+          {practice.notes && practice.notes.replace(/<[^>]*>/g, "").trim().length > 0 && (
+            <Card className="glass">
+              <CardHeader className="pb-2 px-4">
+                <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium">Team Notes</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="text-sm prose prose-invert prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: practice.notes }} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Action Items */}
+          {actionItems.length > 0 && (
+            <Card className="glass">
+              <CardHeader className="pb-2 px-4">
+                <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">
+                  <span>Action Items</span>
+                  <span className="text-xs normal-case font-normal">{actionItems.filter((a) => a.completed).length}/{actionItems.length} done</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-1.5">
+                {actionItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2">
+                    <div className={`h-4 w-4 rounded flex items-center justify-center shrink-0 ${item.completed ? "bg-green-500/20 border border-green-500/40" : "bg-muted/50 border border-border/50"}`}>
+                      {item.completed && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
+                      )}
+                    </div>
+                    <span className={`flex-1 text-sm ${item.completed ? "line-through text-muted-foreground" : ""}`}>{item.text}</span>
+                    {item.player_id && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">
+                        #{players.find((p) => p.id === item.player_id)?.number}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </>
+      ) : (
+        /* ============ EDITABLE SETUP ============ */
+        <>
       {/* Venue editor */}
       {(editingVenue || (!practice.venue && !practice.venue_address)) && (
         <Card className="glass">
@@ -795,6 +994,8 @@ export default function PracticeSetupPage() {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
 
       {/* Sticky bottom bar — portal to escape ancestor transform from animate-fade-in */}
       {createPortal(
