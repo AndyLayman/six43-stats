@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 
 interface SelectOption {
   value: string;
@@ -14,23 +13,18 @@ interface CustomSelectProps {
   options: SelectOption[];
   placeholder?: string;
   className?: string;
-  dropUp?: boolean;
 }
 
-export function CustomSelect({ value, onChange, options, placeholder = "Select...", className = "", dropUp = false }: CustomSelectProps) {
+export function CustomSelect({ value, onChange, options, placeholder = "Select...", className = "" }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const selected = options.find((o) => o.value === value);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        containerRef.current && !containerRef.current.contains(e.target as Node) &&
-        listRef.current && !listRef.current.contains(e.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
@@ -39,21 +33,6 @@ export function CustomSelect({ value, onChange, options, placeholder = "Select..
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [open]);
-
-  // Calculate dropdown position when opening
-  useEffect(() => {
-    if (open && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const maxHeight = 200;
-      const spaceBelow = window.innerHeight - rect.bottom - 8;
-      const shouldDropUp = dropUp || spaceBelow < maxHeight;
-      setPos({
-        top: shouldDropUp ? rect.top - maxHeight - 4 : rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    }
-  }, [open, dropUp]);
 
   // Scroll selected item into view when opening
   useEffect(() => {
@@ -98,11 +77,11 @@ export function CustomSelect({ value, onChange, options, placeholder = "Select..
         </svg>
       </button>
 
-      {open && pos && createPortal(
+      {open && (
         <div
           ref={listRef}
-          className="fixed z-50 rounded-xl border-2 border-border/50 bg-card shadow-xl overflow-hidden animate-slide-up"
-          style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: "200px", overflowY: "auto" }}
+          className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-xl border-2 border-border/50 bg-card shadow-xl overflow-hidden animate-slide-up"
+          style={{ maxHeight: "200px", overflowY: "auto" }}
         >
           {options.map((opt) => (
             <button
@@ -120,8 +99,7 @@ export function CustomSelect({ value, onChange, options, placeholder = "Select..
               {opt.label}
             </button>
           ))}
-        </div>,
-        document.body
+        </div>
       )}
     </div>
   );
