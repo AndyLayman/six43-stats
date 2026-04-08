@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 import type { Venue } from "@/lib/scoring/types";
+import { EditPencil, Trash } from "iconoir-react";
 
 interface VenuePickerProps {
   venue: string;
@@ -172,14 +173,14 @@ export function VenuePicker({ venue, venueAddress, onVenueChange, onAddressChang
                         onClick={() => startEdit(v)}
                         className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary transition-all shrink-0"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                        <EditPencil width={12} height={12} />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(v.id)}
                         className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive transition-all shrink-0"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        <Trash width={12} height={12} />
                       </button>
                     </div>
                   ))}

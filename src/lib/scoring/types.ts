@@ -27,6 +27,7 @@ export interface Game {
   notes: string | null;
   venue: string | null;
   venue_address: string | null;
+  game_time: string | null;
   created_at: string;
   // Existing columns from original schema
   num_innings: number | null;
@@ -188,6 +189,7 @@ export interface Practice {
   venue: string | null;
   venue_address: string | null;
   created_at: string;
+  completed: boolean;
 }
 
 export interface PracticeNote {
@@ -232,6 +234,7 @@ export interface PracticePlanItem {
   duration_minutes: number;
   sort_order: number;
   completed: boolean;
+  group_id: string | null;
 }
 
 export interface ActionItem {
@@ -255,6 +258,20 @@ export interface Venue {
   name: string;
   address: string;
   created_at: string;
+}
+
+export interface SquadGroup {
+  id: string;
+  practice_id: string;
+  name: string;
+  color_index: number;
+  sort_order: number;
+}
+
+export interface SquadMember {
+  id: string;
+  group_id: string;
+  player_id: number;
 }
 
 export interface ChainAward {

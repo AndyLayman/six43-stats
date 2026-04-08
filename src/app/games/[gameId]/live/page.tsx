@@ -189,6 +189,14 @@ export default function LiveScoringPage() {
 
   const persistState = useCallback(
     async (state: GameState) => {
+      // Resolve the leadoff batter for the current half-inning
+      // When it's bottom (our at-bat) and outs === 0, the current batter is the leadoff
+      let leadoffPlayerId: number | null = null;
+      if (state.currentHalf === "bottom" && state.outs === 0 && state.lineup.length > 0) {
+        const idx = state.currentBatterIndex % state.lineup.length;
+        leadoffPlayerId = state.lineup[idx].player_id;
+      }
+
       await Promise.all([
         supabase.from("game_state").upsert({
           game_id: gameId,
@@ -203,6 +211,7 @@ export default function LiveScoringPage() {
           opponent_runner_third: state.runnerThird?.opponentBatterId ?? null,
           current_batter_index: state.currentBatterIndex,
           opponent_batter_index: state.opponentBatterIndex,
+          leadoff_player_id: leadoffPlayerId,
           updated_at: new Date().toISOString(),
         }),
         supabase.from("games").update({

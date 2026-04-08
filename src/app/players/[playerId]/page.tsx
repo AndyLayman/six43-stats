@@ -14,6 +14,7 @@ import { ProgressionChart } from "@/components/progression-chart";
 import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType, ChainAward } from "@/lib/scoring/types";
 import { fullName } from "@/lib/player-name";
 import { StatTip } from "@/components/stat-tip";
+import { NavArrowLeft } from "iconoir-react";
 
 type SprayFilter = "both" | "hits" | "outs";
 
@@ -77,7 +78,7 @@ export default function PlayerDetailPage() {
   return (
     <div className="space-y-6">
       <Link href="/players" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        <NavArrowLeft width={16} height={16} />
         All Players
       </Link>
       <div className="flex items-center gap-4">

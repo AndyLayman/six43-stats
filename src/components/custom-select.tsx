@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { NavArrowDown } from "iconoir-react";
 
 interface SelectOption {
   value: string;
@@ -61,20 +62,11 @@ export function CustomSelect({ value, onChange, options, placeholder = "Select..
         <span className={`truncate text-sm ${selected ? "text-foreground font-medium" : "text-muted-foreground"}`}>
           {selected ? selected.label : placeholder}
         </span>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        <NavArrowDown
+          width={12}
+          height={12}
           className={`shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        />
       </button>
 
       {open && (

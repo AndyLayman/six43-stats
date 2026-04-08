@@ -51,11 +51,11 @@ export default function Dashboard() {
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4 stagger-children">
         {[
           { label: "Players", value: players.length, href: "/players" },
-          { label: "Games Played", value: games.filter((g) => g.status === "final").length, href: "/games" },
+          { label: "Games Played", value: games.filter((g) => g.status === "final").length, href: "/schedule" },
           {
             label: "Record",
             value: `${games.filter((g) => g.status === "final" && g.our_score > g.opponent_score).length}-${games.filter((g) => g.status === "final" && g.our_score < g.opponent_score).length}`,
-            href: "/games",
+            href: "/schedule",
           },
           {
             label: "Team AVG",
@@ -86,7 +86,7 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="glass border-border/50">
           <CardHeader>
-            <Link href="/games" className="text-lg font-bold text-gradient hover:opacity-80 transition-opacity">Recent Games</Link>
+            <Link href="/schedule" className="text-lg font-bold text-gradient hover:opacity-80 transition-opacity">Recent Games</Link>
           </CardHeader>
           <CardContent>
             {games.length === 0 ? (

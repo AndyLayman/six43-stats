@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { PracticePlanTemplate, PracticePlanTemplateItem, Drill } from "@/lib/scoring/types";
+import { NavArrowLeft, NavArrowUp, NavArrowDown, Xmark, Plus, EditPencil, Trash } from 'iconoir-react';
 
 interface TemplateWithItems extends PracticePlanTemplate {
   items: PracticePlanTemplateItem[];
@@ -176,7 +177,7 @@ export default function PlanTemplatesPage() {
             onClick={handleCancel}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            <NavArrowLeft width="16" height="16" />
             Back
           </button>
 
@@ -220,20 +221,20 @@ export default function PlanTemplatesPage() {
                     disabled={idx === 0}
                     className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                    <NavArrowUp width="12" height="12" />
                   </button>
                   <button
                     onClick={() => moveItem(idx, "down")}
                     disabled={idx === editItems.length - 1}
                     className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    <NavArrowDown width="12" height="12" />
                   </button>
                   <button
                     onClick={() => removeItem(idx)}
                     className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive transition-all"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    <Xmark width="12" height="12" />
                   </button>
                 </div>
               </div>
@@ -312,7 +313,7 @@ export default function PlanTemplatesPage() {
                               {drill.duration_minutes ? `${drill.duration_minutes} min` : ""}{drill.duration_minutes && drill.category ? " · " : ""}{drill.category}
                             </div>
                           </div>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/40 group-hover:text-primary shrink-0 transition-colors"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                          <Plus width="18" height="18" className="text-muted-foreground/40 group-hover:text-primary shrink-0 transition-colors" />
                         </button>
                       ))}
                       {faded.map((drill) => (
@@ -376,7 +377,7 @@ export default function PlanTemplatesPage() {
                   <span className="text-xs text-muted-foreground">min</span>
                   <Button variant="outline" className="h-9 text-xs shrink-0" onClick={addCustomBlock}>Add</Button>
                   <Button variant="outline" className="h-9 text-xs shrink-0" onClick={() => setShowCustom(false)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    <Xmark width="12" height="12" />
                   </Button>
                 </div>
               ) : (
@@ -422,9 +423,9 @@ export default function PlanTemplatesPage() {
   // ── List mode ──
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-24">
-      <Link href="/practices" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-        Practices
+      <Link href="/schedule" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
+        <NavArrowLeft width="16" height="16" />
+        Schedule
       </Link>
 
       <div className="flex items-center justify-between gap-4">
@@ -496,14 +497,14 @@ export default function PlanTemplatesPage() {
                       className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all"
                       title="Edit"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                      <EditPencil width="14" height="14" />
                     </button>
                     <button
                       onClick={() => handleDeleteTemplate(template.id)}
                       className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-all"
                       title="Delete"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                      <Trash width="14" height="14" />
                     </button>
                   </div>
                 </div>

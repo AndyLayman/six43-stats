@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { createPortal } from "react-dom";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,10 +12,53 @@ import { RichEditor } from "@/components/rich-editor";
 import type {
   Practice, PracticeNote, Player, Drill,
   PracticePlanItem, ActionItem, PracticeAttendance,
+  SquadGroup, SquadMember,
 } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
 import { CustomSelect } from "@/components/custom-select";
 import { ChainAwardPicker } from "@/components/chain-award-picker";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { NavArrowLeft, ShareIos, NavArrowDown, NavArrowRight, Xmark, Check, Group, DoubleCheck } from 'iconoir-react';
+
+function DraggablePlayer({ player, color }: { player: Player; color: { bg: string; text: string; border: string } }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `player-${player.id}`,
+    data: { playerId: player.id },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={`h-8 px-2 rounded-lg text-xs font-bold ${color.border} ${color.bg} ${color.text} border transition-all select-none cursor-grab active:cursor-grabbing touch-manipulation truncate flex items-center ${isDragging ? "opacity-30" : ""}`}
+    >
+      #{player.number} {firstName(player)}
+    </div>
+  );
+}
+
+function DroppablePlayerGroup({ groupId, children, color }: { groupId: string; children: React.ReactNode; color: { bg: string; text: string; border: string } }) {
+  const { isOver, setNodeRef } = useDroppable({ id: `squad-${groupId}` });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-xl border-2 ${color.border} ${color.bg} p-2.5 flex flex-col transition-all ${isOver ? "ring-2 ring-primary/50 scale-[1.02]" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
 
 const FOCUS_AREAS = ["Hitting", "Fielding", "Throwing", "Baserunning", "Attitude", "Other"];
 
@@ -24,6 +68,7 @@ function isEmptyHtml(html: string) {
 
 export default function LivePracticePage() {
   const params = useParams();
+  const router = useRouter();
   const practiceId = params.practiceId as string;
 
   const [practice, setPractice] = useState<Practice | null>(null);
@@ -34,6 +79,7 @@ export default function LivePracticePage() {
   const [planItems, setPlanItems] = useState<PracticePlanItem[]>([]);
   const [drills, setDrills] = useState<Drill[]>([]);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [expandedGroupDrill, setExpandedGroupDrill] = useState<string | null>(null);
 
   // Attendance
   const [attendance, setAttendance] = useState<Map<number, boolean>>(new Map());
@@ -53,12 +99,35 @@ export default function LivePracticePage() {
   const [newActionText, setNewActionText] = useState("");
   const [newActionPlayer, setNewActionPlayer] = useState<number | null>(null);
 
+  // Squad groups
+  const [squadGroups, setSquadGroups] = useState<SquadGroup[]>([]);
+  const [squadMembers, setSquadMembers] = useState<SquadMember[]>([]);
+  const [squadAutoAssigned, setSquadAutoAssigned] = useState(false);
+  const [activeDragPlayerId, setActiveDragPlayerId] = useState<number | null>(null);
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+  );
+
+  const GROUP_COLORS = [
+    { bg: "bg-teal-500/20", text: "text-teal-400", border: "border-teal-500/40" },
+    { bg: "bg-purple-500/20", text: "text-purple-400", border: "border-purple-500/40" },
+    { bg: "bg-amber-500/20", text: "text-amber-400", border: "border-amber-500/40" },
+    { bg: "bg-blue-500/20", text: "text-blue-400", border: "border-blue-500/40" },
+    { bg: "bg-rose-500/20", text: "text-rose-400", border: "border-rose-500/40" },
+    { bg: "bg-green-500/20", text: "text-green-400", border: "border-green-500/40" },
+  ];
+
   // Share
   const [shareMessage, setShareMessage] = useState("");
 
+  // End practice
+  const [showEndSummary, setShowEndSummary] = useState(false);
+  const [ending, setEnding] = useState(false);
+
   useEffect(() => {
     async function load() {
-      const [practiceRes, playersRes, planRes, drillsRes, attendanceRes, notesRes, actionRes, openActionRes] = await Promise.all([
+      const [practiceRes, playersRes, planRes, drillsRes, attendanceRes, notesRes, actionRes, openActionRes, groupsRes, membersRes] = await Promise.all([
         supabase.from("practices").select("*").eq("id", practiceId).single(),
         supabase.from("players").select("*").order("sort_order"),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
@@ -67,6 +136,8 @@ export default function LivePracticePage() {
         supabase.from("practice_notes").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").is("completed", false).is("practice_id", null).order("created_at"),
+        supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
+        supabase.from("practice_squad_members").select("*"),
       ]);
 
       setPractice(practiceRes.data);
@@ -77,6 +148,14 @@ export default function LivePracticePage() {
       setNotes(notesRes.data ?? []);
       setActionItems(actionRes.data ?? []);
       setOpenActionItems(openActionRes.data ?? []);
+
+      const groups = (groupsRes.data ?? []) as SquadGroup[];
+      setSquadGroups(groups);
+      // Filter members to only those belonging to this practice's groups
+      const groupIds = new Set(groups.map((g) => g.id));
+      const filteredMembers = ((membersRes.data ?? []) as SquadMember[]).filter((m) => groupIds.has(m.group_id));
+      setSquadMembers(filteredMembers);
+      if (filteredMembers.length > 0) setSquadAutoAssigned(true);
 
       const attMap = new Map<number, boolean>();
       for (const a of (attendanceRes.data ?? []) as PracticeAttendance[]) {
@@ -197,6 +276,68 @@ export default function LivePracticePage() {
     }
   }
 
+  // ---- Squad Split ----
+  const hasSquadSplit = planItems.some((i) => i.label === "Squad Split" && !i.drill_id);
+
+  async function autoAssignPlayers() {
+    if (squadGroups.length === 0) return;
+    // Get present players
+    const presentPlayers = players.filter((p) => attendance.get(p.id) === true);
+    if (presentPlayers.length === 0) return;
+
+    // Clear existing members for these groups
+    const groupIds = squadGroups.map((g) => g.id);
+    for (const gid of groupIds) {
+      await supabase.from("practice_squad_members").delete().eq("group_id", gid);
+    }
+
+    // Round-robin distribute
+    const newMembers: SquadMember[] = [];
+    for (let i = 0; i < presentPlayers.length; i++) {
+      const group = squadGroups[i % squadGroups.length];
+      const { data } = await supabase
+        .from("practice_squad_members")
+        .insert({ group_id: group.id, player_id: presentPlayers[i].id })
+        .select()
+        .single();
+      if (data) newMembers.push(data);
+    }
+    setSquadMembers(newMembers);
+    setSquadAutoAssigned(true);
+  }
+
+  async function movePlayerToGroup(playerId: number, newGroupId: string) {
+    const existing = squadMembers.find((m) => m.player_id === playerId);
+    if (existing) {
+      if (existing.group_id === newGroupId) return;
+      await supabase.from("practice_squad_members").delete().eq("id", existing.id);
+    }
+    const { data } = await supabase
+      .from("practice_squad_members")
+      .insert({ group_id: newGroupId, player_id: playerId })
+      .select()
+      .single();
+    if (data) {
+      setSquadMembers([...squadMembers.filter((m) => m.player_id !== playerId), data]);
+    }
+  }
+
+  function handleSquadDragStart(event: DragStartEvent) {
+    setActiveDragPlayerId(event.active.data.current?.playerId as number);
+  }
+
+  async function handleSquadDragEnd(event: DragEndEvent) {
+    setActiveDragPlayerId(null);
+    const { active, over } = event;
+    if (!over) return;
+    const playerId = active.data.current?.playerId as number;
+    const overId = over.id as string;
+    if (overId.startsWith("squad-")) {
+      const groupId = overId.replace("squad-", "");
+      await movePlayerToGroup(playerId, groupId);
+    }
+  }
+
   if (loading || !practice) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -216,18 +357,26 @@ export default function LivePracticePage() {
   const absentCount = [...attendance.values()].filter((v) => v === false).length;
   const totalPlanMinutes = planItems.reduce((s, i) => s + i.duration_minutes, 0);
   const completedCount = planItems.filter((i) => i.completed).length;
+  const actionCompletedCount = actionItems.filter((a) => a.completed).length;
+
+  async function endPractice() {
+    setEnding(true);
+    await supabase.from("practices").update({ completed: true }).eq("id", practiceId);
+    setEnding(false);
+    router.push("/schedule");
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-24">
       <div className="flex items-center justify-between">
         <Link href={`/practices/${practiceId}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <NavArrowLeft width="16" height="16" />
           Setup
         </Link>
         <div className="flex items-center gap-2">
           {shareMessage && <span className="text-xs text-green-400 animate-slide-up">{shareMessage}</span>}
           <Button variant="outline" className="h-9 text-xs border-border/50 gap-1.5" onClick={handleShare}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+            <ShareIos width="14" height="14" />
             Share Plan
           </Button>
         </div>
@@ -294,15 +443,16 @@ export default function LivePracticePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-2">
-            {planItems.map((item, idx) => {
+            {planItems.filter((i) => !i.group_id).map((item, idx) => {
               const drill = getDrill(item.drill_id);
               const isExpanded = expandedItem === item.id;
+              const isSquadSplit = item.label === "Squad Split" && !item.drill_id;
 
               return (
                 <div key={item.id} className="rounded-xl border-2 border-border/50 bg-muted/10 overflow-hidden">
                   <div
                     className="flex items-center gap-3 p-3 cursor-pointer"
-                    onClick={() => setExpandedItem(isExpanded ? null : item.id)}
+                    onClick={() => !isSquadSplit && setExpandedItem(isExpanded ? null : item.id)}
                   >
                     <button
                       onClick={(e) => { e.stopPropagation(); togglePlanItem(item.id, !item.completed); }}
@@ -313,34 +463,35 @@ export default function LivePracticePage() {
                       }`}
                     >
                       {item.completed ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        <Check width="14" height="14" />
                       ) : (
                         idx + 1
                       )}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-semibold ${item.completed ? "line-through text-muted-foreground" : ""}`}>
+                      <div className={`text-sm font-semibold flex items-center gap-1.5 ${item.completed ? "line-through text-muted-foreground" : ""}`}>
+                        {isSquadSplit && (
+                          <Group width="14" height="14" className="text-primary shrink-0" />
+                        )}
                         {item.label}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.duration_minutes} min{drill?.category ? ` · ${drill.category}` : ""}
-                      </div>
+                      {!isSquadSplit && (
+                        <div className="text-xs text-muted-foreground">
+                          {item.duration_minutes} min{drill?.category ? ` · ${drill.category}` : ""}
+                        </div>
+                      )}
+                      {isSquadSplit && (
+                        <div className="text-xs text-muted-foreground">
+                          {squadGroups.length} group{squadGroups.length !== 1 ? "s" : ""} · {squadMembers.length} player{squadMembers.length !== 1 ? "s" : ""} assigned
+                        </div>
+                      )}
                     </div>
                     {drill && (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
+                      <NavArrowDown
                         width="16"
                         height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
                         className={`shrink-0 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                      >
-                        <path d="m6 9 6 6 6-6" />
-                      </svg>
+                      />
                     )}
                   </div>
 
@@ -352,6 +503,96 @@ export default function LivePracticePage() {
                         dangerouslySetInnerHTML={{ __html: drill.description }}
                       />
                     </div>
+                  )}
+
+                  {/* Squad Split — groups with players and drills */}
+                  {isSquadSplit && squadGroups.length > 0 && (
+                    <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragStart={handleSquadDragStart} onDragEnd={handleSquadDragEnd}>
+                      <div className="px-3 pb-3 border-t border-border/30 pt-3 space-y-3">
+                        <Button
+                          variant="outline"
+                          className="w-full h-9 text-xs font-bold border-primary/30 text-primary disabled:opacity-40"
+                          onClick={autoAssignPlayers}
+                          disabled={presentCount === 0}
+                        >
+                          {squadAutoAssigned
+                            ? "Re-shuffle Players"
+                            : presentCount > 0
+                            ? `Auto-Assign ${presentCount} Present Players`
+                            : "Auto-Assign Players (mark attendance first)"}
+                        </Button>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          {squadGroups.map((group) => {
+                            const color = GROUP_COLORS[group.color_index % GROUP_COLORS.length];
+                            const groupDrills = planItems.filter((i) => i.group_id === group.id);
+                            const groupPlayers = squadMembers
+                              .filter((m) => m.group_id === group.id)
+                              .map((m) => players.find((p) => p.id === m.player_id))
+                              .filter((p): p is Player => !!p);
+
+                            return (
+                              <DroppablePlayerGroup key={group.id} groupId={group.id} color={color}>
+                                <div className={`text-xs font-bold ${color.text} mb-2`}>{group.name}</div>
+
+                                {/* Drills in this group */}
+                                {groupDrills.length > 0 && (
+                                  <div className="space-y-1 mb-2">
+                                    {groupDrills.map((gi) => {
+                                      const giDrill = getDrill(gi.drill_id);
+                                      const isGiExpanded = expandedGroupDrill === gi.id;
+                                      return (
+                                        <div key={gi.id}>
+                                          <button
+                                            onClick={() => setExpandedGroupDrill(isGiExpanded ? null : gi.id)}
+                                            className={`w-full text-left text-[10px] font-medium ${color.text} opacity-80 flex items-center gap-1 hover:opacity-100 transition-opacity`}
+                                          >
+                                            <NavArrowRight width={10} height={10} className={`shrink-0 transition-transform ${isGiExpanded ? "rotate-90" : ""}`} />
+                                            <span className="truncate">{gi.label}{gi.duration_minutes > 0 ? ` (${gi.duration_minutes}m)` : ""}</span>
+                                          </button>
+                                          {isGiExpanded && giDrill?.description && !isEmptyHtml(giDrill.description) && (
+                                            <div
+                                              className="mt-1 ml-3 text-[10px] text-muted-foreground prose prose-invert max-w-none"
+                                              dangerouslySetInnerHTML={{ __html: giDrill.description }}
+                                            />
+                                          )}
+                                          {isGiExpanded && (!giDrill?.description || isEmptyHtml(giDrill.description ?? "")) && (
+                                            <p className="mt-1 ml-3 text-[10px] text-muted-foreground italic">No description.</p>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Players in this group */}
+                                <div className="flex flex-col gap-1 min-h-[2rem]">
+                                  {groupPlayers.map((p) => (
+                                    <DraggablePlayer key={p.id} player={p} color={color} />
+                                  ))}
+                                  {groupPlayers.length === 0 && (
+                                    <span className="text-[10px] text-muted-foreground italic">No players yet</span>
+                                  )}
+                                </div>
+                              </DroppablePlayerGroup>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Drag players between groups to adjust.</p>
+                      </div>
+
+                      <DragOverlay>
+                        {activeDragPlayerId ? (() => {
+                          const p = players.find((pl) => pl.id === activeDragPlayerId);
+                          if (!p) return null;
+                          return (
+                            <div className="h-8 px-2 rounded-lg text-xs font-bold border-2 border-primary/60 bg-primary/20 text-primary shadow-lg cursor-grabbing flex items-center">
+                              #{p.number} {firstName(p)}
+                            </div>
+                          );
+                        })() : null}
+                      </DragOverlay>
+                    </DndContext>
                   )}
                 </div>
               );
@@ -381,7 +622,7 @@ export default function LivePracticePage() {
                     }`}
                   >
                     {item.completed && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      <Check width="12" height="12" />
                     )}
                   </button>
                   <span className={`flex-1 text-sm ${item.completed ? "line-through text-muted-foreground" : ""}`}>
@@ -396,7 +637,7 @@ export default function LivePracticePage() {
                     onClick={() => deleteActionItem(item.id)}
                     className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    <Xmark width="14" height="14" />
                   </button>
                 </div>
               ))}
@@ -488,7 +729,7 @@ export default function LivePracticePage() {
       </Card>
 
       {/* Action Items */}
-      <Card className="glass overflow-visible">
+      <Card className="glass overflow-visible relative z-10">
         <CardHeader className="pb-2 px-4">
           <CardTitle className="text-sm text-muted-foreground uppercase tracking-wider font-medium flex items-center justify-between">
             <span>Action Items</span>
@@ -513,7 +754,7 @@ export default function LivePracticePage() {
                     }`}
                   >
                     {item.completed && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      <Check width="12" height="12" />
                     )}
                   </button>
                   <span className={`flex-1 text-sm ${item.completed ? "line-through text-muted-foreground" : ""}`}>
@@ -528,7 +769,7 @@ export default function LivePracticePage() {
                     onClick={() => deleteActionItem(item.id)}
                     className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    <Xmark width="14" height="14" />
                   </button>
                 </div>
               ))}
@@ -602,7 +843,7 @@ export default function LivePracticePage() {
                           onClick={() => handleDeleteNote(n.id)}
                           className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all text-xs shrink-0"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                          <Xmark width="14" height="14" />
                         </button>
                       </div>
                     ))}
@@ -612,6 +853,78 @@ export default function LivePracticePage() {
             );
           })}
         </div>
+      )}
+
+      {/* End Practice */}
+      <Button
+        variant="outline"
+        className="w-full h-12 text-sm font-bold border-green-500/40 text-green-400 hover:bg-green-500/15 gap-2"
+        onClick={() => setShowEndSummary(true)}
+      >
+        <DoubleCheck width="18" height="18" />
+        End Practice
+      </Button>
+
+      {/* Summary Modal */}
+      {showEndSummary && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowEndSummary(false)}>
+          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-500/20 mb-3">
+                <DoubleCheck width="24" height="24" className="text-green-400" />
+              </div>
+              <h2 className="text-xl font-extrabold text-gradient">Practice Complete</h2>
+              <p className="text-sm text-muted-foreground mt-1">{practice.title} &middot; {new Date(practice.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-muted/30 border border-border/50 p-3 text-center">
+                <div className="text-2xl font-extrabold text-green-400">{presentCount}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Present</div>
+              </div>
+              <div className="rounded-xl bg-muted/30 border border-border/50 p-3 text-center">
+                <div className="text-2xl font-extrabold">{absentCount}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Absent</div>
+              </div>
+              <div className="rounded-xl bg-muted/30 border border-border/50 p-3 text-center">
+                <div className="text-2xl font-extrabold">{completedCount}<span className="text-base font-normal text-muted-foreground">/{planItems.length}</span></div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Drills Done</div>
+              </div>
+              <div className="rounded-xl bg-muted/30 border border-border/50 p-3 text-center">
+                <div className="text-2xl font-extrabold">{totalPlanMinutes}<span className="text-base font-normal text-muted-foreground">m</span></div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Total Time</div>
+              </div>
+            </div>
+
+            {notes.length > 0 && (
+              <div className="rounded-xl bg-muted/30 border border-border/50 p-3">
+                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Player Notes</div>
+                <div className="text-sm">{notes.length} note{notes.length !== 1 ? "s" : ""} across {notesByPlayer.size} player{notesByPlayer.size !== 1 ? "s" : ""}</div>
+              </div>
+            )}
+
+            {actionItems.length > 0 && (
+              <div className="rounded-xl bg-muted/30 border border-border/50 p-3">
+                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Action Items</div>
+                <div className="text-sm">{actionCompletedCount}/{actionItems.length} completed</div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Button variant="outline" className="flex-1 h-11 text-sm" onClick={() => setShowEndSummary(false)}>
+                Keep Going
+              </Button>
+              <Button
+                className="flex-1 h-11 text-sm font-bold bg-green-600 hover:bg-green-700 text-white"
+                onClick={endPractice}
+                disabled={ending}
+              >
+                {ending ? "Saving..." : "Finish Practice"}
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
