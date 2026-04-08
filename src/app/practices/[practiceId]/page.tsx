@@ -795,23 +795,24 @@ export default function PracticeSetupPage() {
         </CardContent>
       </Card>
 
-      {/* Start Practice button */}
-      {practice.completed ? (
-        <div className="flex items-center justify-center gap-2 h-14 rounded-xl border-2 border-green-500/30 bg-green-500/10 text-green-400 font-bold text-lg">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>
-          Practice Complete
+      {/* Sticky bottom bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-20 bg-background/90 backdrop-blur-md border-t border-border/50 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="max-w-2xl mx-auto">
+          {practice.completed ? (
+            <div className="flex items-center justify-center gap-2 h-14 rounded-xl border-2 border-green-500/30 bg-green-500/10 text-green-400 font-bold text-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>
+              Practice Complete
+            </div>
+          ) : (
+            <Link href={`/practices/${practiceId}/live`} className="block w-full">
+              <Button className="w-full h-14 text-lg font-bold glow-primary active:scale-[0.98] transition-transform">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                Start Practice
+              </Button>
+            </Link>
+          )}
         </div>
-      ) : (
-      <Link
-        href={`/practices/${practiceId}/live`}
-        className="block w-full"
-      >
-        <Button className="w-full h-14 text-lg font-bold glow-primary active:scale-[0.98] transition-transform">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-          Start Practice
-        </Button>
-      </Link>
-      )}
+      </div>
     </div>
   );
 }
