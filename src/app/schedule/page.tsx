@@ -469,9 +469,12 @@ function GameRow({
   const dayAbbr = DAY_ABBR[d.getDay()];
   const dayNum = d.getDate();
   const opponentLabel = game.location === "away" ? `@ ${game.opponent}` : `vs ${game.opponent}`;
+  const today = new Date().toISOString().split("T")[0];
+  const isPast = game.date < today;
+  const isCompleted = game.status === "final" || isPast;
 
   const content = (
-    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""}`}>
+    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""} ${isCompleted ? "opacity-70" : ""}`}>
       <CardContent className="flex items-center gap-3 p-3 sm:p-4">
         {/* Select checkbox */}
         {selectMode && (
@@ -492,13 +495,18 @@ function GameRow({
         )}
 
         {/* Day column */}
-        <div className="w-11 shrink-0 text-center">
+        <div className="w-11 shrink-0 text-center relative">
           <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-tight">
             {dayAbbr}
           </div>
           <div className="text-xl font-extrabold leading-tight tabular-nums">
             {dayNum}
           </div>
+          {isCompleted && (
+            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center">
+              <Check width={10} height={10} className="text-green-400" />
+            </div>
+          )}
         </div>
 
         {/* Opponent + venue */}
@@ -572,9 +580,12 @@ function PracticeRow({
   const d = new Date(practice.date + "T12:00:00");
   const dayAbbr = DAY_ABBR[d.getDay()];
   const dayNum = d.getDate();
+  const today = new Date().toISOString().split("T")[0];
+  const isPast = practice.date < today;
+  const isCompleted = practice.completed || isPast;
 
   const content = (
-    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""}`}>
+    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""} ${isCompleted ? "opacity-70" : ""}`}>
       <CardContent className="flex items-center gap-3 p-3 sm:p-4">
         {/* Select checkbox */}
         {selectMode && (
@@ -595,25 +606,23 @@ function PracticeRow({
         )}
 
         {/* Day column */}
-        <div className="w-11 shrink-0 text-center">
+        <div className="w-11 shrink-0 text-center relative">
           <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-tight">
             {dayAbbr}
           </div>
           <div className="text-xl font-extrabold leading-tight tabular-nums">
             {dayNum}
           </div>
+          {isCompleted && (
+            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center">
+              <Check width={10} height={10} className="text-green-400" />
+            </div>
+          )}
         </div>
 
         {/* Title + venue */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-base truncate">{practice.title}</span>
-            {practice.completed && (
-              <div className="h-4 w-4 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
-                <Check width={10} height={10} className="text-green-400" />
-              </div>
-            )}
-          </div>
+          <span className="font-semibold text-base truncate">{practice.title}</span>
           {practice.venue && (
             <div className="text-xs text-muted-foreground truncate">{practice.venue}</div>
           )}
