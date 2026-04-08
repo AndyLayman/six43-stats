@@ -474,7 +474,7 @@ function GameRow({
   const isCompleted = game.status === "final" || isPast;
 
   const content = (
-    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""} ${isCompleted ? "opacity-70" : ""}`}>
+    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""}`}>
       <CardContent className="flex items-center gap-3 p-3 sm:p-4">
         {/* Select checkbox */}
         {selectMode && (
@@ -494,19 +494,21 @@ function GameRow({
           </button>
         )}
 
+        {/* Completed checkmark */}
+        {isCompleted && (
+          <div className="h-5 w-5 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
+            <Check width={12} height={12} className="text-green-400" />
+          </div>
+        )}
+
         {/* Day column */}
-        <div className="w-12 shrink-0 text-center relative">
+        <div className="w-12 shrink-0 text-center">
           <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
             {dayAbbr}
           </div>
           <div className="text-2xl font-extrabold leading-tight tabular-nums">
             {dayNum}
           </div>
-          {isCompleted && (
-            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center">
-              <Check width={10} height={10} className="text-green-400" />
-            </div>
-          )}
         </div>
 
         {/* Opponent + venue */}
@@ -585,7 +587,7 @@ function PracticeRow({
   const isCompleted = practice.completed || isPast;
 
   const content = (
-    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""} ${isCompleted ? "opacity-70" : ""}`}>
+    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""}`}>
       <CardContent className="flex items-center gap-3 p-3 sm:p-4">
         {/* Select checkbox */}
         {selectMode && (
@@ -605,19 +607,21 @@ function PracticeRow({
           </button>
         )}
 
+        {/* Completed checkmark */}
+        {isCompleted && (
+          <div className="h-5 w-5 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
+            <Check width={12} height={12} className="text-green-400" />
+          </div>
+        )}
+
         {/* Day column */}
-        <div className="w-12 shrink-0 text-center relative">
+        <div className="w-12 shrink-0 text-center">
           <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
             {dayAbbr}
           </div>
           <div className="text-2xl font-extrabold leading-tight tabular-nums">
             {dayNum}
           </div>
-          {isCompleted && (
-            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center">
-              <Check width={10} height={10} className="text-green-400" />
-            </div>
-          )}
         </div>
 
         {/* Title + venue */}
