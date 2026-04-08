@@ -27,6 +27,7 @@ export interface Game {
   notes: string | null;
   venue: string | null;
   venue_address: string | null;
+  game_time: string | null;
   created_at: string;
   // Existing columns from original schema
   num_innings: number | null;
