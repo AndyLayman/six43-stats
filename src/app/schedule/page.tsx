@@ -495,11 +495,11 @@ function GameRow({
         )}
 
         {/* Day column */}
-        <div className="w-11 shrink-0 text-center relative">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+        <div className="w-12 shrink-0 text-center relative">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
             {dayAbbr}
           </div>
-          <div className="text-xl font-extrabold leading-tight tabular-nums">
+          <div className="text-2xl font-extrabold leading-tight tabular-nums">
             {dayNum}
           </div>
           {isCompleted && (
@@ -606,11 +606,11 @@ function PracticeRow({
         )}
 
         {/* Day column */}
-        <div className="w-11 shrink-0 text-center relative">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+        <div className="w-12 shrink-0 text-center relative">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
             {dayAbbr}
           </div>
-          <div className="text-xl font-extrabold leading-tight tabular-nums">
+          <div className="text-2xl font-extrabold leading-tight tabular-nums">
             {dayNum}
           </div>
           {isCompleted && (
