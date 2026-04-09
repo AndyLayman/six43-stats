@@ -53,6 +53,7 @@ export default function RootLayout({
       lang="en"
       className="h-full antialiased dark"
       suppressHydrationWarning
+      style={{ background: '#0A0A0A' }}
     >
       <head>
         <script
