@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VenuePicker } from "@/components/venue-picker";
+import { TimePicker } from "@/components/time-picker";
 import { CustomSelect } from "@/components/custom-select";
 import { fullName } from "@/lib/player-name";
 import type { Player } from "@/lib/scoring/types";
@@ -35,6 +36,7 @@ export default function NewGamePage() {
   const [opponent, setOpponent] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [location, setLocation] = useState<"home" | "away">("home");
+  const [gameTime, setGameTime] = useState("");
   const [venue, setVenue] = useState("");
   const [venueAddress, setVenueAddress] = useState("");
   const [players, setPlayers] = useState<Player[]>([]);
@@ -70,6 +72,7 @@ export default function NewGamePage() {
         opponent: opponent.trim(),
         date,
         location,
+        game_time: gameTime.trim() || null,
         venue: venue.trim() || null,
         venue_address: venueAddress.trim() || null,
         status: "scheduled",
@@ -177,6 +180,14 @@ export default function NewGamePage() {
                     Away
                   </Button>
                 </div>
+              </div>
+            </div>
+
+            {/* Game Time */}
+            <div>
+              <Label>Game Time</Label>
+              <div className="mt-1">
+                <TimePicker value={gameTime} onChange={setGameTime} />
               </div>
             </div>
 
