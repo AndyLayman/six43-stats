@@ -6,24 +6,40 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MilestoneFeed } from "@/components/milestone-feed";
+import { formatTime12 } from "@/lib/stats/calculations";
 import type { Game, Player, BattingStats } from "@/lib/scoring/types";
 
 export default function Dashboard() {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
+  const [recentGames, setRecentGames] = useState<Game[]>([]);
+  const [upcomingGames, setUpcomingGames] = useState<Game[]>([]);
+  const [allFinalGames, setAllFinalGames] = useState<Game[]>([]);
   const [battingStats, setBattingStats] = useState<BattingStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showUpcoming, setShowUpcoming] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const [playersRes, gamesRes, statsRes] = await Promise.all([
+      const today = new Date().toISOString().split("T")[0];
+      const fiveDaysAgo = new Date(Date.now() - 5 * 86400000).toISOString().split("T")[0];
+
+      const [playersRes, recentRes, upcomingRes, allGamesRes, statsRes] = await Promise.all([
         supabase.from("players").select("*").order("sort_order"),
-        supabase.from("games").select("*").order("date", { ascending: false }).limit(5),
+        supabase.from("games").select("*").gte("date", fiveDaysAgo).lte("date", today).order("date", { ascending: false }).limit(5),
+        supabase.from("games").select("*").gt("date", today).order("date", { ascending: true }).limit(5),
+        supabase.from("games").select("*").eq("status", "final"),
         supabase.from("batting_stats_season").select("*").order("avg", { ascending: false }).limit(5),
       ]);
+
+      const recent = recentRes.data ?? [];
+      const upcoming = upcomingRes.data ?? [];
+
       setPlayers(playersRes.data ?? []);
-      setGames(gamesRes.data ?? []);
+      setRecentGames(recent);
+      setUpcomingGames(upcoming);
+      setAllFinalGames(allGamesRes.data ?? []);
       setBattingStats(statsRes.data ?? []);
+      setShowUpcoming(recent.length === 0);
       setLoading(false);
     }
     load();
@@ -51,10 +67,10 @@ export default function Dashboard() {
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4 stagger-children">
         {[
           { label: "Players", value: players.length, href: "/players" },
-          { label: "Games Played", value: games.filter((g) => g.status === "final").length, href: "/schedule" },
+          { label: "Games Played", value: allFinalGames.length, href: "/schedule" },
           {
             label: "Record",
-            value: `${games.filter((g) => g.status === "final" && g.our_score > g.opponent_score).length}-${games.filter((g) => g.status === "final" && g.our_score < g.opponent_score).length}`,
+            value: `${allFinalGames.filter((g) => g.our_score > g.opponent_score).length}-${allFinalGames.filter((g) => g.our_score < g.opponent_score).length}`,
             href: "/schedule",
           },
           {
@@ -86,42 +102,53 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="glass border-border/50">
           <CardHeader>
-            <Link href="/schedule" className="text-lg font-bold text-gradient hover:opacity-80 transition-opacity">Recent Games</Link>
+            <Link href="/schedule" className="text-lg font-bold text-gradient hover:opacity-80 transition-opacity">
+              {showUpcoming ? "Upcoming Games" : "Recent Games"}
+            </Link>
           </CardHeader>
           <CardContent>
-            {games.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No games yet. Start by creating a new game!</p>
-            ) : (
-              <div className="space-y-2 stagger-children">
-                {games.map((game) => (
-                  <Link
-                    key={game.id}
-                    href={`/games/${game.id}`}
-                    className="flex items-center justify-between rounded-xl border border-border/50 p-3 hover:bg-accent hover:border-primary/20 transition-all duration-200 group"
-                  >
-                    <div>
-                      <div className="font-semibold group-hover:text-primary transition-colors">
-                        {game.location === "home" ? "vs" : "@"} {game.opponent}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {new Date(game.date + "T00:00:00").toLocaleDateString()}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      {game.status === "final" ? (
-                        <div className="font-bold tabular-nums">
-                          {game.our_score} - {game.opponent_score}
+            {(() => {
+              const displayGames = showUpcoming ? upcomingGames : recentGames;
+              if (displayGames.length === 0) {
+                return (
+                  <p className="text-muted-foreground text-sm">
+                    {showUpcoming ? "No upcoming games scheduled." : "No games yet. Start by creating a new game!"}
+                  </p>
+                );
+              }
+              return (
+                <div className="space-y-2 stagger-children">
+                  {displayGames.map((game) => (
+                    <Link
+                      key={game.id}
+                      href={`/games/${game.id}`}
+                      className="flex items-center justify-between rounded-xl border border-border/50 p-3 hover:bg-accent hover:border-primary/20 transition-all duration-200 group"
+                    >
+                      <div>
+                        <div className="font-semibold group-hover:text-primary transition-colors">
+                          {game.location === "home" ? "vs" : "@"} {game.opponent}
                         </div>
-                      ) : game.status === "in_progress" ? (
-                        <span className="text-sm font-semibold text-primary animate-pulse">Live</span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Scheduled</span>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(game.date + "T00:00:00").toLocaleDateString()}
+                          {game.game_time ? ` · ${formatTime12(game.game_time)}` : ""}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {game.status === "final" ? (
+                          <div className="font-bold tabular-nums">
+                            {game.our_score} - {game.opponent_score}
+                          </div>
+                        ) : game.status === "in_progress" ? (
+                          <span className="text-sm font-semibold text-primary animate-pulse">Live</span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Scheduled</span>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
 
