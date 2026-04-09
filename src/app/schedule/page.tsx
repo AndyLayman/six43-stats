@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { VenuePicker } from "@/components/venue-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash, Check } from "iconoir-react";
+import { Trash, Check, Plus } from "iconoir-react";
 import { formatTime12 } from "@/lib/stats/calculations";
 import type { Game, Practice } from "@/lib/scoring/types";
 
@@ -244,7 +244,9 @@ export default function SchedulePage() {
                 {showNewPractice ? "Cancel" : "Log Practice"}
               </Button>
               <Link href="/games/new">
-                <Button size="sm" className="h-9 glow-primary">New Game</Button>
+                <Button size="sm" className="h-9 w-9 p-0 glow-primary" title="New Game">
+                  <Plus width={18} height={18} />
+                </Button>
               </Link>
             </>
           )}
