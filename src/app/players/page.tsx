@@ -138,7 +138,7 @@ export default function PlayersPage() {
       if (sortKey === "name") {
         cmp = a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name);
       } else if (sortKey === "number") {
-        cmp = a.number - b.number;
+        cmp = a.number.localeCompare(b.number, undefined, { numeric: true });
       } else {
         cmp = a[sortKey] - b[sortKey];
       }
