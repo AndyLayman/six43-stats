@@ -12,6 +12,7 @@ import { VenuePicker } from "@/components/venue-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Trash, Check, Plus, Xmark } from "iconoir-react";
 import { formatTime12 } from "@/lib/stats/calculations";
+import { TimePicker } from "@/components/time-picker";
 import type { Game, Practice } from "@/lib/scoring/types";
 
 type ScheduleItem =
@@ -59,6 +60,7 @@ export default function SchedulePage() {
   const [newDate, setNewDate] = useState(new Date().toISOString().split("T")[0]);
   const [newVenue, setNewVenue] = useState("");
   const [newVenueAddress, setNewVenueAddress] = useState("");
+  const [newPracticeTime, setNewPracticeTime] = useState("");
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -176,6 +178,7 @@ export default function SchedulePage() {
         date: newDate,
         venue: newVenue.trim() || null,
         venue_address: newVenueAddress.trim() || null,
+        practice_time: newPracticeTime.trim() || null,
       })
       .select()
       .single();
@@ -325,6 +328,12 @@ export default function SchedulePage() {
                 onChange={(e) => setNewDate(e.target.value)}
                 className="h-12 text-base w-full bg-input/50 border-border/50 focus:border-primary/50"
               />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Time</label>
+              <div className="mt-1">
+                <TimePicker value={newPracticeTime} onChange={setNewPracticeTime} />
+              </div>
             </div>
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Location</label>
@@ -667,8 +676,11 @@ function PracticeRow({
         )}
       </div>
 
-      {/* Practice badge */}
+      {/* Time + badge */}
       <div className="flex items-center gap-2 shrink-0">
+        {practice.practice_time && (
+          <span className="text-sm text-muted-foreground tabular-nums">{formatTime12(practice.practice_time)}</span>
+        )}
         <Badge variant="outline" className="border-border/50 text-muted-foreground bg-muted/30">
           Practice
         </Badge>

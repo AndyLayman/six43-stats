@@ -15,6 +15,7 @@ import type {
   SquadGroup,
 } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
+import { formatTime12 } from "@/lib/stats/calculations";
 import { NavArrowLeft, Drag, Check, Trash, Xmark, Group, Plus, Play, DoubleCheck, NavArrowUp, NavArrowDown, MapPin } from 'iconoir-react'
 import { VenuePicker } from "@/components/venue-picker";
 import {
@@ -411,6 +412,7 @@ export default function PracticeSetupPage() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gradient">{practice.title}</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {new Date(practice.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+          {practice.practice_time ? ` · ${formatTime12(practice.practice_time)}` : ""}
         </p>
         {(practice.venue || practice.venue_address) && !editingVenue && (
           <div className="flex items-center gap-2 mt-1.5">
