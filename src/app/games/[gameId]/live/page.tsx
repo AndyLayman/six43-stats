@@ -33,7 +33,7 @@ const RESULT_BUTTONS: { result: PlateAppearanceResult; label: string; color: str
   { result: "GO", label: "GO", color: "bg-[#3A3A3A] hover:bg-[#4a4a4a] active:bg-[#2a2a2a]" },
   { result: "FO", label: "FO", color: "bg-[#3A3A3A] hover:bg-[#4a4a4a] active:bg-[#2a2a2a]" },
   { result: "FC", label: "FC", color: "bg-[#3A3A3A] hover:bg-[#4a4a4a] active:bg-[#2a2a2a]" },
-  { result: "DP", label: "DP", color: "bg-[#FF6161] hover:bg-[#ff7a7a] active:bg-[#e05050]" },
+  { result: "DP", label: "DP", color: "bg-[#FA4D4D] hover:bg-[#ff7a7a] active:bg-[#e05050]" },
   { result: "SAC", label: "SAC", color: "bg-[#3A3A3A] hover:bg-[#4a4a4a] active:bg-[#2a2a2a]" },
   { result: "HBP", label: "HBP", color: "bg-[#8b5cf6] hover:bg-[#9d74f7] active:bg-[#7648d4]" },
   { result: "E", label: "E", color: "bg-[#f97316] hover:bg-[#fa8a3a] active:bg-[#d86210]" },
@@ -822,7 +822,7 @@ export default function LiveScoringPage() {
                 <line x1="15" y1="40" x2="40" y2="15" stroke="#3A3A3A" strokeWidth="1.5" />
                 <line x1="40" y1="15" x2="65" y2="40" stroke="#3A3A3A" strokeWidth="1.5" />
                 <line x1="65" y1="40" x2="40" y2="65" stroke="#3A3A3A" strokeWidth="1.5" />
-                <rect x="37" y="62" width="6" height="6" fill="#141414" stroke="#3A3A3A" transform="rotate(45 40 65)" />
+                <rect x="37" y="62" width="6" height="6" fill="#181818" stroke="#3A3A3A" transform="rotate(45 40 65)" />
                 {/* 3rd base */}
                 <rect
                   x="6" y="31" width="18" height="18" fill="transparent" rx="2"
@@ -830,8 +830,8 @@ export default function LiveScoringPage() {
                   onClick={() => gameState.runnerThird && setSbRunner(sbRunner === "third" ? null : "third")}
                 />
                 <rect x="12" y="37" width="6" height="6"
-                  fill={gameState.runnerThird ? (sbRunner === "third" ? "#08DDC8" : "#08DDC8") : "#141414"}
-                  stroke={gameState.runnerThird ? (sbRunner === "third" ? "#08DDC8" : "#08DDC8") : "#3A3A3A"}
+                  fill={gameState.runnerThird ? (sbRunner === "third" ? "#E9D7B4" : "#E9D7B4") : "#181818"}
+                  stroke={gameState.runnerThird ? (sbRunner === "third" ? "#E9D7B4" : "#E9D7B4") : "#3A3A3A"}
                   transform="rotate(45 15 40)" pointerEvents="none"
                 />
                 {/* 2nd base */}
@@ -841,8 +841,8 @@ export default function LiveScoringPage() {
                   onClick={() => gameState.runnerSecond && setSbRunner(sbRunner === "second" ? null : "second")}
                 />
                 <rect x="37" y="12" width="6" height="6"
-                  fill={gameState.runnerSecond ? (sbRunner === "second" ? "#08DDC8" : "#08DDC8") : "#141414"}
-                  stroke={gameState.runnerSecond ? (sbRunner === "second" ? "#08DDC8" : "#08DDC8") : "#3A3A3A"}
+                  fill={gameState.runnerSecond ? (sbRunner === "second" ? "#E9D7B4" : "#E9D7B4") : "#181818"}
+                  stroke={gameState.runnerSecond ? (sbRunner === "second" ? "#E9D7B4" : "#E9D7B4") : "#3A3A3A"}
                   transform="rotate(45 40 15)" pointerEvents="none"
                 />
                 {/* 1st base */}
@@ -852,8 +852,8 @@ export default function LiveScoringPage() {
                   onClick={() => gameState.runnerFirst && setSbRunner(sbRunner === "first" ? null : "first")}
                 />
                 <rect x="62" y="37" width="6" height="6"
-                  fill={gameState.runnerFirst ? (sbRunner === "first" ? "#08DDC8" : "#08DDC8") : "#141414"}
-                  stroke={gameState.runnerFirst ? (sbRunner === "first" ? "#08DDC8" : "#08DDC8") : "#3A3A3A"}
+                  fill={gameState.runnerFirst ? (sbRunner === "first" ? "#E9D7B4" : "#E9D7B4") : "#181818"}
+                  stroke={gameState.runnerFirst ? (sbRunner === "first" ? "#E9D7B4" : "#E9D7B4") : "#3A3A3A"}
                   transform="rotate(45 65 40)" pointerEvents="none"
                 />
               </svg>
@@ -866,7 +866,7 @@ export default function LiveScoringPage() {
                     key={i}
                     className={`w-3.5 h-3.5 rounded-full border-2 transition-colors ${
                       i < gameState.outs
-                        ? "bg-[#FF6161] border-[#FF6161] shadow-[0_0_6px_rgba(255,97,97,0.5)]"
+                        ? "bg-[#FA4D4D] border-[#FA4D4D] shadow-[0_0_6px_rgba(250,77,77,0.5)]"
                         : "bg-transparent border-muted-foreground/40"
                     }`}
                   />
@@ -911,7 +911,7 @@ export default function LiveScoringPage() {
                 {destinations.map(({ to, label }) => (
                   <button
                     key={to}
-                    className="h-10 px-4 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none bg-[#08DDC8] hover:bg-[#1ae8d4] text-white border-transparent shadow-md"
+                    className="h-10 px-4 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 select-none bg-[#E9D7B4] hover:bg-[#D4C29F] text-white border-transparent shadow-md"
                     onClick={() => handleStolenBase(sbRunner, to)}
                   >
                     {label}
@@ -1022,12 +1022,12 @@ export default function LiveScoringPage() {
                       className="h-full rounded-full transition-all duration-500"
                       style={{
                         width: `${hitProbability}%`,
-                        backgroundColor: hitProbability >= 40 ? "#83DD68" : hitProbability >= 25 ? "#08DDC8" : "#FF6161",
+                        backgroundColor: hitProbability >= 40 ? "#71A368" : hitProbability >= 25 ? "#E9D7B4" : "#FA4D4D",
                       }}
                     />
                   </div>
                   <span className="text-xs font-bold tabular-nums" style={{
-                    color: hitProbability >= 40 ? "#83DD68" : hitProbability >= 25 ? "#08DDC8" : "#FF6161",
+                    color: hitProbability >= 40 ? "#71A368" : hitProbability >= 25 ? "#E9D7B4" : "#FA4D4D",
                   }}>
                     {hitProbability}%
                   </span>
@@ -1077,7 +1077,7 @@ export default function LiveScoringPage() {
             </div>
             {gameState.lineup.length > 0 && (
               <Button
-                className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-[#08DDC8] via-[#83DD68] to-[#CF59F3] text-white"
+                className="w-full h-11 text-sm font-semibold bg-[#E9D7B4] text-white"
                 onClick={() => setGameState({ ...gameState })}
               >
                 Start Scoring ({gameState.lineup.length} batters)
@@ -1101,14 +1101,14 @@ export default function LiveScoringPage() {
                 <div className="flex flex-col gap-1.5 items-end">
                   <div className="flex items-center gap-1 flex-wrap justify-end">
                     {Array.from({ length: pitchCount.balls }).map((_, i) => (
-                      <div key={`b-${i}`} className="w-3 h-3 rounded-full bg-[#83DD68] border-2 border-[#83DD68]" />
+                      <div key={`b-${i}`} className="w-3 h-3 rounded-full bg-[#71A368] border-2 border-[#71A368]" />
                     ))}
                     {pitchCount.balls === 0 && <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />}
                     <span className="text-[10px] text-muted-foreground ml-0.5">B</span>
                   </div>
                   <div className="flex items-center gap-1 flex-wrap justify-end">
                     {Array.from({ length: pitchCount.strikes }).map((_, i) => (
-                      <div key={`s-${i}`} className="w-3 h-3 rounded-full bg-[#FF6161] border-2 border-[#FF6161]" />
+                      <div key={`s-${i}`} className="w-3 h-3 rounded-full bg-[#FA4D4D] border-2 border-[#FA4D4D]" />
                     ))}
                     {pitchCount.strikes === 0 && <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />}
                     <span className="text-[10px] text-muted-foreground ml-0.5">S</span>
@@ -1117,7 +1117,7 @@ export default function LiveScoringPage() {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <button
-                  className="h-12 rounded-xl text-sm font-bold border-2 border-[#83DD68]/30 bg-[#83DD68]/10 text-[#83DD68] active:scale-95 transition-all select-none"
+                  className="h-12 rounded-xl text-sm font-bold border-2 border-[#71A368]/30 bg-[#71A368]/10 text-[#71A368] active:scale-95 transition-all select-none"
                   onClick={() => {
                     setPitchCount({ ...pitchCount, balls: pitchCount.balls + 1 });
                   }}
@@ -1125,7 +1125,7 @@ export default function LiveScoringPage() {
                   Ball
                 </button>
                 <button
-                  className="h-12 rounded-xl text-sm font-bold border-2 border-[#FF6161]/30 bg-[#FF6161]/10 text-[#FF6161] active:scale-95 transition-all select-none"
+                  className="h-12 rounded-xl text-sm font-bold border-2 border-[#FA4D4D]/30 bg-[#FA4D4D]/10 text-[#FA4D4D] active:scale-95 transition-all select-none"
                   onClick={() => {
                     setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 });
                   }}
@@ -1379,9 +1379,9 @@ export default function LiveScoringPage() {
                               className={`h-9 px-3 rounded-lg text-xs font-bold border-2 transition-all active:scale-95 select-none ${
                                 currentTo === to
                                   ? to === "home"
-                                    ? "bg-[#08DDC8] text-[#0A0A0A] border-transparent shadow-md"
+                                    ? "bg-[#E9D7B4] text-[#111111] border-transparent shadow-md"
                                     : to === "out"
-                                      ? "bg-[#FF6161] text-white border-transparent shadow-md"
+                                      ? "bg-[#FA4D4D] text-white border-transparent shadow-md"
                                       : "bg-primary text-primary-foreground border-transparent shadow-md"
                                   : "bg-muted/30 text-foreground border-border/50 hover:bg-accent"
                               }`}
@@ -1460,9 +1460,9 @@ export default function LiveScoringPage() {
               <svg viewBox="0 0 24 24" className="h-20 w-20" fill="none" strokeWidth="1.5" style={{ animation: "spin-slow 2s ease-in-out" }}>
                 <defs>
                   <linearGradient id="trans-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#08DDC8" />
-                    <stop offset="50%" stopColor="#83DD68" />
-                    <stop offset="100%" stopColor="#CF59F3" />
+                    <stop offset="0%" stopColor="#E9D7B4" />
+                    <stop offset="50%" stopColor="#D4C29F" />
+                    <stop offset="100%" stopColor="#574F3D" />
                   </linearGradient>
                 </defs>
                 <circle cx="12" cy="12" r="10.5" stroke="url(#trans-grad)" />

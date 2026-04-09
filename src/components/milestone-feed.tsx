@@ -81,7 +81,7 @@ export function MilestoneFeed() {
             text: `${name} stole their first base`,
             date: game?.date ?? firstSB.created_at.slice(0, 10),
             playerId: pid,
-            color: "#08DDC8",
+            color: "#E9D7B4",
           });
         }
 
@@ -118,7 +118,7 @@ export function MilestoneFeed() {
                 text: `${name} went ${hits}-for-${gPAs.filter((pa) => pa.is_at_bat).length}!`,
                 date: game?.date ?? gPAs[0].created_at.slice(0, 10),
                 playerId: pid,
-                color: "#CF59F3",
+                color: "#574F3D",
               });
             }
           }
@@ -149,7 +149,7 @@ export function MilestoneFeed() {
             text: `${name} had a ${bestStreak}-game hit streak!`,
             date: game?.date ?? "",
             playerId: pid,
-            color: "#83DD68",
+            color: "#D4C29F",
           });
         }
 
@@ -186,7 +186,7 @@ export function MilestoneFeed() {
               text: `${name} recorded hit #${milestone}`,
               date: game?.date ?? pa.created_at.slice(0, 10),
               playerId: pid,
-              color: "#08DDC8",
+              color: "#E9D7B4",
             });
           }
         }

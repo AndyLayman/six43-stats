@@ -8,9 +8,9 @@ import { isAtBat, isHit } from "@/lib/stats/calculations";
 type StatKey = "avg" | "obp" | "slg" | "ops";
 
 const STAT_CONFIG: { key: StatKey; label: string; color: string }[] = [
-  { key: "avg", label: "AVG", color: "#08DDC8" },
-  { key: "obp", label: "OBP", color: "#83DD68" },
-  { key: "slg", label: "SLG", color: "#CF59F3" },
+  { key: "avg", label: "AVG", color: "#E9D7B4" },
+  { key: "obp", label: "OBP", color: "#F7F7F7" },
+  { key: "slg", label: "SLG", color: "#574F3D" },
   { key: "ops", label: "OPS", color: "#f97316" },
 ];
 

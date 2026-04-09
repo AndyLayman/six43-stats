@@ -14,12 +14,12 @@ const BADGE_DEFS: Badge[] = [
   { id: "batting-champ", emoji: "\u{1F451}", label: "Batting Champ", description: "Highest batting average", color: "#FFD700" },
   { id: "power-hitter", emoji: "\u{1F4A5}", label: "Power Hitter", description: "Most home runs", color: "#FF6161" },
   { id: "run-producer", emoji: "\u{1F3AF}", label: "Run Producer", description: "Most RBIs", color: "#f97316" },
-  { id: "on-base-king", emoji: "\u{1F6E1}\uFE0F", label: "On-Base King", description: "Highest OBP", color: "#83DD68" },
-  { id: "slugger", emoji: "\u{1F525}", label: "Slugger", description: "Highest SLG", color: "#CF59F3" },
-  { id: "speed-demon", emoji: "\u{26A1}", label: "Speed Demon", description: "Most stolen bases", color: "#08DDC8" },
+  { id: "on-base-king", emoji: "\u{1F6E1}\uFE0F", label: "On-Base King", description: "Highest OBP", color: "#D4C29F" },
+  { id: "slugger", emoji: "\u{1F525}", label: "Slugger", description: "Highest SLG", color: "#574F3D" },
+  { id: "speed-demon", emoji: "\u{26A1}", label: "Speed Demon", description: "Most stolen bases", color: "#E9D7B4" },
   { id: "golden-glove", emoji: "\u{1F9E4}", label: "Golden Glove", description: "Best fielding percentage", color: "#FFD700" },
-  { id: "hit-machine", emoji: "\u{1F3B0}", label: "Hit Machine", description: "Most hits", color: "#08DDC8" },
-  { id: "patient-eye", emoji: "\u{1F440}", label: "Patient Eye", description: "Most walks", color: "#83DD68" },
+  { id: "hit-machine", emoji: "\u{1F3B0}", label: "Hit Machine", description: "Most hits", color: "#E9D7B4" },
+  { id: "patient-eye", emoji: "\u{1F440}", label: "Patient Eye", description: "Most walks", color: "#D4C29F" },
 ];
 
 export function computeBadges(

@@ -203,7 +203,7 @@ export default function PlayersPage() {
         <h1 className="text-3xl font-extrabold tracking-tight text-gradient">Players</h1>
         <Button
           onClick={() => setShowOrder(true)}
-          className="bg-gradient-to-r from-[#08DDC8] via-[#83DD68] to-[#CF59F3] text-white font-semibold"
+          className="bg-[#E9D7B4] text-[#111111] font-semibold"
         >
           Optimized Order
         </Button>
@@ -220,7 +220,7 @@ export default function PlayersPage() {
             <div className="space-y-2">
               {optimizedOrder.map((p, i) => (
                 <div key={p.id} className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#08DDC8] via-[#83DD68] to-[#CF59F3] font-bold text-white text-sm shrink-0">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E9D7B4] font-bold text-[#111111] text-sm shrink-0">
                     {i + 1}
                   </div>
                   <div className="min-w-0 flex-1">

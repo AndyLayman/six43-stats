@@ -73,19 +73,9 @@ export default function SchedulePage() {
     }
   }
 
-  // Sort: scheduled/upcoming first (ascending), then past (descending)
+  // Sort: ascending by date (always)
   const today = new Date().toISOString().split("T")[0];
-  items.sort((a, b) => {
-    const aUpcoming = a.date >= today ? 0 : 1;
-    const bUpcoming = b.date >= today ? 0 : 1;
-    if (aUpcoming !== bUpcoming) return aUpcoming - bUpcoming;
-    if (aUpcoming === 0) {
-      // Both upcoming: soonest first
-      return a.date.localeCompare(b.date);
-    }
-    // Both past: most recent first
-    return b.date.localeCompare(a.date);
-  });
+  items.sort((a, b) => a.date.localeCompare(b.date));
 
   // Group by month
   const grouped = new Map<string, ScheduleItem[]>();
@@ -358,8 +348,10 @@ export default function SchedulePage() {
                 <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 px-1">
                   {monthLabel}
                 </h2>
-                <div className="space-y-2">
-                  {monthItems.map((item) => {
+                <div className="overflow-hidden rounded-xl border border-border/50">
+                  {monthItems.map((item, idx) => {
+                    const isFirst = idx === 0;
+                    const isLast = idx === monthItems.length - 1;
                     if (item.kind === "game") {
                       return (
                         <GameRow
@@ -369,6 +361,8 @@ export default function SchedulePage() {
                           selected={selectedGames.has(item.data.id)}
                           onToggleSelect={() => toggleSelectGame(item.data.id)}
                           onDelete={() => setDeleteTarget({ kind: "game", data: item.data as Game })}
+                          isFirst={isFirst}
+                          isLast={isLast}
                         />
                       );
                     }
@@ -380,6 +374,8 @@ export default function SchedulePage() {
                         selected={selectedPractices.has(item.data.id)}
                         onToggleSelect={() => toggleSelectPractice(item.data.id)}
                         onDelete={() => setDeleteTarget({ kind: "practice", data: item.data as Practice })}
+                        isFirst={isFirst}
+                        isLast={isLast}
                       />
                     );
                   })}
@@ -458,12 +454,16 @@ function GameRow({
   selected,
   onToggleSelect,
   onDelete,
+  isFirst,
+  isLast,
 }: {
   game: Game;
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
   onDelete: () => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const d = new Date(game.date + "T12:00:00");
   const dayAbbr = DAY_ABBR[d.getDay()];
@@ -474,92 +474,90 @@ function GameRow({
   const isCompleted = game.status === "final" || isPast;
 
   const content = (
-    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""}`}>
-      <CardContent className="flex items-center gap-3 p-3 sm:p-4">
-        {/* Select checkbox */}
-        {selectMode && (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleSelect();
-            }}
-            className={`h-6 w-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-              selected
-                ? "bg-primary border-primary text-primary-foreground"
-                : "border-border/60 hover:border-primary/50"
-            }`}
-          >
-            {selected && <Check width={14} height={14} />}
-          </button>
-        )}
+    <div className={`flex items-center gap-3 px-3 py-2 sm:px-4 sm:py-2.5 bg-card/50 hover:bg-card transition-colors ${!isLast ? "border-b border-border/30" : ""} ${selected ? "ring-2 ring-inset ring-primary/50" : ""}`}>
+      {/* Select checkbox */}
+      {selectMode && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleSelect();
+          }}
+          className={`h-6 w-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+            selected
+              ? "bg-primary border-primary text-primary-foreground"
+              : "border-border/60 hover:border-primary/50"
+          }`}
+        >
+          {selected && <Check width={14} height={14} />}
+        </button>
+      )}
 
-        {/* Completed checkmark */}
-        {isCompleted && (
-          <div className="h-5 w-5 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
-            <Check width={12} height={12} className="text-green-400" />
-          </div>
-        )}
-
-        {/* Day column */}
-        <div className="w-12 shrink-0 text-center">
-          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
-            {dayAbbr}
-          </div>
-          <div className="text-2xl font-extrabold leading-tight tabular-nums">
-            {dayNum}
-          </div>
+      {/* Completed checkmark */}
+      {isCompleted && (
+        <div className="h-5 w-5 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
+          <Check width={12} height={12} className="text-green-400" />
         </div>
+      )}
 
-        {/* Opponent + venue */}
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-base truncate">{opponentLabel}</div>
-          {game.venue && (
-            <div className="text-xs text-muted-foreground truncate">{game.venue}</div>
-          )}
+      {/* Day column */}
+      <div className="w-10 shrink-0 text-center">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+          {dayAbbr}
         </div>
-
-        {/* Time + status */}
-        <div className="flex items-center gap-2 shrink-0">
-          {game.game_time && (
-            <span className="text-sm text-muted-foreground tabular-nums">{game.game_time}</span>
-          )}
-          {game.status === "final" ? (
-            <>
-              <span className="text-sm font-bold tabular-nums">
-                {game.our_score}-{game.opponent_score}
-              </span>
-              <Badge
-                variant={game.our_score > game.opponent_score ? "default" : "secondary"}
-                className={game.our_score > game.opponent_score ? "bg-primary/20 text-primary border-primary/30" : ""}
-              >
-                {game.our_score > game.opponent_score ? "W" : game.our_score < game.opponent_score ? "L" : "T"}
-              </Badge>
-            </>
-          ) : game.status === "in_progress" ? (
-            <Badge className="bg-primary/20 text-primary border border-primary/30 animate-pulse">Live</Badge>
-          ) : null}
+        <div className="text-xl font-extrabold leading-tight tabular-nums">
+          {dayNum}
         </div>
+      </div>
 
-        {/* Delete button in select mode */}
-        {selectMode && (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="p-2 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-          >
-            <Trash width={16} height={16} />
-          </button>
+      {/* Opponent + venue */}
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm truncate">{opponentLabel}</div>
+        {game.venue && (
+          <div className="text-xs text-muted-foreground truncate">{game.venue}</div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Time + status */}
+      <div className="flex items-center gap-2 shrink-0">
+        {game.game_time && (
+          <span className="text-sm text-muted-foreground tabular-nums">{game.game_time}</span>
+        )}
+        {game.status === "final" ? (
+          <>
+            <span className="text-sm font-bold tabular-nums">
+              {game.our_score}-{game.opponent_score}
+            </span>
+            <Badge
+              variant={game.our_score > game.opponent_score ? "default" : "secondary"}
+              className={game.our_score > game.opponent_score ? "bg-primary/20 text-primary border-primary/30" : ""}
+            >
+              {game.our_score > game.opponent_score ? "W" : game.our_score < game.opponent_score ? "L" : "T"}
+            </Badge>
+          </>
+        ) : game.status === "in_progress" ? (
+          <Badge className="bg-primary/20 text-primary border border-primary/30 animate-pulse">Live</Badge>
+        ) : null}
+      </div>
+
+      {/* Delete button in select mode */}
+      {selectMode && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="p-2 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+        >
+          <Trash width={16} height={16} />
+        </button>
+      )}
+    </div>
   );
 
   if (selectMode) return <div>{content}</div>;
-  return <Link href={`/games/${game.id}`}>{content}</Link>;
+  return <Link href={`/games/${game.id}`} className="block">{content}</Link>;
 }
 
 // === Practice row component ===
@@ -570,12 +568,16 @@ function PracticeRow({
   selected,
   onToggleSelect,
   onDelete,
+  isFirst,
+  isLast,
 }: {
   practice: Practice;
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
   onDelete: () => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const d = new Date(practice.date + "T12:00:00");
   const dayAbbr = DAY_ABBR[d.getDay()];
@@ -585,75 +587,73 @@ function PracticeRow({
   const isCompleted = practice.completed || isPast;
 
   const content = (
-    <Card className={`card-hover glass ${selected ? "ring-2 ring-primary/50" : ""}`}>
-      <CardContent className="flex items-center gap-3 p-3 sm:p-4">
-        {/* Select checkbox */}
-        {selectMode && (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleSelect();
-            }}
-            className={`h-6 w-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-              selected
-                ? "bg-primary border-primary text-primary-foreground"
-                : "border-border/60 hover:border-primary/50"
-            }`}
-          >
-            {selected && <Check width={14} height={14} />}
-          </button>
-        )}
+    <div className={`flex items-center gap-3 px-3 py-2 sm:px-4 sm:py-2.5 bg-card/50 hover:bg-card transition-colors ${!isLast ? "border-b border-border/30" : ""} ${selected ? "ring-2 ring-inset ring-primary/50" : ""}`}>
+      {/* Select checkbox */}
+      {selectMode && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleSelect();
+          }}
+          className={`h-6 w-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+            selected
+              ? "bg-primary border-primary text-primary-foreground"
+              : "border-border/60 hover:border-primary/50"
+          }`}
+        >
+          {selected && <Check width={14} height={14} />}
+        </button>
+      )}
 
-        {/* Completed checkmark */}
-        {isCompleted && (
-          <div className="h-5 w-5 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
-            <Check width={12} height={12} className="text-green-400" />
-          </div>
-        )}
-
-        {/* Day column */}
-        <div className="w-12 shrink-0 text-center">
-          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
-            {dayAbbr}
-          </div>
-          <div className="text-2xl font-extrabold leading-tight tabular-nums">
-            {dayNum}
-          </div>
+      {/* Completed checkmark */}
+      {isCompleted && (
+        <div className="h-5 w-5 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
+          <Check width={12} height={12} className="text-green-400" />
         </div>
+      )}
 
-        {/* Title + venue */}
-        <div className="flex-1 min-w-0">
-          <span className="font-semibold text-base truncate">{practice.title}</span>
-          {practice.venue && (
-            <div className="text-xs text-muted-foreground truncate">{practice.venue}</div>
-          )}
+      {/* Day column */}
+      <div className="w-10 shrink-0 text-center">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+          {dayAbbr}
         </div>
-
-        {/* Practice badge */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge variant="outline" className="border-border/50 text-muted-foreground bg-muted/30">
-            Practice
-          </Badge>
+        <div className="text-xl font-extrabold leading-tight tabular-nums">
+          {dayNum}
         </div>
+      </div>
 
-        {/* Delete button in select mode */}
-        {selectMode && (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="p-2 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-          >
-            <Trash width={16} height={16} />
-          </button>
+      {/* Title + venue */}
+      <div className="flex-1 min-w-0">
+        <span className="font-semibold text-sm truncate">{practice.title}</span>
+        {practice.venue && (
+          <div className="text-xs text-muted-foreground truncate">{practice.venue}</div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Practice badge */}
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge variant="outline" className="border-border/50 text-muted-foreground bg-muted/30">
+          Practice
+        </Badge>
+      </div>
+
+      {/* Delete button in select mode */}
+      {selectMode && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="p-2 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+        >
+          <Trash width={16} height={16} />
+        </button>
+      )}
+    </div>
   );
 
   if (selectMode) return <div>{content}</div>;
-  return <Link href={`/practices/${practice.id}`}>{content}</Link>;
+  return <Link href={`/practices/${practice.id}`} className="block">{content}</Link>;
 }

@@ -60,19 +60,19 @@ export function SprayChart({
     >
       <defs>
         <linearGradient id="field-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#08DDC8" />
-          <stop offset="50%" stopColor="#83DD68" />
-          <stop offset="100%" stopColor="#CF59F3" />
+          <stop offset="0%" stopColor="#E9D7B4" />
+          <stop offset="50%" stopColor="#D4C29F" />
+          <stop offset="100%" stopColor="#574F3D" />
         </linearGradient>
         <linearGradient id="field-grad-dim" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="rgba(8, 221, 200, 0.30)" />
-          <stop offset="50%" stopColor="rgba(131, 221, 104, 0.20)" />
-          <stop offset="100%" stopColor="rgba(207, 89, 243, 0.15)" />
+          <stop offset="0%" stopColor="rgba(233, 215, 180, 0.30)" />
+          <stop offset="50%" stopColor="rgba(212, 194, 159, 0.20)" />
+          <stop offset="100%" stopColor="rgba(87, 79, 61, 0.15)" />
         </linearGradient>
         <radialGradient id="dot-grad" cx="35%" cy="35%" r="65%">
-          <stop offset="0%" stopColor="#08DDC8" />
-          <stop offset="50%" stopColor="#83DD68" />
-          <stop offset="100%" stopColor="#CF59F3" />
+          <stop offset="0%" stopColor="#E9D7B4" />
+          <stop offset="50%" stopColor="#D4C29F" />
+          <stop offset="100%" stopColor="#574F3D" />
         </radialGradient>
       </defs>
 
@@ -96,36 +96,36 @@ export function SprayChart({
       <rect x="145" y="275" width="10" height="10" fill="url(#field-grad)" transform="rotate(45 150 280)" />
       {/* 1st base */}
       <rect x="215" y="205" width="10" height="10"
-        fill={runners?.first ? "#08DDC8" : "url(#field-grad)"}
+        fill={runners?.first ? "#E9D7B4" : "url(#field-grad)"}
         opacity={runners?.first ? 1 : 0.7}
         transform="rotate(45 220 210)"
       />
       {runners?.first && (
-        <circle cx="220" cy="210" r="6" fill="#08DDC8" opacity="0.3">
+        <circle cx="220" cy="210" r="6" fill="#E9D7B4" opacity="0.3">
           <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
         </circle>
       )}
       {/* 2nd base */}
       <rect x="145" y="135" width="10" height="10"
-        fill={runners?.second ? "#08DDC8" : "url(#field-grad)"}
+        fill={runners?.second ? "#E9D7B4" : "url(#field-grad)"}
         opacity={runners?.second ? 1 : 0.7}
         transform="rotate(45 150 140)"
       />
       {runners?.second && (
-        <circle cx="150" cy="140" r="6" fill="#08DDC8" opacity="0.3">
+        <circle cx="150" cy="140" r="6" fill="#E9D7B4" opacity="0.3">
           <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
         </circle>
       )}
       {/* 3rd base */}
       <rect x="75" y="205" width="10" height="10"
-        fill={runners?.third ? "#08DDC8" : "url(#field-grad)"}
+        fill={runners?.third ? "#E9D7B4" : "url(#field-grad)"}
         opacity={runners?.third ? 1 : 0.7}
         transform="rotate(45 80 210)"
       />
       {runners?.third && (
-        <circle cx="80" cy="210" r="6" fill="#08DDC8" opacity="0.3">
+        <circle cx="80" cy="210" r="6" fill="#E9D7B4" opacity="0.3">
           <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
         </circle>
@@ -283,7 +283,7 @@ function TrajectoryPath({
   const px = ccwX * sign;
   const py = ccwY * sign;
 
-  const color = "#08DDC8";
+  const color = "#E9D7B4";
   const strokeW = ghost ? 1 : 1.8;
   const strokeOp = ghost ? 0.4 : 0.5;
 

@@ -112,18 +112,18 @@ export function LiveGameTicker() {
             fill="#141414" stroke="#3A3A3A" strokeWidth="0.5"
             transform="rotate(45 12 20)" />
           <rect x="2.5" y="10.5" width="3" height="3" rx="0.5"
-            fill={game.runnerThird ? "#08DDC8" : "#141414"}
-            stroke={game.runnerThird ? "#08DDC8" : "#3A3A3A"}
+            fill={game.runnerThird ? "#E9D7B4" : "#181818"}
+            stroke={game.runnerThird ? "#E9D7B4" : "#3A3A3A"}
             strokeWidth="0.5"
             transform="rotate(45 4 12)" />
           <rect x="10.5" y="2.5" width="3" height="3" rx="0.5"
-            fill={game.runnerSecond ? "#08DDC8" : "#141414"}
-            stroke={game.runnerSecond ? "#08DDC8" : "#3A3A3A"}
+            fill={game.runnerSecond ? "#E9D7B4" : "#181818"}
+            stroke={game.runnerSecond ? "#E9D7B4" : "#3A3A3A"}
             strokeWidth="0.5"
             transform="rotate(45 12 4)" />
           <rect x="18.5" y="10.5" width="3" height="3" rx="0.5"
-            fill={game.runnerFirst ? "#08DDC8" : "#141414"}
-            stroke={game.runnerFirst ? "#08DDC8" : "#3A3A3A"}
+            fill={game.runnerFirst ? "#E9D7B4" : "#181818"}
+            stroke={game.runnerFirst ? "#E9D7B4" : "#3A3A3A"}
             strokeWidth="0.5"
             transform="rotate(45 20 12)" />
         </svg>
