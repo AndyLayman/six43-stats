@@ -495,8 +495,8 @@ function GameRow({
 
       {/* Completed checkmark */}
       {isCompleted && (
-        <div className="h-5 w-5 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
-          <Check width={12} height={12} className="text-green-400" />
+        <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(233,215,180,0.2)', border: '1px solid rgba(233,215,180,0.4)' }}>
+          <Check width={12} height={12} style={{ color: '#E9D7B4' }} />
         </div>
       )}
 
@@ -608,8 +608,8 @@ function PracticeRow({
 
       {/* Completed checkmark */}
       {isCompleted && (
-        <div className="h-5 w-5 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0">
-          <Check width={12} height={12} className="text-green-400" />
+        <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(233,215,180,0.2)', border: '1px solid rgba(233,215,180,0.4)' }}>
+          <Check width={12} height={12} style={{ color: '#E9D7B4' }} />
         </div>
       )}
 
