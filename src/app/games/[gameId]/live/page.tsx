@@ -1458,16 +1458,9 @@ export default function LiveScoringPage() {
             {/* Animated baseball */}
             <div className="flex justify-center">
               <svg viewBox="0 0 24 24" className="h-20 w-20" fill="none" strokeWidth="1.5" style={{ animation: "spin-slow 2s ease-in-out" }}>
-                <defs>
-                  <linearGradient id="trans-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#E9D7B4" />
-                    <stop offset="50%" stopColor="#D4C29F" />
-                    <stop offset="100%" stopColor="#574F3D" />
-                  </linearGradient>
-                </defs>
-                <circle cx="12" cy="12" r="10.5" stroke="url(#trans-grad)" />
-                <path d="M 6.5 3.5 Q 4 8 6 12 Q 8 16 6.5 20.5" stroke="url(#trans-grad)" strokeLinecap="round" />
-                <path d="M 17.5 3.5 Q 20 8 18 12 Q 16 16 17.5 20.5" stroke="url(#trans-grad)" strokeLinecap="round" />
+                <circle cx="12" cy="12" r="10.5" stroke="#E9D7B4" />
+                <path d="M 6.5 3.5 Q 4 8 6 12 Q 8 16 6.5 20.5" stroke="#E9D7B4" strokeLinecap="round" />
+                <path d="M 17.5 3.5 Q 20 8 18 12 Q 16 16 17.5 20.5" stroke="#E9D7B4" strokeLinecap="round" />
               </svg>
             </div>
 

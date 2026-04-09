@@ -58,45 +58,27 @@ export function SprayChart({
       onClick={handleClick}
       onTouchEnd={handleTouch}
     >
-      <defs>
-        <linearGradient id="field-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#E9D7B4" />
-          <stop offset="50%" stopColor="#D4C29F" />
-          <stop offset="100%" stopColor="#574F3D" />
-        </linearGradient>
-        <linearGradient id="field-grad-dim" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="rgba(233, 215, 180, 0.30)" />
-          <stop offset="50%" stopColor="rgba(212, 194, 159, 0.20)" />
-          <stop offset="100%" stopColor="rgba(87, 79, 61, 0.15)" />
-        </linearGradient>
-        <radialGradient id="dot-grad" cx="35%" cy="35%" r="65%">
-          <stop offset="0%" stopColor="#E9D7B4" />
-          <stop offset="50%" stopColor="#D4C29F" />
-          <stop offset="100%" stopColor="#574F3D" />
-        </radialGradient>
-      </defs>
-
       {/* Foul lines */}
-      <line x1="150" y1="280" x2="10" y2="140" stroke="url(#field-grad)" strokeWidth="1.5" opacity="0.4" />
-      <line x1="150" y1="280" x2="290" y2="140" stroke="url(#field-grad)" strokeWidth="1.5" opacity="0.4" />
+      <line x1="150" y1="280" x2="10" y2="140" stroke="#E9D7B4" strokeWidth="1.5" opacity="0.4" />
+      <line x1="150" y1="280" x2="290" y2="140" stroke="#E9D7B4" strokeWidth="1.5" opacity="0.4" />
 
       {/* Outfield fence arc */}
-      <path d="M 10 155 A 160 160 0 0 1 290 155" fill="none" stroke="url(#field-grad)" strokeWidth="2" opacity="0.5" />
+      <path d="M 10 155 A 160 160 0 0 1 290 155" fill="none" stroke="#E9D7B4" strokeWidth="2" opacity="0.5" />
 
       {/* Infield diamond fill */}
-      <path d="M 150 280 L 80 210 L 150 140 L 220 210 Z" fill="url(#field-grad-dim)" />
+      <path d="M 150 280 L 80 210 L 150 140 L 220 210 Z" fill="#E9D7B4" opacity="0.1" />
 
       {/* Base paths */}
-      <line x1="150" y1="280" x2="80" y2="210" stroke="url(#field-grad)" strokeWidth="1.5" />
-      <line x1="80" y1="210" x2="150" y2="140" stroke="url(#field-grad)" strokeWidth="1.5" />
-      <line x1="150" y1="140" x2="220" y2="210" stroke="url(#field-grad)" strokeWidth="1.5" />
-      <line x1="220" y1="210" x2="150" y2="280" stroke="url(#field-grad)" strokeWidth="1.5" />
+      <line x1="150" y1="280" x2="80" y2="210" stroke="#E9D7B4" strokeWidth="1.5" />
+      <line x1="80" y1="210" x2="150" y2="140" stroke="#E9D7B4" strokeWidth="1.5" />
+      <line x1="150" y1="140" x2="220" y2="210" stroke="#E9D7B4" strokeWidth="1.5" />
+      <line x1="220" y1="210" x2="150" y2="280" stroke="#E9D7B4" strokeWidth="1.5" />
 
       {/* Bases */}
-      <rect x="145" y="275" width="10" height="10" fill="url(#field-grad)" transform="rotate(45 150 280)" />
+      <rect x="145" y="275" width="10" height="10" fill="#E9D7B4" transform="rotate(45 150 280)" />
       {/* 1st base */}
       <rect x="215" y="205" width="10" height="10"
-        fill={runners?.first ? "#E9D7B4" : "url(#field-grad)"}
+        fill="#E9D7B4"
         opacity={runners?.first ? 1 : 0.7}
         transform="rotate(45 220 210)"
       />
@@ -108,7 +90,7 @@ export function SprayChart({
       )}
       {/* 2nd base */}
       <rect x="145" y="135" width="10" height="10"
-        fill={runners?.second ? "#E9D7B4" : "url(#field-grad)"}
+        fill="#E9D7B4"
         opacity={runners?.second ? 1 : 0.7}
         transform="rotate(45 150 140)"
       />
@@ -120,7 +102,7 @@ export function SprayChart({
       )}
       {/* 3rd base */}
       <rect x="75" y="205" width="10" height="10"
-        fill={runners?.third ? "#E9D7B4" : "url(#field-grad)"}
+        fill="#E9D7B4"
         opacity={runners?.third ? 1 : 0.7}
         transform="rotate(45 80 210)"
       />
@@ -132,7 +114,7 @@ export function SprayChart({
       )}
 
       {/* Pitcher's mound */}
-      <circle cx="150" cy="218" r="4" fill="none" stroke="url(#field-grad)" strokeWidth="1.5" opacity="0.5" />
+      <circle cx="150" cy="218" r="4" fill="none" stroke="#E9D7B4" strokeWidth="1.5" opacity="0.5" />
 
       {/* Position labels */}
       {[
@@ -152,7 +134,7 @@ export function SprayChart({
           x={pos.x}
           y={pos.y}
           textAnchor="middle"
-          fill="url(#field-grad)"
+          fill="#E9D7B4"
           fontSize="8"
           fontWeight="bold"
           opacity="0.5"
@@ -210,14 +192,14 @@ export function SprayChart({
         />
       ))}
 
-      {/* Selected point — pulse animation with gradient */}
+      {/* Selected point — pulse animation */}
       {selectedPoint && (
         <>
           <circle
             cx={selectedPoint.x}
             cy={selectedPoint.y}
             r="8"
-            fill="url(#dot-grad)"
+            fill="#E9D7B4"
             opacity="0.3"
           >
             <animate attributeName="r" values="5;10;5" dur="1.5s" repeatCount="indefinite" />
@@ -227,7 +209,7 @@ export function SprayChart({
             cx={selectedPoint.x}
             cy={selectedPoint.y}
             r="5"
-            fill="url(#dot-grad)"
+            fill="#E9D7B4"
             stroke="#F7F7F7"
             strokeWidth="1.5"
           />
