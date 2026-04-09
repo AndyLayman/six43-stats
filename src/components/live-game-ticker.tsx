@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { NavArrowUp, NavArrowDown } from "iconoir-react";
 
 interface LiveGame {
   id: string;
@@ -129,8 +130,12 @@ export function LiveGameTicker() {
         </svg>
 
         {/* Inning */}
-        <span className="text-xs font-bold text-muted-foreground">
-          {game.half === "top" ? "\u25B2" : "\u25BC"}{game.inning}
+        <span className="flex items-center text-xs font-bold text-muted-foreground">
+          {game.half === "top"
+            ? <NavArrowUp width={10} height={10} strokeWidth={2.5} />
+            : <NavArrowDown width={10} height={10} strokeWidth={2.5} />
+          }
+          {game.inning}
         </span>
 
         {/* Outs */}
