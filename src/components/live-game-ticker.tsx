@@ -116,19 +116,16 @@ export function LiveGameTicker() {
           <rect x="1" y="9" width="6" height="6" rx="0.5"
             fill={game.runnerThird ? "#E9D7B4" : "#111111"}
             stroke="#E9D7B4" strokeWidth="0.5"
-            opacity={game.runnerThird ? 1 : 0.5}
             transform="rotate(45 4 12)" />
           {/* 2nd base */}
           <rect x="9" y="1" width="6" height="6" rx="0.5"
             fill={game.runnerSecond ? "#E9D7B4" : "#111111"}
             stroke="#E9D7B4" strokeWidth="0.5"
-            opacity={game.runnerSecond ? 1 : 0.5}
             transform="rotate(45 12 4)" />
           {/* 1st base */}
           <rect x="17" y="9" width="6" height="6" rx="0.5"
             fill={game.runnerFirst ? "#E9D7B4" : "#111111"}
             stroke="#E9D7B4" strokeWidth="0.5"
-            opacity={game.runnerFirst ? 1 : 0.5}
             transform="rotate(45 20 12)" />
         </svg>
 

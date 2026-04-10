@@ -835,7 +835,6 @@ export default function LiveScoringPage() {
                   fill={gameState.runnerThird ? "#E9D7B4" : "#111111"}
                   stroke="#E9D7B4"
                   strokeWidth="1"
-                  opacity={gameState.runnerThird ? 1 : 0.5}
                   transform="rotate(45 15 40)" pointerEvents="none"
                 />
                 {/* 2nd base */}
@@ -848,7 +847,6 @@ export default function LiveScoringPage() {
                   fill={gameState.runnerSecond ? "#E9D7B4" : "#111111"}
                   stroke="#E9D7B4"
                   strokeWidth="1"
-                  opacity={gameState.runnerSecond ? 1 : 0.5}
                   transform="rotate(45 40 15)" pointerEvents="none"
                 />
                 {/* 1st base */}
@@ -861,7 +859,6 @@ export default function LiveScoringPage() {
                   fill={gameState.runnerFirst ? "#E9D7B4" : "#111111"}
                   stroke="#E9D7B4"
                   strokeWidth="1"
-                  opacity={gameState.runnerFirst ? 1 : 0.5}
                   transform="rotate(45 65 40)" pointerEvents="none"
                 />
               </svg>

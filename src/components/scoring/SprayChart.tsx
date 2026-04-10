@@ -81,7 +81,6 @@ export function SprayChart({
         fill={runners?.first ? "#E9D7B4" : "#111111"}
         stroke="#E9D7B4"
         strokeWidth="1.5"
-        opacity={runners?.first ? 1 : 0.7}
         transform="rotate(45 220 210)"
       />
       {runners?.first && (
@@ -95,7 +94,6 @@ export function SprayChart({
         fill={runners?.second ? "#E9D7B4" : "#111111"}
         stroke="#E9D7B4"
         strokeWidth="1.5"
-        opacity={runners?.second ? 1 : 0.7}
         transform="rotate(45 150 140)"
       />
       {runners?.second && (
@@ -109,7 +107,6 @@ export function SprayChart({
         fill={runners?.third ? "#E9D7B4" : "#111111"}
         stroke="#E9D7B4"
         strokeWidth="1.5"
-        opacity={runners?.third ? 1 : 0.7}
         transform="rotate(45 80 210)"
       />
       {runners?.third && (
