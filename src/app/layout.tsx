@@ -14,12 +14,11 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: isStaging ? "/favicon-staging.png" : "/Favicon.png", sizes: "32x32", type: "image/png" },
-      { url: isStaging ? "/icon-192-staging.png" : "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: isStaging ? "/icon-512-staging.png" : "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
-      { url: isStaging ? "/apple-touch-icon-staging.png" : "/Score_128-128.png", sizes: "128x128", type: "image/png" },
+      { url: "/Score_128-128.png", sizes: "128x128", type: "image/png" },
     ],
   },
   appleWebApp: {
