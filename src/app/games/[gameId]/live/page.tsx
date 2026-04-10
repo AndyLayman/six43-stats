@@ -814,13 +814,13 @@ export default function LiveScoringPage() {
     {/* Expandable scoreboard — portaled to body, slides down from behind header */}
     {typeof document !== "undefined" && createPortal(
       <div className="fixed top-14 left-0 right-0 z-40 flex flex-col items-center pointer-events-none">
-        {/* Scoreboard panel — slides down from behind header */}
+        {/* Scoreboard panel + tab — slide together */}
         <div
-          className={`pointer-events-auto w-full max-w-lg md:max-w-4xl px-4 transition-all duration-300 ease-in-out ${
-            scoreboardExpanded ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
+          className={`pointer-events-auto w-full max-w-lg md:max-w-4xl px-4 flex flex-col items-center transition-transform duration-300 ease-in-out ${
+            scoreboardExpanded ? "translate-y-0" : "-translate-y-[calc(100%-20px)]"
           }`}
         >
-          <Card className="glass-strong gradient-border glow-primary rounded-t-none">
+          <Card className="w-full gradient-border glow-primary rounded-t-none" style={{ background: 'var(--sidebar)', borderTop: 'none' }}>
             <CardContent className="px-3 py-1.5 sm:px-4 sm:py-2">
               <div className="flex items-center justify-between">
                 <div className="text-center flex-1">
@@ -895,14 +895,14 @@ export default function LiveScoringPage() {
               </div>
             </CardContent>
           </Card>
+          {/* Pull tab — slides with the panel */}
+          <button
+            onClick={() => setScoreboardExpanded(!scoreboardExpanded)}
+            className="flex items-center justify-center w-12 h-5 rounded-b-lg bg-sidebar border border-t-0 border-border/50 hover:bg-primary/20 transition-all active:scale-95 shrink-0"
+          >
+            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 ${scoreboardExpanded ? "rotate-180" : ""}`} />
+          </button>
         </div>
-        {/* Pull tab — always visible below the panel */}
-        <button
-          onClick={() => setScoreboardExpanded(!scoreboardExpanded)}
-          className="pointer-events-auto flex items-center justify-center w-12 h-5 rounded-b-lg bg-sidebar border border-t-0 border-border/50 hover:bg-primary/20 transition-all active:scale-95"
-        >
-          <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 ${scoreboardExpanded ? "rotate-180" : ""}`} />
-        </button>
       </div>,
       document.body
     )}
