@@ -973,18 +973,7 @@ export default function LiveScoringPage() {
       </div>
 
       {/* Opponent batting — new batter entry if needed */}
-      {isOpponentBatting && (
-        <>
-          {opponentBatter ? (
-            <Card className="border-primary/30 bg-primary/5 animate-slide-up">
-              <CardContent className="p-3 sm:p-4">
-                <div className="text-center">
-                  <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Opponent Batting</div>
-                  <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{opponentBatter.playerName}</div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
+      {isOpponentBatting && !opponentBatter && (
             <Card className="glass animate-slide-up">
               <CardHeader className="pb-2 px-3 sm:px-6">
                 <CardTitle className="text-lg text-gradient">New Opponent Batter</CardTitle>
@@ -1028,8 +1017,6 @@ export default function LiveScoringPage() {
                 )}
               </CardContent>
             </Card>
-          )}
-        </>
       )}
 
       {/* Lineup builder if our lineup is empty */}
@@ -1111,6 +1098,18 @@ export default function LiveScoringPage() {
         </Card>
       )}
 
+      {/* Opponent Batting — mobile only (desktop shows in right column) */}
+      {isOpponentBatting && opponentBatter && (
+        <Card className="md:hidden border-primary/30 bg-primary/5 animate-slide-up">
+          <CardContent className="p-3">
+            <div className="text-center">
+              <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Opponent Batting</div>
+              <div className="text-2xl font-extrabold mt-0.5 text-gradient-bright">{opponentBatter.playerName}</div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* At-bat flow — shared for both halves */}
       {activeBatter && (
         <>
@@ -1123,18 +1122,16 @@ export default function LiveScoringPage() {
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">Count</div>
               </div>
               <div className="flex flex-col gap-1.5 items-end">
-                <div className="flex items-center gap-1 flex-wrap justify-end">
-                  {Array.from({ length: pitchCount.balls }).map((_, i) => (
-                    <div key={`b-${i}`} className="w-3 h-3 rounded-full bg-success border-2 border-success" />
+                <div className="flex items-center gap-1 justify-end">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={`b-${i}`} className={`w-3 h-3 rounded-full border-2 ${i < pitchCount.balls ? "bg-success border-success" : "border-muted-foreground/30"}`} />
                   ))}
-                  {pitchCount.balls === 0 && <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />}
                   <span className="text-[10px] text-muted-foreground ml-0.5">B</span>
                 </div>
-                <div className="flex items-center gap-1 flex-wrap justify-end">
-                  {Array.from({ length: pitchCount.strikes }).map((_, i) => (
-                    <div key={`s-${i}`} className="w-3 h-3 rounded-full bg-destructive border-2 border-destructive" />
+                <div className="flex items-center gap-1 justify-end">
+                  {[0, 1, 2].map((i) => (
+                    <div key={`s-${i}`} className={`w-3 h-3 rounded-full border-2 ${i < pitchCount.strikes ? "bg-destructive border-destructive" : "border-muted-foreground/30"}`} />
                   ))}
-                  {pitchCount.strikes === 0 && <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />}
                   <span className="text-[10px] text-muted-foreground ml-0.5">S</span>
                 </div>
               </div>
@@ -1266,6 +1263,17 @@ export default function LiveScoringPage() {
                         <span className="text-[10px] text-muted-foreground">hit</span>
                       </div>
                     )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {/* Opponent batter display — desktop only (mobile shows above) */}
+            {isOpponentBatting && opponentBatter && (
+              <Card className="hidden md:block border-primary/30 bg-primary/5 animate-slide-up">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-center">
+                    <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Opponent Batting</div>
+                    <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{opponentBatter.playerName}</div>
                   </div>
                 </CardContent>
               </Card>
