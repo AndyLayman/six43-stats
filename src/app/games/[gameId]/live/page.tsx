@@ -269,13 +269,8 @@ export default function LiveScoringPage() {
     };
 
     setStateHistory((prev) => [...prev, gameState]);
-    // Track total pitches: pitches this AB = balls + strikes + 1 (the result pitch)
-    const abPitches = pitchCount.balls + pitchCount.strikes + 1;
+    // Save current total pitches for undo (pitches were already counted per-click)
     setTotalPitchesHistory((prev) => [...prev, totalPitches]);
-    setTotalPitches((prev) => ({
-      us: isOpponent ? prev.us + abPitches : prev.us,
-      them: isOpponent ? prev.them : prev.them + abPitches,
-    }));
     const newState = isOpponent
       ? recordOpponentAtBat(gameState, payload)
       : recordAtBat(gameState, payload);
@@ -488,6 +483,16 @@ export default function LiveScoringPage() {
     ]);
 
     persistState(newState);
+  }
+
+  // Increment total pitch count for the pitching team (called on every Ball/Strike/Foul click)
+  function addPitch() {
+    if (!gameState) return;
+    const isOpponent = gameState.currentHalf === "top";
+    setTotalPitches((prev) => ({
+      us: isOpponent ? prev.us + 1 : prev.us,
+      them: isOpponent ? prev.them : prev.them + 1,
+    }));
   }
 
   function handleEndGame() {
@@ -1167,19 +1172,19 @@ export default function LiveScoringPage() {
             <div className="grid grid-cols-3 gap-2">
               <button
                 className="h-12 rounded-xl text-sm font-bold border-2 border-success/30 bg-success/10 text-success active:scale-95 transition-all select-none"
-                onClick={() => { setPitchCount({ ...pitchCount, balls: pitchCount.balls + 1 }); }}
+                onClick={() => { setPitchCount({ ...pitchCount, balls: pitchCount.balls + 1 }); addPitch(); }}
               >
                 Ball
               </button>
               <button
                 className="h-12 rounded-xl text-sm font-bold border-2 border-destructive/30 bg-destructive/10 text-destructive active:scale-95 transition-all select-none"
-                onClick={() => { setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 }); }}
+                onClick={() => { setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 }); addPitch(); }}
               >
                 Strike
               </button>
               <button
                 className="h-12 rounded-xl text-sm font-bold border-2 border-border/30 text-muted-foreground active:scale-95 transition-all select-none"
-                onClick={() => { setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 }); }}
+                onClick={() => { setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 }); addPitch(); }}
               >
                 Foul
               </button>
@@ -1333,7 +1338,7 @@ export default function LiveScoringPage() {
                   <button
                     className="h-12 rounded-xl text-sm font-bold border-2 border-success/30 bg-success/10 text-success active:scale-95 transition-all select-none"
                     onClick={() => {
-                      setPitchCount({ ...pitchCount, balls: pitchCount.balls + 1 });
+                      setPitchCount({ ...pitchCount, balls: pitchCount.balls + 1 }); addPitch();
                     }}
                   >
                     Ball
@@ -1341,7 +1346,7 @@ export default function LiveScoringPage() {
                   <button
                     className="h-12 rounded-xl text-sm font-bold border-2 border-destructive/30 bg-destructive/10 text-destructive active:scale-95 transition-all select-none"
                     onClick={() => {
-                      setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 });
+                      setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 }); addPitch();
                     }}
                   >
                     Strike
@@ -1349,7 +1354,7 @@ export default function LiveScoringPage() {
                   <button
                     className="h-12 rounded-xl text-sm font-bold border-2 border-border/30 text-muted-foreground active:scale-95 transition-all select-none"
                     onClick={() => {
-                      setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 });
+                      setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 }); addPitch();
                     }}
                   >
                     Foul
