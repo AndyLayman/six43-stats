@@ -12,6 +12,25 @@ import { TimePicker } from "@/components/time-picker";
 import { CustomSelect } from "@/components/custom-select";
 import { fullName } from "@/lib/player-name";
 import type { Player } from "@/lib/scoring/types";
+import { NavArrowUp, NavArrowDown, Drag } from "iconoir-react";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const FIELD_POSITIONS = [
   { value: "P", label: "P" },
@@ -30,6 +49,60 @@ const FIELD_POSITIONS = [
   { value: "BN3", label: "BN3" },
   { value: "BN4", label: "BN4" },
 ];
+
+function SortableNewLineupRow({ player, orderIdx, totalSelected, position, onPositionChange, onToggle, onMove, isDragging }: {
+  player: Player;
+  orderIdx: number;
+  totalSelected: number;
+  position: string;
+  onPositionChange: (val: string) => void;
+  onToggle: () => void;
+  onMove: (dir: "up" | "down") => void;
+  isDragging: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: player.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-3 rounded-xl border p-3 transition-all bg-primary/10 border-primary/30">
+      <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground/40 hover:text-muted-foreground shrink-0 p-0.5" tabIndex={-1}>
+        <Drag width={14} height={14} />
+      </button>
+      <span className="text-sm font-bold text-primary w-5">{orderIdx + 1}</span>
+      <span className="font-medium flex-1 text-base cursor-pointer" onClick={onToggle}>
+        #{player.number} {fullName(player)}
+      </span>
+      <div className="flex items-center gap-1">
+        <CustomSelect
+          value={position}
+          onChange={onPositionChange}
+          options={[{ value: "", label: "Pos" }, ...FIELD_POSITIONS.map((pos) => ({ value: pos.value, label: pos.label }))]}
+          placeholder="Pos"
+          className="h-10 w-20"
+        />
+        <button
+          type="button"
+          className="h-10 w-10 flex items-center justify-center rounded-lg border border-border/50 text-lg active:bg-accent active:scale-95 transition-all disabled:opacity-30"
+          onClick={() => onMove("up")}
+          disabled={orderIdx === 0}
+        >
+          <NavArrowUp width={14} height={14} />
+        </button>
+        <button
+          type="button"
+          className="h-10 w-10 flex items-center justify-center rounded-lg border border-border/50 text-lg active:bg-accent active:scale-95 transition-all disabled:opacity-30"
+          onClick={() => onMove("down")}
+          disabled={orderIdx === totalSelected - 1}
+        >
+          <NavArrowDown width={14} height={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function NewGamePage() {
   const router = useRouter();
@@ -125,6 +198,28 @@ export default function NewGamePage() {
     });
   }
 
+  const [activeDragPlayerId, setActiveDragPlayerId] = useState<number | null>(null);
+  const lineupSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+  );
+
+  function handleLineupDragStart(event: DragStartEvent) {
+    setActiveDragPlayerId(event.active.id as number);
+  }
+
+  function handleLineupDragEnd(event: DragEndEvent) {
+    setActiveDragPlayerId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setSelectedPlayers((prev) => {
+      const oldIndex = prev.indexOf(active.id as number);
+      const newIndex = prev.indexOf(over.id as number);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-3xl font-extrabold tracking-tight text-gradient">New Game</h1>
@@ -213,68 +308,62 @@ export default function NewGamePage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Select players and arrange the batting order. Use arrows to reorder.
+              Select players and arrange the batting order. Drag or use arrows to reorder.
             </p>
-            <div className="space-y-2">
-              {players.map((player) => {
-                const isSelected = selectedPlayers.includes(player.id);
-                const orderIdx = selectedPlayers.indexOf(player.id);
-                return (
-                  <div
-                    key={player.id}
-                    className={`flex items-center gap-3 rounded-xl border p-3 transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-primary/10 border-primary/30"
-                        : "border-border/50 hover:border-border"
-                    }`}
-                    onClick={() => togglePlayer(player.id)}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {}}
-                      className="h-5 w-5 pointer-events-none accent-primary"
-                    />
-                    {isSelected && (
+            <DndContext sensors={lineupSensors} collisionDetection={closestCenter} onDragStart={handleLineupDragStart} onDragEnd={handleLineupDragEnd}>
+              <SortableContext items={selectedPlayers} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {/* Selected players in batting order */}
+                  {selectedPlayers.map((playerId, orderIdx) => {
+                    const player = players.find((p) => p.id === playerId);
+                    if (!player) return null;
+                    return (
+                      <SortableNewLineupRow
+                        key={player.id}
+                        player={player}
+                        orderIdx={orderIdx}
+                        totalSelected={selectedPlayers.length}
+                        position={positions[player.id] || ""}
+                        onPositionChange={(val) => setPositions((prev) => ({ ...prev, [player.id]: val }))}
+                        onToggle={() => togglePlayer(player.id)}
+                        onMove={(dir) => movePlayer(player.id, dir)}
+                        isDragging={activeDragPlayerId === player.id}
+                      />
+                    );
+                  })}
+                  {/* Unselected players below */}
+                  {players.filter((p) => !selectedPlayers.includes(p.id)).map((player) => (
+                    <div
+                      key={player.id}
+                      className="flex items-center gap-3 rounded-xl border p-3 transition-all cursor-pointer border-border/50 hover:border-border"
+                      onClick={() => togglePlayer(player.id)}
+                    >
+                      <input type="checkbox" checked={false} onChange={() => {}} className="h-5 w-5 pointer-events-none accent-primary" />
+                      <span className="font-medium flex-1 text-base">
+                        #{player.number} {fullName(player)}
+                        {player.position && <span className="ml-1 text-xs text-muted-foreground">({player.position})</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </SortableContext>
+              <DragOverlay>
+                {activeDragPlayerId ? (() => {
+                  const player = players.find((p) => p.id === activeDragPlayerId);
+                  if (!player) return null;
+                  const orderIdx = selectedPlayers.indexOf(player.id);
+                  return (
+                    <div className="flex items-center gap-3 rounded-xl border-2 border-primary/60 bg-sidebar p-3 shadow-xl cursor-grabbing">
                       <span className="text-sm font-bold text-primary w-5">{orderIdx + 1}</span>
-                    )}
-                    <span className="font-medium flex-1 text-base">
-                      #{player.number} {fullName(player)}
-                      {!isSelected && player.position && (
-                        <span className="ml-1 text-xs text-muted-foreground">({player.position})</span>
+                      <span className="font-medium flex-1 text-base">#{player.number} {fullName(player)}</span>
+                      {positions[player.id] && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{positions[player.id]}</span>
                       )}
-                    </span>
-                    {isSelected && (
-                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <CustomSelect
-                          value={positions[player.id] || ""}
-                          onChange={(val) => setPositions((prev) => ({ ...prev, [player.id]: val }))}
-                          options={[{ value: "", label: "Pos" }, ...FIELD_POSITIONS.map((pos) => ({ value: pos.value, label: pos.label }))]}
-                          placeholder="Pos"
-                          className="h-10 w-20"
-                        />
-                        <button
-                          type="button"
-                          className="h-10 w-10 flex items-center justify-center rounded-lg border border-border/50 text-lg active:bg-accent active:scale-95 transition-all disabled:opacity-30"
-                          onClick={() => movePlayer(player.id, "up")}
-                          disabled={orderIdx === 0}
-                        >
-                          &uarr;
-                        </button>
-                        <button
-                          type="button"
-                          className="h-10 w-10 flex items-center justify-center rounded-lg border border-border/50 text-lg active:bg-accent active:scale-95 transition-all disabled:opacity-30"
-                          onClick={() => movePlayer(player.id, "down")}
-                          disabled={orderIdx === selectedPlayers.length - 1}
-                        >
-                          &darr;
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                    </div>
+                  );
+                })() : null}
+              </DragOverlay>
+            </DndContext>
           </CardContent>
         </Card>
 
