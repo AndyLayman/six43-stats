@@ -811,11 +811,11 @@ export default function LiveScoringPage() {
     <div className="space-y-3 max-w-lg md:max-w-4xl mx-auto pb-24">
       {/* Scoreboard */}
       <Card className="glass-strong gradient-border glow-primary">
-        <CardContent className="p-3 sm:p-4">
+        <CardContent className="px-3 py-1.5 sm:px-4 sm:py-2">
           <div className="flex items-center justify-between">
             <div className="text-center flex-1">
-              <div className="text-4xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.ourScore}</div>
-              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium truncate max-w-[100px] mx-auto">{ourTeamName}</div>
+              <div className="text-3xl sm:text-4xl font-extrabold tabular-nums text-gradient-bright">{gameState.ourScore}</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium truncate max-w-[100px] mx-auto">{ourTeamName}</div>
             </div>
             <div className="text-center px-3 relative">
               {/* Base runners diamond — tap occupied base for stolen base */}
@@ -885,8 +885,8 @@ export default function LiveScoringPage() {
               </div>
             </div>
             <div className="text-center flex-1">
-              <div className="text-4xl sm:text-5xl font-extrabold tabular-nums text-gradient-bright">{gameState.opponentScore}</div>
-              <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-medium truncate max-w-[100px] mx-auto">{opponentName}</div>
+              <div className="text-3xl sm:text-4xl font-extrabold tabular-nums text-gradient-bright">{gameState.opponentScore}</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium truncate max-w-[100px] mx-auto">{opponentName}</div>
             </div>
           </div>
         </CardContent>
