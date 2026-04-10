@@ -1094,6 +1094,55 @@ export default function LiveScoringPage() {
 
       {/* At-bat flow — shared for both halves */}
       {activeBatter && (
+        <>
+        {/* Pitch counter — mobile only, above spray chart */}
+        <Card className="glass md:hidden">
+          <CardContent className="p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-center">
+                <div className="text-3xl font-extrabold tabular-nums text-gradient-bright">{pitchCount.balls}-{pitchCount.strikes}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">Count</div>
+              </div>
+              <div className="flex flex-col gap-1.5 items-end">
+                <div className="flex items-center gap-1 flex-wrap justify-end">
+                  {Array.from({ length: pitchCount.balls }).map((_, i) => (
+                    <div key={`b-${i}`} className="w-3 h-3 rounded-full bg-success border-2 border-success" />
+                  ))}
+                  {pitchCount.balls === 0 && <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />}
+                  <span className="text-[10px] text-muted-foreground ml-0.5">B</span>
+                </div>
+                <div className="flex items-center gap-1 flex-wrap justify-end">
+                  {Array.from({ length: pitchCount.strikes }).map((_, i) => (
+                    <div key={`s-${i}`} className="w-3 h-3 rounded-full bg-destructive border-2 border-destructive" />
+                  ))}
+                  {pitchCount.strikes === 0 && <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />}
+                  <span className="text-[10px] text-muted-foreground ml-0.5">S</span>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                className="h-12 rounded-xl text-sm font-bold border-2 border-success/30 bg-success/10 text-success active:scale-95 transition-all select-none"
+                onClick={() => { setPitchCount({ ...pitchCount, balls: pitchCount.balls + 1 }); }}
+              >
+                Ball
+              </button>
+              <button
+                className="h-12 rounded-xl text-sm font-bold border-2 border-destructive/30 bg-destructive/10 text-destructive active:scale-95 transition-all select-none"
+                onClick={() => { setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 }); }}
+              >
+                Strike
+              </button>
+              <button
+                className="h-12 rounded-xl text-sm font-bold border-2 border-border/30 text-muted-foreground active:scale-95 transition-all select-none"
+                onClick={() => { setPitchCount({ ...pitchCount, strikes: pitchCount.strikes + 1 }); }}
+              >
+                Foul
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="md:grid md:grid-cols-2 md:gap-4 space-y-3 md:space-y-0">
           {/* Left column: Spray chart + play log (on desktop) */}
           <div className="space-y-3">
@@ -1202,8 +1251,8 @@ export default function LiveScoringPage() {
                 </CardContent>
               </Card>
             )}
-            {/* Pitch counter */}
-            <Card className="glass">
+            {/* Pitch counter — desktop only (mobile shows above spray chart) */}
+            <Card className="glass hidden md:block">
               <CardContent className="p-3 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-center">
@@ -1470,6 +1519,7 @@ export default function LiveScoringPage() {
 
           </div>{/* end right column */}
         </div>
+        </>
       )}
 
       {/* Confirm bar — fixed at bottom of screen */}
