@@ -102,7 +102,7 @@ export function LiveGameTicker() {
 
       {/* Mini diamond + inning */}
       <div className="flex items-center gap-1 overflow-visible">
-        <svg viewBox="0 0 24 24" className="h-8 w-8 shrink-0" overflow="visible">
+        <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" overflow="visible">
           {/* Diamond lines */}
           <line x1="12" y1="20" x2="4" y2="12" stroke="#E9D7B4" strokeWidth="1.5" opacity="0.6" />
           <line x1="4" y1="12" x2="12" y2="4" stroke="#E9D7B4" strokeWidth="1.5" opacity="0.6" />
