@@ -986,13 +986,13 @@ export default function LiveScoringPage() {
           Undo
         </Button>
 
-        {/* Total Pitches */}
+        {/* Total Pitches — them (pitched to us) on left, us (pitched to them) on right */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30">
           <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Pitches</span>
           <div className="flex items-center gap-1.5 text-sm font-bold tabular-nums">
-            <span className="text-foreground">{totalPitches.us}</span>
-            <span className="text-muted-foreground">-</span>
             <span className="text-foreground">{totalPitches.them}</span>
+            <span className="text-muted-foreground">-</span>
+            <span className="text-foreground">{totalPitches.us}</span>
           </div>
         </div>
 
