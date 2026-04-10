@@ -17,7 +17,7 @@ import { TimePicker } from "@/components/time-picker";
 import type { Game, GameLineup, Player, PlateAppearance, OpponentBatter } from "@/lib/scoring/types";
 import { fullName } from "@/lib/player-name";
 import { StatTip } from "@/components/stat-tip";
-import { MapPin, NavArrowUp, NavArrowDown, EditPencil, Check, Xmark, Drag } from "iconoir-react";
+import { MapPin, NavArrowUp, NavArrowDown, EditPencil, Check, Xmark, Menu } from "iconoir-react";
 import {
   DndContext,
   DragOverlay,
@@ -74,7 +74,7 @@ function SortableLineupRow({ player, orderIdx, totalSelected, position, onPositi
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 rounded-xl border p-2.5 transition-all bg-primary/10 border-primary/30">
       <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground/40 hover:text-muted-foreground shrink-0 p-0.5" tabIndex={-1}>
-        <Drag width={14} height={14} />
+        <Menu width={14} height={14} />
       </button>
       <span className="text-xs font-bold text-primary w-4 text-right">{orderIdx + 1}</span>
       <span className="font-medium flex-1 text-sm truncate cursor-pointer" onClick={onToggle}>

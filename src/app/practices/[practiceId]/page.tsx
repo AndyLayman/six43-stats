@@ -16,7 +16,7 @@ import type {
 } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
 import { formatTime12 } from "@/lib/stats/calculations";
-import { NavArrowLeft, Drag, Check, Trash, Xmark, Group, Plus, Play, DoubleCheck, NavArrowUp, NavArrowDown, MapPin } from 'iconoir-react'
+import { NavArrowLeft, Menu, Check, Trash, Xmark, Group, Plus, Play, DoubleCheck, NavArrowUp, NavArrowDown, MapPin } from 'iconoir-react'
 import { VenuePicker } from "@/components/venue-picker";
 import {
   DndContext,
@@ -85,7 +85,7 @@ function PlanItemDragHandle({ itemId }: { itemId: string }) {
       tabIndex={-1}
       aria-label="Drag to assign to group"
     >
-      <Drag width={12} height={12} />
+      <Menu width={12} height={12} />
     </button>
   );
 }

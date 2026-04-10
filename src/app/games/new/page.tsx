@@ -12,7 +12,7 @@ import { TimePicker } from "@/components/time-picker";
 import { CustomSelect } from "@/components/custom-select";
 import { fullName } from "@/lib/player-name";
 import type { Player } from "@/lib/scoring/types";
-import { NavArrowUp, NavArrowDown, Drag } from "iconoir-react";
+import { NavArrowUp, NavArrowDown, Menu } from "iconoir-react";
 import {
   DndContext,
   DragOverlay,
@@ -69,7 +69,7 @@ function SortableNewLineupRow({ player, orderIdx, totalSelected, position, onPos
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-3 rounded-xl border p-3 transition-all bg-primary/10 border-primary/30">
       <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground/40 hover:text-muted-foreground shrink-0 p-0.5" tabIndex={-1}>
-        <Drag width={14} height={14} />
+        <Menu width={14} height={14} />
       </button>
       <span className="text-sm font-bold text-primary w-5">{orderIdx + 1}</span>
       <span className="font-medium flex-1 text-base cursor-pointer" onClick={onToggle}>
