@@ -75,7 +75,7 @@ export default function NewGamePage() {
         game_time: gameTime.trim() || null,
         venue: venue.trim() || null,
         venue_address: venueAddress.trim() || null,
-        num_innings: 6,
+        num_innings: 5,
         status: "scheduled",
       })
       .select()
