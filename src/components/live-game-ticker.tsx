@@ -110,7 +110,7 @@ export function LiveGameTicker() {
           <line x1="20" y1="12" x2="12" y2="20" stroke="#E9D7B4" strokeWidth="1.5" opacity="0.6" />
           {/* Home plate */}
           <rect x="9.5" y="17.5" width="5" height="5" rx="0.5"
-            fill="#E9D7B4" opacity="0.6"
+            fill="#E9D7B4"
             transform="rotate(45 12 20)" />
           {/* 3rd base */}
           <rect x="1.5" y="9.5" width="5" height="5" rx="0.5"
