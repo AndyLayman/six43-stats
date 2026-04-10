@@ -120,7 +120,7 @@ export function SprayChart({
       )}
 
       {/* Pitcher's mound */}
-      <circle cx="150" cy="218" r="4" fill="none" stroke="#E9D7B4" strokeWidth="1.5" opacity="0.5" />
+      <circle cx="150" cy="218" r="8" fill="none" stroke="#E9D7B4" strokeWidth="1.5" opacity="0.5" />
 
       {/* Position labels */}
       {[
