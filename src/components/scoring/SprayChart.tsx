@@ -78,9 +78,9 @@ export function SprayChart({
       <rect x="145" y="275" width="10" height="10" fill="#E9D7B4" transform="rotate(45 150 280)" />
       {/* 1st base */}
       <rect x="215" y="205" width="10" height="10"
-        fill={runners?.first ? "#111111" : "#E9D7B4"}
-        stroke={runners?.first ? "#E9D7B4" : "none"}
-        strokeWidth={runners?.first ? "1.5" : "0"}
+        fill={runners?.first ? "#E9D7B4" : "#111111"}
+        stroke="#E9D7B4"
+        strokeWidth="1.5"
         opacity={runners?.first ? 1 : 0.7}
         transform="rotate(45 220 210)"
       />
@@ -92,9 +92,9 @@ export function SprayChart({
       )}
       {/* 2nd base */}
       <rect x="145" y="135" width="10" height="10"
-        fill={runners?.second ? "#111111" : "#E9D7B4"}
-        stroke={runners?.second ? "#E9D7B4" : "none"}
-        strokeWidth={runners?.second ? "1.5" : "0"}
+        fill={runners?.second ? "#E9D7B4" : "#111111"}
+        stroke="#E9D7B4"
+        strokeWidth="1.5"
         opacity={runners?.second ? 1 : 0.7}
         transform="rotate(45 150 140)"
       />
@@ -106,9 +106,9 @@ export function SprayChart({
       )}
       {/* 3rd base */}
       <rect x="75" y="205" width="10" height="10"
-        fill={runners?.third ? "#111111" : "#E9D7B4"}
-        stroke={runners?.third ? "#E9D7B4" : "none"}
-        strokeWidth={runners?.third ? "1.5" : "0"}
+        fill={runners?.third ? "#E9D7B4" : "#111111"}
+        stroke="#E9D7B4"
+        strokeWidth="1.5"
         opacity={runners?.third ? 1 : 0.7}
         transform="rotate(45 80 210)"
       />

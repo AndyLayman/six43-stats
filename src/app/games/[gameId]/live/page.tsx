@@ -832,9 +832,9 @@ export default function LiveScoringPage() {
                   onClick={() => gameState.runnerThird && setSbRunner(sbRunner === "third" ? null : "third")}
                 />
                 <rect x="12" y="37" width="6" height="6"
-                  fill={gameState.runnerThird ? "#111111" : "var(--background)"}
+                  fill={gameState.runnerThird ? "#E9D7B4" : "#111111"}
                   stroke="#E9D7B4"
-                  strokeWidth={gameState.runnerThird ? "1.5" : "1"}
+                  strokeWidth="1"
                   opacity={gameState.runnerThird ? 1 : 0.5}
                   transform="rotate(45 15 40)" pointerEvents="none"
                 />
@@ -845,9 +845,9 @@ export default function LiveScoringPage() {
                   onClick={() => gameState.runnerSecond && setSbRunner(sbRunner === "second" ? null : "second")}
                 />
                 <rect x="37" y="12" width="6" height="6"
-                  fill={gameState.runnerSecond ? "#111111" : "var(--background)"}
+                  fill={gameState.runnerSecond ? "#E9D7B4" : "#111111"}
                   stroke="#E9D7B4"
-                  strokeWidth={gameState.runnerSecond ? "1.5" : "1"}
+                  strokeWidth="1"
                   opacity={gameState.runnerSecond ? 1 : 0.5}
                   transform="rotate(45 40 15)" pointerEvents="none"
                 />
@@ -858,9 +858,9 @@ export default function LiveScoringPage() {
                   onClick={() => gameState.runnerFirst && setSbRunner(sbRunner === "first" ? null : "first")}
                 />
                 <rect x="62" y="37" width="6" height="6"
-                  fill={gameState.runnerFirst ? "#111111" : "var(--background)"}
+                  fill={gameState.runnerFirst ? "#E9D7B4" : "#111111"}
                   stroke="#E9D7B4"
-                  strokeWidth={gameState.runnerFirst ? "1.5" : "1"}
+                  strokeWidth="1"
                   opacity={gameState.runnerFirst ? 1 : 0.5}
                   transform="rotate(45 65 40)" pointerEvents="none"
                 />
