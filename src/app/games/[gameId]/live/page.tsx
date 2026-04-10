@@ -1126,16 +1126,18 @@ export default function LiveScoringPage() {
               </div>
               <div className="flex flex-col gap-1.5 items-end">
                 <div className="flex items-center gap-1 justify-end">
-                  {[0, 1, 2, 3].map((i) => (
+                  <span className="text-[10px] text-muted-foreground w-3 text-right tabular-nums">{pitchCount.balls}</span>
+                  {Array.from({ length: Math.max(pitchCount.balls, 4) }).map((_, i) => (
                     <div key={`b-${i}`} className={`w-3 h-3 rounded-full border-2 ${i < pitchCount.balls ? "bg-success border-success" : "border-muted-foreground/30"}`} />
                   ))}
-                  <span className="text-[10px] text-muted-foreground ml-0.5">B</span>
+                  <span className="text-[10px] text-muted-foreground w-3">B</span>
                 </div>
                 <div className="flex items-center gap-1 justify-end">
-                  {[0, 1, 2].map((i) => (
+                  <span className="text-[10px] text-muted-foreground w-3 text-right tabular-nums">{pitchCount.strikes}</span>
+                  {Array.from({ length: Math.max(pitchCount.strikes, 4) }).map((_, i) => (
                     <div key={`s-${i}`} className={`w-3 h-3 rounded-full border-2 ${i < pitchCount.strikes ? "bg-destructive border-destructive" : "border-muted-foreground/30"}`} />
                   ))}
-                  <span className="text-[10px] text-muted-foreground ml-0.5">S</span>
+                  <span className="text-[10px] text-muted-foreground w-3">S</span>
                 </div>
               </div>
             </div>
