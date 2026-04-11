@@ -4,6 +4,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { LiveGameTicker } from "@/components/live-game-ticker";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { RefreshProvider } from "@/components/pull-to-refresh";
+import { ToastContainer } from "@/components/toast";
 import "./globals.css";
 
 const isStaging = process.env.NEXT_PUBLIC_APP_ENV === "staging";
@@ -104,6 +105,7 @@ export default function RootLayout({
             {children}
           </main>
         </RefreshProvider>
+        <ToastContainer />
       </body>
     </html>
   );
