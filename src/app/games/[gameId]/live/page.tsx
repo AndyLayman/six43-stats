@@ -541,6 +541,12 @@ export default function LiveScoringPage() {
   const isOpponentBatting = gameState?.currentHalf === "top";
   const activeBatter = isOurBatting ? batter : opponentBatter;
 
+  // Resolve current batter's photo
+  const batterPlayer = batter?.playerId ? gameState?.players.find(p => p.id === batter.playerId) : null;
+  const batterPhotoUrl = batterPlayer?.photo_file
+    ? supabase.storage.from("media").getPublicUrl(`player-${batterPlayer.id}-photo`).data.publicUrl
+    : null;
+
   // Fetch spray history for the current batter
   useEffect(() => {
     if (!activeBatter) { setBatterHistory([]); return; }
@@ -1126,9 +1132,18 @@ export default function LiveScoringPage() {
       {isOurBatting && batter && (
         <Card className="md:hidden border-primary/30 bg-primary/5 animate-slide-up">
           <CardContent className="p-3">
-            <div className="text-center">
-              <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Now Batting</div>
-              <div className="text-2xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
+            <div className="flex items-center gap-3 justify-center">
+              {batterPhotoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={batterPhotoUrl} alt="" className="h-12 w-12 rounded-full object-cover border border-primary/30 shrink-0" />
+              ) : batterPlayer ? (
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 font-bold text-lg border border-primary/30 text-gradient-bright shrink-0">
+                  {batterPlayer.number}
+                </div>
+              ) : null}
+              <div className="text-center">
+                <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Now Batting</div>
+                <div className="text-2xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
               {hitProbability !== null && (
                 <div className="mt-1 flex items-center justify-center gap-1.5">
                   <div className="h-1.5 w-20 rounded-full bg-muted/50 overflow-hidden">
@@ -1148,6 +1163,7 @@ export default function LiveScoringPage() {
                   <span className="text-[10px] text-muted-foreground">hit</span>
                 </div>
               )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1296,9 +1312,18 @@ export default function LiveScoringPage() {
             {isOurBatting && batter && (
               <Card className="hidden md:block border-primary/30 bg-primary/5 animate-slide-up">
                 <CardContent className="p-3 sm:p-4">
-                  <div className="text-center">
-                    <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Now Batting</div>
-                    <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
+                  <div className="flex items-center gap-3 justify-center">
+                    {batterPhotoUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={batterPhotoUrl} alt="" className="h-12 w-12 rounded-full object-cover border border-primary/30 shrink-0" />
+                    ) : batterPlayer ? (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 font-bold text-lg border border-primary/30 text-gradient-bright shrink-0">
+                        {batterPlayer.number}
+                      </div>
+                    ) : null}
+                    <div className="text-center">
+                      <div className="text-xs text-gradient uppercase tracking-widest font-semibold">Now Batting</div>
+                      <div className="text-2xl sm:text-xl font-extrabold mt-0.5 text-gradient-bright">{batter.playerName}</div>
                     {hitProbability !== null && (
                       <div className="mt-1 flex items-center justify-center gap-1.5">
                         <div className="h-1.5 w-20 rounded-full bg-muted/50 overflow-hidden">
@@ -1318,6 +1343,7 @@ export default function LiveScoringPage() {
                         <span className="text-[10px] text-muted-foreground">hit</span>
                       </div>
                     )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
