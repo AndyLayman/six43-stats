@@ -89,6 +89,56 @@ export default function LiveScoringPage() {
   const [gameNotes, setGameNotes] = useState("");
   const [gameDate, setGameDate] = useState<string>("");
 
+  // --- localStorage backup ---
+  const lsKey = `live-scoring-${gameId}`;
+
+  function saveToLocal(updates: {
+    gameState?: GameState;
+    stateHistory?: GameState[];
+    playLog?: { notation: string; playerName: string; inning: number; team: "us" | "them" }[];
+    totalPitches?: { us: number; them: number };
+    totalPitchesHistory?: { us: number; them: number }[];
+    pitchCount?: { balls: number; strikes: number };
+  }) {
+    try {
+      const existing = JSON.parse(localStorage.getItem(lsKey) || "{}");
+      // Strip large arrays (lineup/players/opponentLineup) from gameState to save space
+      let gs = updates.gameState;
+      if (gs) {
+        const { lineup: _l, players: _p, opponentLineup: _o, ...rest } = gs;
+        (existing as Record<string, unknown>).gameState = rest;
+      }
+      if (updates.stateHistory) {
+        existing.stateHistory = updates.stateHistory.map((s: GameState) => {
+          const { lineup: _l, players: _p, opponentLineup: _o, ...rest } = s;
+          return rest;
+        });
+      }
+      if (updates.playLog) existing.playLog = updates.playLog;
+      if (updates.totalPitches) existing.totalPitches = updates.totalPitches;
+      if (updates.totalPitchesHistory) existing.totalPitchesHistory = updates.totalPitchesHistory;
+      if (updates.pitchCount) existing.pitchCount = updates.pitchCount;
+      existing.savedAt = Date.now();
+      localStorage.setItem(lsKey, JSON.stringify(existing));
+    } catch { /* storage full or unavailable */ }
+  }
+
+  function loadFromLocal(): {
+    gameState?: Partial<GameState>;
+    stateHistory?: Partial<GameState>[];
+    playLog?: { notation: string; playerName: string; inning: number; team: "us" | "them" }[];
+    totalPitches?: { us: number; them: number };
+    totalPitchesHistory?: { us: number; them: number }[];
+    pitchCount?: { balls: number; strikes: number };
+    savedAt?: number;
+  } | null {
+    try {
+      const raw = localStorage.getItem(lsKey);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch { return null; }
+  }
+
   // Wake Lock to prevent screen sleep during scoring
   useEffect(() => {
     let wakeLock: WakeLockSentinel | null = null;
@@ -125,6 +175,55 @@ export default function LiveScoringPage() {
       const lineup: GameLineup[] = lineupRes.data ?? [];
       const players: Player[] = playersRes.data ?? [];
       const oppLineup: OpponentBatter[] = opponentLineupRes.data ?? [];
+      const local = loadFromLocal();
+      const dbFailed = !gameRes.data && !stateRes.data && lineup.length === 0 && players.length === 0;
+
+      // If DB is completely unreachable but we have local backup, restore from it
+      if (dbFailed && local?.gameState) {
+        const ls = local.gameState;
+        const state: GameState = {
+          gameId,
+          currentInning: ls.currentInning ?? 1,
+          currentHalf: ls.currentHalf ?? "top",
+          outs: ls.outs ?? 0,
+          runnerFirst: ls.runnerFirst ?? null,
+          runnerSecond: ls.runnerSecond ?? null,
+          runnerThird: ls.runnerThird ?? null,
+          currentBatterIndex: ls.currentBatterIndex ?? 0,
+          opponentBatterIndex: ls.opponentBatterIndex ?? 0,
+          ourScore: ls.ourScore ?? 0,
+          opponentScore: ls.opponentScore ?? 0,
+          lineup: [],
+          players: [],
+          opponentLineup: [],
+        };
+        setGameState(state);
+        if (local.totalPitches) setTotalPitches(local.totalPitches);
+        if (local.pitchCount) setPitchCount(local.pitchCount);
+        if (local.playLog) setPlayLog(local.playLog);
+        if (local.totalPitchesHistory) setTotalPitchesHistory(local.totalPitchesHistory);
+        if (local.stateHistory) {
+          setStateHistory(local.stateHistory.map(ls => ({
+            gameId,
+            currentInning: ls.currentInning ?? 1,
+            currentHalf: ls.currentHalf ?? "top",
+            outs: ls.outs ?? 0,
+            runnerFirst: ls.runnerFirst ?? null,
+            runnerSecond: ls.runnerSecond ?? null,
+            runnerThird: ls.runnerThird ?? null,
+            currentBatterIndex: ls.currentBatterIndex ?? 0,
+            opponentBatterIndex: ls.opponentBatterIndex ?? 0,
+            ourScore: ls.ourScore ?? 0,
+            opponentScore: ls.opponentScore ?? 0,
+            lineup: [],
+            players: [],
+            opponentLineup: [],
+          })));
+        }
+        setLoading(false);
+        return;
+      }
+
       if (gameRes.data?.opponent) setOpponentName(gameRes.data.opponent);
       if (gameRes.data?.location) setGameLocation(gameRes.data.location);
       if (gameRes.data?.date) setGameDate(gameRes.data.date);
@@ -163,13 +262,13 @@ export default function LiveScoringPage() {
       }
 
       setGameState(state);
+      saveToLocal({ gameState: state });
 
       // Restore persisted pitch counts
       if (stateRes.data) {
-        setTotalPitches({
-          us: stateRes.data.pitches_us ?? 0,
-          them: stateRes.data.pitches_them ?? 0,
-        });
+        const tp = { us: stateRes.data.pitches_us ?? 0, them: stateRes.data.pitches_them ?? 0 };
+        setTotalPitches(tp);
+        saveToLocal({ totalPitches: tp });
       }
 
       if (gameRes.data?.status === "scheduled") {
@@ -183,22 +282,22 @@ export default function LiveScoringPage() {
         .order("created_at");
 
       if (pas) {
-        setPlayLog(
-          pas.map((pa) => ({
-            notation: pa.scorebook_notation || pa.result,
-            playerName: pa.team === "them"
-              ? oppLineup.find((b) => b.id === pa.opponent_batter_id)?.name ?? "Opponent"
-              : (() => { const p = players.find((p) => p.id === pa.player_id); return p ? fullName(p) : ""; })(),
-            inning: pa.inning,
-            team: pa.team ?? "us",
-          }))
-        );
+        const log = pas.map((pa) => ({
+          notation: pa.scorebook_notation || pa.result,
+          playerName: pa.team === "them"
+            ? oppLineup.find((b) => b.id === pa.opponent_batter_id)?.name ?? "Opponent"
+            : (() => { const p = players.find((p) => p.id === pa.player_id); return p ? fullName(p) : ""; })(),
+          inning: pa.inning,
+          team: pa.team ?? ("us" as const),
+        }));
+        setPlayLog(log);
+        saveToLocal({ playLog: log });
       }
 
       setLoading(false);
     }
     load();
-  }, [gameId]);
+  }, [gameId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const persistState = useCallback(
     async (state: GameState, pitches?: { us: number; them: number }) => {
@@ -318,10 +417,18 @@ export default function LiveScoringPage() {
 
     // Update UI immediately (optimistic) — don't wait for DB
     setGameState(newState);
-    setPlayLog((prev) => [
-      ...prev,
-      { notation, playerName: batter.playerName, inning: gameState.currentInning, team: isOpponent ? "them" : "us" },
-    ]);
+    const newLogEntry = { notation, playerName: batter.playerName, inning: gameState.currentInning, team: isOpponent ? "them" as const : "us" as const };
+    setPlayLog((prev) => {
+      const updated = [...prev, newLogEntry];
+      saveToLocal({
+        gameState: newState,
+        playLog: updated,
+        stateHistory: [...stateHistory, gameState],
+        totalPitchesHistory: [...totalPitchesHistory, totalPitches],
+        pitchCount: { balls: 0, strikes: 0 },
+      });
+      return updated;
+    });
     setSelectedResult(null);
     setSprayPoint(null);
     setHitType(null);
@@ -411,9 +518,20 @@ export default function LiveScoringPage() {
   async function handleUndo() {
     if (stateHistory.length === 0 || !gameState) return;
     const prevState = stateHistory[stateHistory.length - 1];
-    setStateHistory((prev) => prev.slice(0, -1));
+    const newHistory = stateHistory.slice(0, -1);
+    setStateHistory(newHistory);
     setGameState(prevState);
-    setPlayLog((prev) => prev.slice(0, -1));
+    setPlayLog((prev) => {
+      const updated = prev.slice(0, -1);
+      const newPitchHistory = totalPitchesHistory.slice(0, -1);
+      saveToLocal({
+        gameState: prevState,
+        stateHistory: newHistory,
+        playLog: updated,
+        totalPitchesHistory: newPitchHistory,
+      });
+      return updated;
+    });
     // Restore previous total pitches
     const restoredPitches = totalPitchesHistory.length > 0
       ? totalPitchesHistory[totalPitchesHistory.length - 1]
@@ -421,6 +539,7 @@ export default function LiveScoringPage() {
     if (totalPitchesHistory.length > 0) {
       setTotalPitches(restoredPitches);
       setTotalPitchesHistory((prev) => prev.slice(0, -1));
+      saveToLocal({ totalPitches: restoredPitches });
     }
     await persistState(prevState, restoredPitches);
 
@@ -492,10 +611,11 @@ export default function LiveScoringPage() {
 
     const baseLabel = from === "first" ? "1st" : from === "second" ? "2nd" : "3rd";
     const destLabel = to === "second" ? "2nd" : to === "third" ? "3rd" : "Home";
-    setPlayLog((prev) => [
-      ...prev,
-      { notation: `SB ${baseLabel}→${destLabel}`, playerName: runner.playerName, inning: gameState.currentInning, team: gameState.currentHalf === "top" ? "them" : "us" },
-    ]);
+    setPlayLog((prev) => {
+      const updated = [...prev, { notation: `SB ${baseLabel}→${destLabel}`, playerName: runner.playerName, inning: gameState.currentInning, team: gameState.currentHalf === "top" ? "them" as const : "us" as const }];
+      saveToLocal({ gameState: newState, playLog: updated });
+      return updated;
+    });
 
     persistState(newState);
   }
@@ -509,6 +629,8 @@ export default function LiveScoringPage() {
       them: isOpponent ? totalPitches.them : totalPitches.them + 1,
     };
     setTotalPitches(next);
+    // pitchCount is updated by the caller; save both to localStorage
+    saveToLocal({ totalPitches: next });
     // Persist immediately so count survives refresh
     void supabase.from("game_state").update({
       pitches_us: next.us,
@@ -531,6 +653,8 @@ export default function LiveScoringPage() {
       innings_played: gameState.currentHalf === "top" ? gameState.currentInning - 1 : gameState.currentInning,
       notes: gameNotes.trim() || null,
     }).eq("id", gameId);
+    // Clean up localStorage backup — game is done
+    try { localStorage.removeItem(lsKey); } catch { /* */ }
     router.push(`/games/${gameId}`);
   }
 
