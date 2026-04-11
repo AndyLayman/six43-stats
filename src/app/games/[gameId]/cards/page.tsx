@@ -180,14 +180,16 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
   return (
     <div className="flex flex-col items-center gap-2">
       <div
-        ref={cardRef}
+        style={{ perspective: "1000px" }}
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
         onTouchMove={handleTouchMove}
         onTouchEnd={handlePointerLeave}
+      >
+      <div
+        ref={cardRef}
         className="relative w-[280px] h-[420px] rounded-2xl overflow-hidden cursor-pointer select-none touch-none"
         style={{
-          perspective: "1000px",
           transformStyle: "preserve-3d",
           transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
           transition: isHovering ? "transform 0.1s ease-out" : "transform 0.5s ease-out",
@@ -318,6 +320,7 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
