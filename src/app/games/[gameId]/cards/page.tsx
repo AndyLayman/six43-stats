@@ -15,9 +15,14 @@ import { NavArrowLeft, ShareAndroid } from "iconoir-react";
 type Rarity = "common" | "rare" | "epic" | "legendary";
 
 function getRarity(stats: PlayerGameStats): Rarity {
-  if (stats.homeRuns > 0 || stats.hits >= 4 || (stats.atBats > 0 && stats.avg >= 1.0)) return "legendary";
-  if (stats.extraBaseHits >= 2 || stats.hits >= 3 || stats.rbis >= 3) return "epic";
-  if (stats.hits >= 2 || stats.rbis >= 2 || stats.stolenBases >= 2) return "rare";
+  // Tuned for youth baseball (2-3 ABs per game)
+  // Legendary: exceptional feat — HR, 3+ hits, or perfect day
+  if (stats.homeRuns > 0 || stats.hits >= 3 || (stats.atBats >= 2 && stats.avg >= 1.0)) return "legendary";
+  // Epic: strong game — extra-base hit, multi-hit, 2+ RBI, or hit+steal combo
+  if (stats.extraBaseHits >= 1 || stats.hits >= 2 || stats.rbis >= 2 || (stats.hits >= 1 && stats.stolenBases >= 1)) return "epic";
+  // Rare: contributed — got a hit, walk, RBI, or stolen base
+  if (stats.hits >= 1 || stats.walks >= 1 || stats.rbis >= 1 || stats.stolenBases >= 1) return "rare";
+  // Common: no offensive contribution
   return "common";
 }
 
