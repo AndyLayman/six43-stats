@@ -251,8 +251,8 @@ export default function PlayerDetailPage() {
                           />
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-sm font-extrabold tabular-nums leading-none text-foreground">{m.current}</span>
-                          <span className="text-[7px] text-muted-foreground/50">/{m.target}</span>
+                          <span className="text-sm font-extrabold tabular-nums leading-none text-white">{m.current}</span>
+                          <span className="text-[7px] text-white/50">/{m.target}</span>
                         </div>
                       </div>
                     )}
