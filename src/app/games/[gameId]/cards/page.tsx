@@ -226,11 +226,6 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
   const foilAngle = 135 + (rot.y % 360) * 0.5;
   const shimmerAngle = 115 + (rot.y % 360) * 0.7;
 
-  // Card thickness in px
-  const DEPTH = 8;
-  const halfDepth = DEPTH / 2;
-  const edgeColor = config.colors[0];
-
   const cardFaceStyle: React.CSSProperties = {
     position: "absolute",
     width: "100%",
@@ -266,7 +261,7 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
           <div
             style={{
               ...cardFaceStyle,
-              transform: `translateZ(${halfDepth}px)`,
+              transform: `translateZ(0)`,
               boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.5)`,
             }}
           >
@@ -389,49 +384,11 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
             </div>
           </div>
 
-          {/* ═══ EDGE STRIPS (card thickness) ═══ */}
-          {/* Right edge */}
-          <div style={{
-            position: "absolute", width: `${DEPTH}px`, height: "100%",
-            right: 0, top: 0,
-            background: `linear-gradient(180deg, ${edgeColor}22, ${edgeColor}44, ${edgeColor}22)`,
-            transform: `rotateY(90deg) translateZ(${280 - halfDepth}px)`,
-            transformOrigin: "right center",
-            backfaceVisibility: "hidden" as const,
-          }} />
-          {/* Left edge */}
-          <div style={{
-            position: "absolute", width: `${DEPTH}px`, height: "100%",
-            left: 0, top: 0,
-            background: `linear-gradient(180deg, ${edgeColor}22, ${edgeColor}44, ${edgeColor}22)`,
-            transform: `rotateY(-90deg) translateZ(${halfDepth}px)`,
-            transformOrigin: "left center",
-            backfaceVisibility: "hidden" as const,
-          }} />
-          {/* Top edge */}
-          <div style={{
-            position: "absolute", width: "100%", height: `${DEPTH}px`,
-            left: 0, top: 0,
-            background: `linear-gradient(90deg, ${edgeColor}22, ${edgeColor}44, ${edgeColor}22)`,
-            transform: `rotateX(90deg) translateZ(${halfDepth}px)`,
-            transformOrigin: "top center",
-            backfaceVisibility: "hidden" as const,
-          }} />
-          {/* Bottom edge */}
-          <div style={{
-            position: "absolute", width: "100%", height: `${DEPTH}px`,
-            left: 0, bottom: 0,
-            background: `linear-gradient(90deg, ${edgeColor}22, ${edgeColor}44, ${edgeColor}22)`,
-            transform: `rotateX(-90deg) translateZ(${420 - halfDepth}px)`,
-            transformOrigin: "bottom center",
-            backfaceVisibility: "hidden" as const,
-          }} />
-
           {/* ═══ BACK FACE ═══ */}
           <div
             style={{
               ...cardFaceStyle,
-              transform: `rotateY(180deg) translateZ(${halfDepth}px)`,
+              transform: "rotateY(180deg)",
               boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.5)`,
             }}
           >
