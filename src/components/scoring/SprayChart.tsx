@@ -12,6 +12,7 @@ interface SprayChartProps {
   hitType?: HitType | null;
   runners?: { first: boolean; second: boolean; third: boolean };
   interactive?: boolean;
+  heatMode?: boolean;
   className?: string;
 }
 
@@ -23,6 +24,7 @@ export function SprayChart({
   hitType,
   runners,
   interactive = true,
+  heatMode = false,
   className = "",
 }: SprayChartProps) {
   // viewBox is "0 70 300 240" — x: 0-300, y: 70-310
@@ -146,8 +148,24 @@ export function SprayChart({
         </text>
       ))}
 
+      {/* Heat zones overlay */}
+      {heatMode && ghostMarkers.length > 0 && (
+        <g>
+          {ghostMarkers.map((m, i) => (
+            <circle
+              key={`heat-${i}`}
+              cx={m.x}
+              cy={m.y}
+              r="20"
+              fill={getResultColor(m.result)}
+              opacity={0.12}
+            />
+          ))}
+        </g>
+      )}
+
       {/* Ghost markers — previous at-bats for this hitter */}
-      {ghostMarkers.map((m, i) => (
+      {!heatMode && ghostMarkers.map((m, i) => (
         <g key={`ghost-${i}`} opacity="0.2">
           {m.hitType && (
             <TrajectoryPath

@@ -57,6 +57,20 @@ export default function LeaderboardPage() {
 
   const badges = useMemo(() => computeBadges(battingStats, fieldingStats), [battingStats, fieldingStats]);
 
+  const maxValues = useMemo(() => {
+    if (sortedBatting.length === 0) return {} as Record<string, number>;
+    const result: Record<string, number> = {};
+    for (const k of ["avg", "hits", "home_runs", "rbis", "ops", "stolen_bases"]) {
+      result[k] = Math.max(...sortedBatting.map(s => Number(s[k as SortKey])));
+    }
+    return result;
+  }, [sortedBatting]);
+
+  function barWidth(value: number, field: string) {
+    const max = maxValues[field];
+    return max > 0 ? `${Math.min((value / max) * 100, 100)}%` : "0%";
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -135,14 +149,17 @@ export default function LeaderboardPage() {
                           </div>
                           <div className="grid grid-cols-4 gap-2 text-center">
                             {[
-                              { label: "AVG", value: formatAvg(Number(stat.avg)) },
-                              { label: "H", value: stat.hits },
-                              { label: "HR", value: stat.home_runs },
-                              { label: "RBI", value: stat.rbis },
+                              { label: "AVG", value: formatAvg(Number(stat.avg)), field: "avg", raw: Number(stat.avg) },
+                              { label: "H", value: String(stat.hits), field: "hits", raw: Number(stat.hits) },
+                              { label: "HR", value: String(stat.home_runs), field: "home_runs", raw: Number(stat.home_runs) },
+                              { label: "RBI", value: String(stat.rbis), field: "rbis", raw: Number(stat.rbis) },
                             ].map((s) => (
                               <div key={s.label} className="text-xs">
                                 <div className="font-bold tabular-nums">{s.value}</div>
-                                <div className="text-muted-foreground uppercase tracking-wider"><StatTip label={s.label} /></div>
+                                <div className="h-1 rounded-full bg-border/30 mt-0.5 overflow-hidden">
+                                  <div className="h-full rounded-full bg-primary/50 transition-all" style={{ width: barWidth(s.raw, s.field) }} />
+                                </div>
+                                <div className="text-muted-foreground uppercase tracking-wider mt-0.5"><StatTip label={s.label} /></div>
                               </div>
                             ))}
                           </div>
@@ -198,18 +215,36 @@ export default function LeaderboardPage() {
                           </TableCell>
                           <TableCell>{stat.games}</TableCell>
                           <TableCell>{stat.at_bats}</TableCell>
-                          <TableCell>{stat.hits}</TableCell>
+                          <TableCell className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center" style={{ width: barWidth(Number(stat.hits), "hits") }}><div className="w-full h-[55%] rounded-r bg-primary/10" /></div>
+                            <span className="relative">{stat.hits}</span>
+                          </TableCell>
                           <TableCell>{stat.doubles}</TableCell>
                           <TableCell>{stat.triples}</TableCell>
-                          <TableCell>{stat.home_runs}</TableCell>
-                          <TableCell>{stat.rbis}</TableCell>
+                          <TableCell className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center" style={{ width: barWidth(Number(stat.home_runs), "home_runs") }}><div className="w-full h-[55%] rounded-r bg-primary/10" /></div>
+                            <span className="relative">{stat.home_runs}</span>
+                          </TableCell>
+                          <TableCell className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center" style={{ width: barWidth(Number(stat.rbis), "rbis") }}><div className="w-full h-[55%] rounded-r bg-primary/10" /></div>
+                            <span className="relative">{stat.rbis}</span>
+                          </TableCell>
                           <TableCell>{stat.walks}</TableCell>
                           <TableCell>{stat.strikeouts}</TableCell>
-                          <TableCell>{stat.stolen_bases}</TableCell>
-                          <TableCell className="font-bold text-gradient-bright">{formatAvg(Number(stat.avg))}</TableCell>
+                          <TableCell className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center" style={{ width: barWidth(Number(stat.stolen_bases), "stolen_bases") }}><div className="w-full h-[55%] rounded-r bg-primary/10" /></div>
+                            <span className="relative">{stat.stolen_bases}</span>
+                          </TableCell>
+                          <TableCell className="relative font-bold text-gradient-bright">
+                            <div className="absolute inset-y-0 left-0 flex items-center" style={{ width: barWidth(Number(stat.avg), "avg") }}><div className="w-full h-[55%] rounded-r bg-primary/10" /></div>
+                            <span className="relative">{formatAvg(Number(stat.avg))}</span>
+                          </TableCell>
                           <TableCell>{formatAvg(Number(stat.obp))}</TableCell>
                           <TableCell>{formatAvg(Number(stat.slg))}</TableCell>
-                          <TableCell>{formatAvg(Number(stat.ops))}</TableCell>
+                          <TableCell className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center" style={{ width: barWidth(Number(stat.ops), "ops") }}><div className="w-full h-[55%] rounded-r bg-primary/10" /></div>
+                            <span className="relative">{formatAvg(Number(stat.ops))}</span>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

@@ -28,6 +28,7 @@ export default function PlayerDetailPage() {
   const [gameLog, setGameLog] = useState<{ game_id: string; date: string; opponent: string; appearances: PlateAppearance[] }[]>([]);
   const [loading, setLoading] = useState(true);
   const [sprayFilter, setSprayFilter] = useState<SprayFilter>("both");
+  const [heatMode, setHeatMode] = useState(false);
   const [chainAwards, setChainAwards] = useState<ChainAward[]>([]);
 
   useEffect(() => {
@@ -62,6 +63,63 @@ export default function PlayerDetailPage() {
     }
     load();
   }, [playerId]);
+
+  const cumulativeAvg = useMemo(() => {
+    if (gameLog.length === 0) return new Map<string, number>();
+    const sorted = [...gameLog].sort((a, b) => a.date.localeCompare(b.date));
+    let cumHits = 0;
+    let cumAB = 0;
+    const result = new Map<string, number>();
+    for (const g of sorted) {
+      cumAB += g.appearances.filter(pa => pa.is_at_bat).length;
+      cumHits += g.appearances.filter(pa => pa.is_hit).length;
+      result.set(g.game_id, cumAB > 0 ? cumHits / cumAB : 0);
+    }
+    return result;
+  }, [gameLog]);
+
+  const avgTrend = useMemo(() => {
+    if (gameLog.length === 0) return [] as number[];
+    const sorted = [...gameLog].sort((a, b) => a.date.localeCompare(b.date));
+    return sorted.map(g => cumulativeAvg.get(g.game_id) ?? 0);
+  }, [gameLog, cumulativeAvg]);
+
+  const milestones = useMemo(() => {
+    if (!battingStats || Number(battingStats.at_bats) === 0) return [];
+    const DEFS = [
+      { id: "games-10", label: "10 Games", field: "games" as keyof BattingStats, target: 10, order: 0 },
+      { id: "games-25", label: "25 Games", field: "games" as keyof BattingStats, target: 25, order: 1 },
+      { id: "hits-10", label: "10 Hits", field: "hits" as keyof BattingStats, target: 10, order: 2 },
+      { id: "hits-25", label: "25 Hits", field: "hits" as keyof BattingStats, target: 25, order: 3 },
+      { id: "hits-50", label: "50 Hits", field: "hits" as keyof BattingStats, target: 50, order: 4 },
+      { id: "hr-1", label: "First Homer", field: "home_runs" as keyof BattingStats, target: 1, order: 5 },
+      { id: "hr-5", label: "5 Home Runs", field: "home_runs" as keyof BattingStats, target: 5, order: 6 },
+      { id: "rbi-10", label: "10 RBI", field: "rbis" as keyof BattingStats, target: 10, order: 7 },
+      { id: "rbi-25", label: "25 RBI", field: "rbis" as keyof BattingStats, target: 25, order: 8 },
+      { id: "sb-5", label: "5 Stolen Bases", field: "stolen_bases" as keyof BattingStats, target: 5, order: 9 },
+      { id: "sb-10", label: "10 Stolen Bases", field: "stolen_bases" as keyof BattingStats, target: 10, order: 10 },
+    ];
+    const results = DEFS.map((def) => {
+      const current = Number(battingStats[def.field]);
+      const completed = current >= def.target;
+      const pct = Math.min((current / def.target) * 100, 100);
+      return { ...def, current, completed, pct };
+    });
+    const fields = [...new Set(DEFS.map(d => d.field))];
+    const visible: typeof results = [];
+    for (const field of fields) {
+      const fieldMs = results.filter(m => m.field === field);
+      visible.push(...fieldMs.filter(m => m.completed));
+      const next = fieldMs.find(m => !m.completed);
+      if (next) visible.push(next);
+    }
+    visible.sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? -1 : 1;
+      if (a.completed) return a.order - b.order;
+      return b.pct - a.pct;
+    });
+    return visible;
+  }, [battingStats]);
 
   if (loading) {
     return (
@@ -162,6 +220,51 @@ export default function PlayerDetailPage() {
         </Card>
       )}
 
+      {/* Milestones */}
+      {milestones.length > 0 && (
+        <Card className="glass border-border/50">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="text-gradient">Milestones</CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {milestones.map((m) => (
+                <div
+                  key={m.id}
+                  className={`rounded-xl p-3 border transition-colors ${
+                    m.completed
+                      ? "bg-primary/10 border-primary/30"
+                      : "bg-muted/20 border-border/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {m.completed && (
+                      <span className="text-primary text-sm font-bold">&#10003;</span>
+                    )}
+                    <span className={`text-xs font-bold ${m.completed ? "text-primary" : "text-muted-foreground"}`}>
+                      {m.label}
+                    </span>
+                  </div>
+                  {!m.completed && (
+                    <>
+                      <div className="h-1.5 rounded-full bg-border/30 overflow-hidden mb-1">
+                        <div
+                          className="h-full rounded-full bg-primary/50 transition-all"
+                          style={{ width: `${m.pct}%` }}
+                        />
+                      </div>
+                      <div className="text-[10px] text-muted-foreground tabular-nums">
+                        {m.current} / {m.target}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Spray Chart */}
       {(() => {
         const sprayPAs = allPAs.filter((pa) => pa.spray_x != null && pa.spray_y != null);
@@ -182,31 +285,43 @@ export default function PlayerDetailPage() {
 
         return (
           <Card className="glass border-border/50">
-            <CardHeader className="px-3 sm:px-6 flex flex-row items-center justify-between">
+            <CardHeader className="px-3 sm:px-6 flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-gradient">Spray Chart</CardTitle>
-              <div className="flex rounded-lg overflow-hidden border border-border/50">
-                {([
-                  { value: "both", label: "Both" },
-                  { value: "hits", label: "Hits" },
-                  { value: "outs", label: "Outs" },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setSprayFilter(opt.value)}
-                    className={`px-3 py-1 text-xs font-medium transition-colors ${
-                      sprayFilter === opt.value
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHeatMode(!heatMode)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                    heatMode
+                      ? "bg-orange-500/20 border-orange-500/50 text-orange-400"
+                      : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  Heat
+                </button>
+                <div className="flex rounded-lg overflow-hidden border border-border/50">
+                  {([
+                    { value: "both", label: "Both" },
+                    { value: "hits", label: "Hits" },
+                    { value: "outs", label: "Outs" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSprayFilter(opt.value)}
+                      className={`px-3 py-1 text-xs font-medium transition-colors ${
+                        sprayFilter === opt.value
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="px-1 pt-1 pb-3">
               <div className="max-w-md mx-auto">
-                <SprayChart ghostMarkers={ghostMarkers} interactive={false} />
+                <SprayChart ghostMarkers={ghostMarkers} interactive={false} heatMode={heatMode} />
               </div>
               <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2 px-3">
                 {[
@@ -388,8 +503,15 @@ export default function PlayerDetailPage() {
         <TabsContent value="gamelog">
           {gameLog.length > 0 ? (
             <Card className="glass border-border/50">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-2">
                 <CardTitle className="text-gradient">Game Log</CardTitle>
+                {avgTrend.length >= 2 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">AVG</span>
+                    <Sparkline data={avgTrend} width={80} height={24} />
+                    <span className="text-xs font-bold tabular-nums text-primary">{formatAvg(avgTrend[avgTrend.length - 1])}</span>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <Table>
@@ -400,6 +522,7 @@ export default function PlayerDetailPage() {
                       <TableHead>AB</TableHead>
                       <TableHead>H</TableHead>
                       <TableHead>RBI</TableHead>
+                      <TableHead>AVG</TableHead>
                       <TableHead>Results</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -408,6 +531,7 @@ export default function PlayerDetailPage() {
                       const ab = g.appearances.filter((pa) => pa.is_at_bat).length;
                       const h = g.appearances.filter((pa) => pa.is_hit).length;
                       const rbi = g.appearances.reduce((sum, pa) => sum + pa.rbis, 0);
+                      const runAvg = cumulativeAvg.get(g.game_id);
                       return (
                         <TableRow key={g.game_id} className="border-border/30">
                           <TableCell>
@@ -419,6 +543,7 @@ export default function PlayerDetailPage() {
                           <TableCell className="tabular-nums">{ab}</TableCell>
                           <TableCell className="tabular-nums">{h}</TableCell>
                           <TableCell className="tabular-nums">{rbi}</TableCell>
+                          <TableCell className="tabular-nums font-medium text-primary">{runAvg != null ? formatAvg(runAvg) : "—"}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {g.appearances.map((pa) => pa.result).join(", ")}
                           </TableCell>
@@ -435,5 +560,31 @@ export default function PlayerDetailPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function Sparkline({ data, width = 60, height = 20 }: { data: number[]; width?: number; height?: number }) {
+  if (data.length < 2) return null;
+  const min = Math.min(...data) * 0.9;
+  const max = Math.max(...data) * 1.1;
+  const range = max - min || 0.001;
+  const pad = 2;
+  const w = width - pad * 2;
+  const h = height - pad * 2;
+
+  const points = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * w;
+    const y = pad + h - ((v - min) / range) * h;
+    return `${x},${y}`;
+  }).join(" ");
+
+  const lastX = pad + w;
+  const lastY = pad + h - ((data[data.length - 1] - min) / range) * h;
+
+  return (
+    <svg width={width} height={height} className="inline-block align-middle">
+      <polyline points={points} fill="none" stroke="#E9D7B4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lastX} cy={lastY} r="2" fill="#E9D7B4" />
+    </svg>
   );
 }
