@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { PlateAppearanceResult, HitType } from "@/lib/scoring/types";
 
 const CREAM = "#E9D7B4";
@@ -94,6 +94,10 @@ export function SprayChart({
         <pattern id="pat-hz" width="3" height="3" patternUnits="userSpaceOnUse">
           <line x1="0" y1="1.5" x2="3" y2="1.5" stroke={CREAM} strokeWidth="1" />
         </pattern>
+        {/* Clip path for fair territory — foul lines + outfield arc */}
+        <clipPath id="fair-clip">
+          <path d="M 150 280 L 16 146 A 160 160 0 0 1 284 146 Z" />
+        </clipPath>
       </defs>
 
       {/* Foul lines — trimmed to meet the outfield fence arc */}
@@ -184,20 +188,9 @@ export function SprayChart({
         </text>
       ))}
 
-      {/* Heat zones overlay — uniform warm glow for density */}
+      {/* Gaussian density heat map — field-based thermal overlay */}
       {heatMode && ghostMarkers.length > 0 && (
-        <g>
-          {ghostMarkers.map((m, i) => (
-            <circle
-              key={`heat-${i}`}
-              cx={m.x}
-              cy={m.y}
-              r="20"
-              fill={CREAM}
-              opacity={0.12}
-            />
-          ))}
-        </g>
+        <HeatMapOverlay markers={ghostMarkers} />
       )}
 
       {/* Ghost markers — previous at-bats for this hitter */}
@@ -279,6 +272,90 @@ export function SprayChart({
         </>
       )}
     </svg>
+  );
+}
+
+/* ── Thermal color scale: blue → cyan → yellow → orange → red ── */
+function thermalColor(t: number): string {
+  // t is 0..1 where 0 = no hits (blue), 1 = max density (red)
+  const stops: [number, number, number, number][] = [
+    [0,    59, 130, 246],  // blue
+    [0.25, 34, 197, 210],  // cyan
+    [0.5, 250, 204,  21],  // yellow
+    [0.75,249, 115,  22],  // orange
+    [1,   239,  68,  68],  // red
+  ];
+  // Find the two surrounding stops
+  let lo = stops[0], hi = stops[stops.length - 1];
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (t >= stops[i][0] && t <= stops[i + 1][0]) {
+      lo = stops[i];
+      hi = stops[i + 1];
+      break;
+    }
+  }
+  const range = hi[0] - lo[0] || 1;
+  const f = (t - lo[0]) / range;
+  const r = Math.round(lo[1] + (hi[1] - lo[1]) * f);
+  const g = Math.round(lo[2] + (hi[2] - lo[2]) * f);
+  const b = Math.round(lo[3] + (hi[3] - lo[3]) * f);
+  return `rgb(${r},${g},${b})`;
+}
+
+/** Field-based gaussian kernel density heat map */
+function HeatMapOverlay({ markers }: { markers: { x: number; y: number }[] }) {
+  const GRID_STEP = 10;
+  const SIGMA = 22;
+  const TWO_SIGMA_SQ = 2 * SIGMA * SIGMA;
+
+  const cells = useMemo(() => {
+    if (markers.length === 0) return [];
+
+    // Build grid covering fair territory area (x: 0-300, y: 80-290)
+    const grid: { x: number; y: number; density: number }[] = [];
+    let maxDensity = 0;
+
+    for (let gx = 0; gx <= 300; gx += GRID_STEP) {
+      for (let gy = 80; gy <= 290; gy += GRID_STEP) {
+        let density = 0;
+        for (const m of markers) {
+          const dx = gx - m.x;
+          const dy = gy - m.y;
+          density += Math.exp(-(dx * dx + dy * dy) / TWO_SIGMA_SQ);
+        }
+        if (density > 0.001) {
+          grid.push({ x: gx, y: gy, density });
+          if (density > maxDensity) maxDensity = density;
+        }
+      }
+    }
+
+    // Normalize
+    if (maxDensity > 0) {
+      for (const cell of grid) {
+        cell.density /= maxDensity;
+      }
+    }
+
+    return grid;
+  }, [markers]);
+
+  if (cells.length === 0) return null;
+
+  return (
+    <g clipPath="url(#fair-clip)">
+      {cells.map((c, i) => (
+        <rect
+          key={i}
+          x={c.x - GRID_STEP / 2}
+          y={c.y - GRID_STEP / 2}
+          width={GRID_STEP}
+          height={GRID_STEP}
+          fill={thermalColor(c.density)}
+          opacity={0.15 + c.density * 0.55}
+        />
+      ))}
+    </g>
   );
 }
 
