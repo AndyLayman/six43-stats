@@ -1041,12 +1041,20 @@ export default function PracticeSetupPage() {
         <div className="fixed bottom-0 left-0 right-0 z-20 bg-background/90 backdrop-blur-md border-t border-border/50 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <div className="max-w-2xl mx-auto">
             {practice.completed ? (
-              <Link href={`/practices/${practiceId}/share`} className="block w-full">
-                <Button variant="outline" className="w-full h-14 text-lg font-bold border-primary/30 text-primary hover:bg-primary/10 gap-2 active:scale-[0.98] transition-transform">
-                  <DoubleCheck width={22} height={22} />
-                  View &amp; Share Recap
-                </Button>
-              </Link>
+              <div className="flex gap-3">
+                <Link href={`/practices/${practiceId}/live`} className="block flex-1">
+                  <Button variant="outline" className="w-full h-14 text-base font-bold border-border/50 hover:bg-muted/30 gap-2 active:scale-[0.98] transition-transform">
+                    <Play width={20} height={20} />
+                    Edit
+                  </Button>
+                </Link>
+                <Link href={`/practices/${practiceId}/share`} className="block flex-[2]">
+                  <Button variant="outline" className="w-full h-14 text-base font-bold border-primary/30 text-primary hover:bg-primary/10 gap-2 active:scale-[0.98] transition-transform">
+                    <DoubleCheck width={20} height={20} />
+                    View &amp; Share Recap
+                  </Button>
+                </Link>
+              </div>
             ) : (
               <Link href={`/practices/${practiceId}/live`} className="block w-full">
                 <Button className="w-full h-14 text-lg font-bold glow-primary active:scale-[0.98] transition-transform">
