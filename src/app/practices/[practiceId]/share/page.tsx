@@ -87,7 +87,7 @@ export default function SharedPracticePage() {
   const measure = useCallback(() => {
     if (!paperRef.current || !measureRef.current) return;
     const pageW = paperRef.current.offsetWidth;
-    const pageH = pageW * LETTER_RATIO;
+    const pageH = Math.round(pageW * LETTER_RATIO);
     const inner = pageH - 2 * PAGE_PAD;
     const measuredH = measureRef.current.offsetHeight;
     const needed = Math.max(1, Math.ceil((measuredH + FOOTER_H) / inner));
@@ -348,42 +348,47 @@ export default function SharedPracticePage() {
       </div>
 
       {/* Separate page cards */}
-      <div ref={paperRef} style={{ maxWidth: "540px", margin: "0 auto", background: "#E8E8E8", padding: "2px 0" }}>
-        {/* Hidden measuring div — measures recap content at same inner width */}
-        <div style={{ position: "absolute", visibility: "hidden", left: 0, right: 0, pointerEvents: "none", zIndex: -1 }}>
-          <div style={{ maxWidth: 540 - 2 * PAGE_PAD, margin: "0 auto" }}>
-            <div ref={measureRef}>{recapContent}</div>
-          </div>
+      <div ref={paperRef} style={{ maxWidth: "540px", margin: "0 auto", background: "#E8E8E8", padding: "2px 0", position: "relative" }}>
+        {/* Hidden measuring div — same inner width as page cards */}
+        <div style={{
+          position: "absolute", visibility: "hidden",
+          top: 0, left: PAGE_PAD, right: PAGE_PAD,
+          pointerEvents: "none", zIndex: -1,
+        }}>
+          <div ref={measureRef}>{recapContent}</div>
         </div>
 
-        {Array.from({ length: pageCount }).map((_, i) => (
-          <div
-            key={i}
-            style={{
-              background: "#FFFFFF",
-              aspectRatio: "8.5 / 11",
-              borderRadius: "6px",
-              boxShadow: "0 2px 16px rgba(0,0,0,0.10)",
-              overflow: "hidden",
-              padding: PAGE_PAD,
-              marginBottom: i < pageCount - 1 ? PAGE_GAP : 0,
-              position: "relative",
-            }}
-          >
-            {/* Inner clip viewport */}
-            <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
-              <div style={{
-                position: "absolute",
-                top: 0, left: 0, right: 0,
-                transform: innerH > 0 ? `translateY(${-i * innerH}px)` : undefined,
-              }}>
-                {recapContent}
-                <div style={{ height: spacerH }} />
-                {footerContent}
+        {Array.from({ length: pageCount }).map((_, i) => {
+          const pageH = innerH > 0 ? innerH + 2 * PAGE_PAD : undefined;
+          return (
+            <div
+              key={i}
+              style={{
+                background: "#FFFFFF",
+                height: pageH,
+                aspectRatio: pageH ? undefined : "8.5 / 11",
+                borderRadius: "6px",
+                boxShadow: "0 2px 16px rgba(0,0,0,0.10)",
+                overflow: "hidden",
+                padding: PAGE_PAD,
+                marginBottom: i < pageCount - 1 ? PAGE_GAP : 0,
+              }}
+            >
+              {/* Inner clip viewport */}
+              <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
+                <div style={{
+                  position: "absolute",
+                  top: 0, left: 0, right: 0,
+                  transform: innerH > 0 ? `translateY(${-i * innerH}px)` : undefined,
+                }}>
+                  {recapContent}
+                  <div style={{ height: spacerH }} />
+                  {footerContent}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
