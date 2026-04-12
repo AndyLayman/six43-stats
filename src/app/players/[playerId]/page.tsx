@@ -86,18 +86,19 @@ export default function PlayerDetailPage() {
 
   const milestones = useMemo(() => {
     if (!battingStats || Number(battingStats.at_bats) === 0) return [];
-    const DEFS = [
-      { id: "games-10", label: "10 Games", field: "games" as keyof BattingStats, target: 10, order: 0 },
-      { id: "games-25", label: "25 Games", field: "games" as keyof BattingStats, target: 25, order: 1 },
-      { id: "hits-10", label: "10 Hits", field: "hits" as keyof BattingStats, target: 10, order: 2 },
-      { id: "hits-25", label: "25 Hits", field: "hits" as keyof BattingStats, target: 25, order: 3 },
-      { id: "hits-50", label: "50 Hits", field: "hits" as keyof BattingStats, target: 50, order: 4 },
-      { id: "hr-1", label: "First Homer", field: "home_runs" as keyof BattingStats, target: 1, order: 5 },
-      { id: "hr-5", label: "5 Home Runs", field: "home_runs" as keyof BattingStats, target: 5, order: 6 },
-      { id: "rbi-10", label: "10 RBI", field: "rbis" as keyof BattingStats, target: 10, order: 7 },
-      { id: "rbi-25", label: "25 RBI", field: "rbis" as keyof BattingStats, target: 25, order: 8 },
-      { id: "sb-5", label: "5 Stolen Bases", field: "stolen_bases" as keyof BattingStats, target: 5, order: 9 },
-      { id: "sb-10", label: "10 Stolen Bases", field: "stolen_bases" as keyof BattingStats, target: 10, order: 10 },
+    type Tier = "bronze" | "silver" | "gold";
+    const DEFS: { id: string; label: string; field: keyof BattingStats; target: number; order: number; tier: Tier }[] = [
+      { id: "games-10", label: "10 Games", field: "games", target: 10, order: 0, tier: "bronze" },
+      { id: "games-25", label: "25 Games", field: "games", target: 25, order: 1, tier: "silver" },
+      { id: "hits-10", label: "10 Hits", field: "hits", target: 10, order: 2, tier: "bronze" },
+      { id: "hits-25", label: "25 Hits", field: "hits", target: 25, order: 3, tier: "silver" },
+      { id: "hits-50", label: "50 Hits", field: "hits", target: 50, order: 4, tier: "gold" },
+      { id: "hr-1", label: "First Homer", field: "home_runs", target: 1, order: 5, tier: "silver" },
+      { id: "hr-5", label: "5 Home Runs", field: "home_runs", target: 5, order: 6, tier: "gold" },
+      { id: "rbi-10", label: "10 RBI", field: "rbis", target: 10, order: 7, tier: "bronze" },
+      { id: "rbi-25", label: "25 RBI", field: "rbis", target: 25, order: 8, tier: "silver" },
+      { id: "sb-5", label: "5 Stolen Bases", field: "stolen_bases", target: 5, order: 9, tier: "bronze" },
+      { id: "sb-10", label: "10 Stolen Bases", field: "stolen_bases", target: 10, order: 10, tier: "silver" },
     ];
     const results = DEFS.map((def) => {
       const current = Number(battingStats[def.field]);
@@ -227,39 +228,43 @@ export default function PlayerDetailPage() {
             <CardTitle className="text-gradient">Milestones</CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {milestones.map((m) => (
-                <div
-                  key={m.id}
-                  className={`rounded-xl p-3 border transition-colors ${
-                    m.completed
-                      ? "bg-primary/10 border-primary/30"
-                      : "bg-muted/20 border-border/30"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    {m.completed && (
-                      <span className="text-primary text-sm font-bold">&#10003;</span>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              {milestones.map((m) => {
+                const R = 16;
+                const C = 2 * Math.PI * R;
+                const dash = (m.pct / 100) * C;
+                return (
+                  <div key={m.id} className="flex flex-col items-center text-center gap-1.5 py-2">
+                    {m.completed ? (
+                      <HexBadge tier={m.tier} />
+                    ) : (
+                      <div className="relative w-12 h-12">
+                        <svg viewBox="0 0 40 40" className="w-full h-full" style={{ transform: "rotate(-90deg)" }}>
+                          <circle cx="20" cy="20" r={R} fill="none" stroke="currentColor" strokeWidth="3" className="text-border/20" />
+                          <circle
+                            cx="20" cy="20" r={R} fill="none"
+                            stroke="currentColor" strokeWidth="3"
+                            strokeDasharray={`${dash} ${C}`}
+                            strokeLinecap="round"
+                            className={m.pct >= 75 ? "text-primary" : m.pct >= 40 ? "text-primary/60" : "text-muted-foreground/40"}
+                            style={{ transition: "stroke-dasharray 0.6s ease" }}
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-sm font-extrabold tabular-nums leading-none text-foreground">{m.current}</span>
+                          <span className="text-[7px] text-muted-foreground/50">/{m.target}</span>
+                        </div>
+                      </div>
                     )}
-                    <span className={`text-xs font-bold ${m.completed ? "text-primary" : "text-muted-foreground"}`}>
+                    <div className={`text-[10px] font-bold leading-tight ${m.completed ? "text-foreground" : "text-muted-foreground"}`}>
                       {m.label}
-                    </span>
+                    </div>
+                    {!m.completed && (
+                      <div className="text-[9px] text-muted-foreground/40 tabular-nums">{Math.round(m.pct)}%</div>
+                    )}
                   </div>
-                  {!m.completed && (
-                    <>
-                      <div className="h-1.5 rounded-full bg-border/30 overflow-hidden mb-1">
-                        <div
-                          className="h-full rounded-full bg-primary/50 transition-all"
-                          style={{ width: `${m.pct}%` }}
-                        />
-                      </div>
-                      <div className="text-[10px] text-muted-foreground tabular-nums">
-                        {m.current} / {m.target}
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -598,6 +603,78 @@ function Sparkline({ data, width = 60, height = 20 }: { data: number[]; width?: 
     <svg width={width} height={height} className="inline-block align-middle">
       <polyline points={points} fill="none" stroke="#E9D7B4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={lastX} cy={lastY} r="2" fill="#E9D7B4" />
+    </svg>
+  );
+}
+
+/* ── Hex Badge for milestone achievements ── */
+
+const BADGE_COLORS = {
+  bronze: {
+    outer: ["#8b6914", "#cd9b3a", "#8b6914"],
+    inner: ["#cd7f32", "#e8b862", "#cd7f32"],
+    icon: "#7a5518",
+    shadow: "rgba(205,127,50,0.25)",
+  },
+  silver: {
+    outer: ["#6b6b6b", "#b0b0b0", "#6b6b6b"],
+    inner: ["#a8a8a8", "#dcdcdc", "#a8a8a8"],
+    icon: "#707070",
+    shadow: "rgba(180,180,180,0.25)",
+  },
+  gold: {
+    outer: ["#9e7a10", "#d4a520", "#9e7a10"],
+    inner: ["#daa520", "#ffe44d", "#daa520"],
+    icon: "#8b7300",
+    shadow: "rgba(255,215,0,0.3)",
+  },
+} as const;
+
+function hexPath(cx: number, cy: number, r: number): string {
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 3) * i - Math.PI / 2;
+    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+  }).join(" ");
+}
+
+function HexBadge({ tier }: { tier: "bronze" | "silver" | "gold" }) {
+  const c = BADGE_COLORS[tier];
+  const uid = `hb-${tier}`;
+  return (
+    <svg viewBox="0 0 48 48" width={52} height={52} style={{ filter: `drop-shadow(0 2px 6px ${c.shadow})` }}>
+      <defs>
+        <linearGradient id={`${uid}-o`} x1="0" y1="0" x2="1" y2="1">
+          {c.outer.map((s, i) => <stop key={i} offset={`${(i / (c.outer.length - 1)) * 100}%`} stopColor={s} />)}
+        </linearGradient>
+        <linearGradient id={`${uid}-i`} x1="0" y1="0" x2="1" y2="1">
+          {c.inner.map((s, i) => <stop key={i} offset={`${(i / (c.inner.length - 1)) * 100}%`} stopColor={s} />)}
+        </linearGradient>
+        {/* Metallic sheen highlight */}
+        <linearGradient id={`${uid}-sh`} x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0%" stopColor="white" stopOpacity="0.35" />
+          <stop offset="50%" stopColor="white" stopOpacity="0" />
+          <stop offset="100%" stopColor="white" stopOpacity="0.1" />
+        </linearGradient>
+      </defs>
+      {/* Outer hex frame */}
+      <polygon points={hexPath(24, 24, 22)} fill={`url(#${uid}-o)`} />
+      {/* Inner hex body */}
+      <polygon points={hexPath(24, 24, 17)} fill={`url(#${uid}-i)`} />
+      {/* Metallic sheen on inner */}
+      <polygon points={hexPath(24, 24, 17)} fill={`url(#${uid}-sh)`} />
+      {/* Trophy icon */}
+      <g transform="translate(24, 23)" fill={c.icon}>
+        {/* Cup */}
+        <path d="M-5.5-6 h11 l-1.5 8 c-0.5 2-1.5 3-4 3.5 c-2.5-0.5-3.5-1.5-4-3.5 z" />
+        {/* Handles */}
+        <path d="M-5.5-4 c-2.5 0-3 3-2 5 c0.5 0.8 1.5 0.8 2 0" fill="none" stroke={c.icon} strokeWidth="1" />
+        <path d="M5.5-4 c2.5 0 3 3 2 5 c-0.5 0.8-1.5 0.8-2 0" fill="none" stroke={c.icon} strokeWidth="1" />
+        {/* Stem + base */}
+        <rect x="-1.5" y="5.5" width="3" height="2.5" rx="0.5" />
+        <rect x="-4" y="8" width="8" height="2" rx="1" />
+      </g>
+      {/* Edge highlight on outer hex */}
+      <polygon points={hexPath(24, 24, 22)} fill="none" stroke="white" strokeWidth="0.5" opacity="0.2" />
     </svg>
   );
 }
