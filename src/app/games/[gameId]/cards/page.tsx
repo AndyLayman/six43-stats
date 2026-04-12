@@ -262,7 +262,7 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
             transition: isDragging ? "none" : "transform 0.05s linear",
           }}
         >
-          {/* ═══ FRONT FACE ═══ */}
+          {/* ═══ FRONT FACE — Batter Silhouette Hero ═══ */}
           <div
             style={{
               ...cardFaceStyle,
@@ -273,11 +273,17 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
             {/* Dark background */}
             <div className="absolute inset-0 bg-[#0a0a0a]" />
 
+            {/* Geometric pattern overlay */}
+            <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{
+              backgroundImage: `repeating-linear-gradient(60deg, transparent, transparent 20px, ${config.colors[1]} 20px, ${config.colors[1]} 21px),
+                repeating-linear-gradient(-60deg, transparent, transparent 20px, ${config.colors[1]} 20px, ${config.colors[1]} 21px)`,
+            }} />
+
             {/* Holographic foil that shifts with rotation */}
             <div
               className="absolute inset-0 pointer-events-none z-10"
               style={{
-                background: `linear-gradient(${foilAngle}deg, transparent 20%, rgba(255,255,255,0.03) 35%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.03) 65%, transparent 80%)`,
+                background: `linear-gradient(${foilAngle}deg, transparent 15%, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.02) 70%, transparent 85%)`,
               }}
             />
 
@@ -286,66 +292,194 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
               className="absolute inset-0 pointer-events-none z-10"
               style={{
                 background: `linear-gradient(${shimmerAngle}deg,
-                  rgba(255,0,0,0.06), rgba(255,165,0,0.06), rgba(255,255,0,0.06),
-                  rgba(0,255,0,0.06), rgba(0,127,255,0.06), rgba(128,0,255,0.06))`,
-                opacity: isDragging ? 0.8 : 0.3,
+                  rgba(255,0,0,0.08), rgba(255,165,0,0.08), rgba(255,255,0,0.08),
+                  rgba(0,255,0,0.08), rgba(0,127,255,0.08), rgba(128,0,255,0.08))`,
+                opacity: isDragging ? 1 : 0.4,
               }}
             />
 
-            {/* Top / bottom borders */}
+            {/* Rarity border — all 4 sides */}
             <div className="absolute top-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
             <div className="absolute bottom-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
+            <div className="absolute top-0 left-0 bottom-0 w-1 z-20" style={{ background: `linear-gradient(180deg, ${config.colors.join(", ")})` }} />
+            <div className="absolute top-0 right-0 bottom-0 w-1 z-20" style={{ background: `linear-gradient(180deg, ${config.colors.join(", ")})` }} />
 
             {/* Front card content */}
-            <div className="relative z-20 flex flex-col h-full p-5">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-2">
+            <div className="relative z-20 flex flex-col h-full">
+              {/* Rarity + date header */}
+              <div className="flex items-center justify-between px-5 pt-4 pb-1">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ backgroundImage: gradientStr, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                   {config.label}
                 </span>
                 <span className="text-[10px] text-zinc-500 tabular-nums">{gameDate}</span>
               </div>
 
-              {/* Big number + spray chart */}
-              <div className="flex items-center gap-2 mb-2">
-                <div className="shrink-0 flex items-center justify-center w-24 h-24">
-                  <span
-                    className="text-7xl font-black leading-none"
-                    style={{
-                      backgroundImage: gradientStr,
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      filter: `drop-shadow(0 0 12px ${config.glow})`,
-                    }}
-                  >
-                    {stats.player.number}
-                  </span>
+              {/* Batter silhouette — large centered hero */}
+              <div className="flex-1 flex items-center justify-center relative">
+                {/* Glow behind silhouette */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-40 h-40 rounded-full" style={{
+                    background: `radial-gradient(circle, ${config.glow}, transparent 70%)`,
+                    filter: "blur(20px)",
+                  }} />
                 </div>
-                <div className="flex-1 h-24 text-zinc-300">
-                  {stats.sprayHits.length > 0 ? (
-                    <MiniSprayChart hits={stats.sprayHits} glowColor={config.glow} />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-[10px] text-zinc-600 uppercase tracking-wider">
-                      No spray data
-                    </div>
-                  )}
-                </div>
+                <svg viewBox="0 0 120 200" className="w-44 h-64 relative z-10" style={{ filter: `drop-shadow(0 0 18px ${config.glow})` }}>
+                  <defs>
+                    <linearGradient id={`batter-grad-${stats.playerId}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={config.colors[1]} />
+                      <stop offset="50%" stopColor={config.colors[0]} />
+                      <stop offset="100%" stopColor={config.colors[2] ?? config.colors[0]} />
+                    </linearGradient>
+                  </defs>
+                  {/* Batter silhouette — left-handed batting stance */}
+                  <g fill={`url(#batter-grad-${stats.playerId})`} opacity="0.9">
+                    {/* Helmet / head */}
+                    <ellipse cx="72" cy="42" rx="12" ry="13" />
+                    <rect x="63" y="32" width="20" height="6" rx="3" /> {/* brim */}
+                    {/* Torso */}
+                    <path d="M 58 54 Q 54 80 56 105 L 78 105 Q 80 80 76 54 Z" />
+                    {/* Front arm (bottom hand on bat) */}
+                    <path d="M 58 62 Q 44 68 38 60 Q 34 54 38 44 L 42 44 Q 40 52 42 56 Q 46 62 56 58 Z" />
+                    {/* Back arm (top hand) */}
+                    <path d="M 76 60 Q 82 52 80 44 L 84 42 Q 88 52 82 64 Z" />
+                    {/* Bat */}
+                    <rect x="36" y="10" width="4" height="38" rx="2" transform="rotate(15 38 30)" />
+                    <rect x="34" y="8" width="8" height="6" rx="2" transform="rotate(15 38 11)" /> {/* knob */}
+                    {/* Front leg */}
+                    <path d="M 58 102 Q 50 135 48 160 L 42 162 L 40 170 L 54 170 L 54 164 L 52 160 Q 54 138 62 108 Z" />
+                    {/* Back leg */}
+                    <path d="M 72 102 Q 78 130 82 155 L 78 162 L 76 170 L 90 170 L 90 164 L 86 158 Q 82 132 76 108 Z" />
+                  </g>
+                </svg>
               </div>
 
-              {/* Name */}
-              <div className="text-center mb-0.5">
-                <div className="text-xl font-black tracking-tight text-white leading-tight">{fullName(stats.player)}</div>
-              </div>
-
-              {/* Matchup + score */}
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <span className="text-[11px] text-zinc-400">vs {opponentName}</span>
-                <span className={`text-[11px] font-bold ${isWin ? "text-emerald-400" : game.our_score === game.opponent_score ? "text-zinc-400" : "text-red-400"}`}>
-                  {isWin ? "W" : game.our_score === game.opponent_score ? "T" : "L"} {scoreLine}
+              {/* Jersey number — big, bottom-left */}
+              <div className="absolute bottom-16 left-5 z-20">
+                <span
+                  className="text-6xl font-black leading-none"
+                  style={{
+                    backgroundImage: gradientStr,
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    filter: `drop-shadow(0 0 10px ${config.glow})`,
+                    opacity: 0.9,
+                  }}
+                >
+                  {stats.player.number}
                 </span>
               </div>
 
-              {/* Primary stats */}
+              {/* Name bar at bottom */}
+              <div className="px-5 pb-4 pt-2" style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.8))" }}>
+                <div className="text-xl font-black tracking-tight text-white leading-tight">{fullName(stats.player)}</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[11px] text-zinc-400">vs {opponentName}</span>
+                  <span className={`text-[11px] font-bold ${isWin ? "text-emerald-400" : game.our_score === game.opponent_score ? "text-zinc-400" : "text-red-400"}`}>
+                    {isWin ? "W" : game.our_score === game.opponent_score ? "T" : "L"} {scoreLine}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ EDGE STRIPS (card thickness) ═══ */}
+          {[
+            // right
+            { w: DEPTH, h: 420, l: 280 - half, t: 0, rx: 0, ry: 90, tz: 280 - half, origin: "right center" },
+            // left
+            { w: DEPTH, h: 420, l: -half, t: 0, rx: 0, ry: -90, tz: half, origin: "left center" },
+            // top
+            { w: 280, h: DEPTH, l: 0, t: -half, rx: 90, ry: 0, tz: half, origin: "center top" },
+            // bottom
+            { w: 280, h: DEPTH, l: 0, t: 420 - half, rx: -90, ry: 0, tz: 420 - half, origin: "center bottom" },
+          ].map((e, i) => (
+            <div key={`edge-${i}`} style={{
+              position: "absolute",
+              width: e.w, height: e.h,
+              left: e.l, top: e.t,
+              background: `#111`,
+              borderLeft: i < 2 ? `1px solid ${edgeColor}33` : undefined,
+              borderRight: i < 2 ? `1px solid ${edgeColor}33` : undefined,
+              borderTop: i >= 2 ? `1px solid ${edgeColor}33` : undefined,
+              borderBottom: i >= 2 ? `1px solid ${edgeColor}33` : undefined,
+              transform: `rotateX(${e.rx}deg) rotateY(${e.ry}deg)`,
+              transformOrigin: e.origin,
+            }} />
+          ))}
+
+          {/* ═══ BACK FACE — Stats & Info ═══ */}
+          <div
+            style={{
+              ...cardFaceStyle,
+              transform: `rotateY(180deg) translateZ(${half}px)`,
+              boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.5)`,
+            }}
+          >
+            <div className="absolute inset-0 bg-[#0a0a0a]" />
+
+            {/* Subtle pattern background */}
+            <div className="absolute inset-0 opacity-[0.03]" style={{
+              backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, currentColor 10px, currentColor 11px)`,
+              color: config.colors[1],
+            }} />
+
+            {/* Holographic foil on back */}
+            <div className="absolute inset-0 pointer-events-none z-10" style={{
+              background: `linear-gradient(${foilAngle + 180}deg, transparent 15%, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.02) 70%, transparent 85%)`,
+            }} />
+
+            {/* Rainbow shimmer on back */}
+            <div className="absolute inset-0 pointer-events-none z-10" style={{
+              background: `linear-gradient(${shimmerAngle + 180}deg,
+                rgba(255,0,0,0.06), rgba(255,165,0,0.06), rgba(255,255,0,0.06),
+                rgba(0,255,0,0.06), rgba(0,127,255,0.06), rgba(128,0,255,0.06))`,
+              opacity: isDragging ? 0.8 : 0.3,
+            }} />
+
+            {/* Rarity border — all 4 sides */}
+            <div className="absolute top-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
+            <div className="absolute bottom-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
+            <div className="absolute top-0 left-0 bottom-0 w-1 z-20" style={{ background: `linear-gradient(180deg, ${config.colors.join(", ")})` }} />
+            <div className="absolute top-0 right-0 bottom-0 w-1 z-20" style={{ background: `linear-gradient(180deg, ${config.colors.join(", ")})` }} />
+
+            {/* Back content */}
+            <div className="relative z-20 flex flex-col h-full p-5">
+              {/* Name + number header */}
+              <div className="flex items-center justify-between mb-1">
+                <div>
+                  <div className="text-lg font-black text-white leading-tight">{fullName(stats.player)}</div>
+                  <div className="text-[11px] text-zinc-500">vs {opponentName} &middot; {gameDate}</div>
+                </div>
+                <span
+                  className="text-3xl font-black leading-none"
+                  style={{
+                    backgroundImage: gradientStr,
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  #{stats.player.number}
+                </span>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px mb-3" style={{ background: gradientStr, opacity: 0.4 }} />
+
+              {/* Spray chart */}
+              <div className="w-full h-32 text-zinc-300 mb-3">
+                {stats.sprayHits.length > 0 ? (
+                  <MiniSprayChart hits={stats.sprayHits} glowColor={config.glow} />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <svg viewBox="0 0 80 80" className="w-16 h-16 opacity-10">
+                      <path d="M 40 70 L 10 40 L 40 10 L 70 40 Z" fill="none" stroke="currentColor" strokeWidth="2" />
+                      <rect x="37" y="67" width="6" height="6" fill="currentColor" transform="rotate(45 40 70)" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              {/* Primary stats row */}
               <div className="grid grid-cols-4 gap-1 mb-2">
                 <StatBox label="H" value={stats.hits} max={stats.atBats} highlight={stats.hits >= 2} config={config} />
                 <StatBox label="RBI" value={stats.rbis} highlight={stats.rbis >= 2} config={config} />
@@ -353,7 +487,7 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
                 <StatBox label="AVG" value={stats.atBats > 0 ? formatAvg(stats.avg) : "-"} highlight={stats.avg >= 0.5 && stats.atBats > 0} config={config} />
               </div>
 
-              {/* Secondary stats */}
+              {/* Secondary stats row */}
               <div className="grid grid-cols-4 gap-1 mb-3">
                 <StatBox label="2B" value={stats.doubles} highlight={stats.doubles > 0} config={config} small />
                 <StatBox label="3B" value={stats.triples} highlight={stats.triples > 0} config={config} small />
@@ -386,114 +520,9 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* ═══ EDGE STRIPS (card thickness) ═══ */}
-          {[
-            // right
-            { w: DEPTH, h: 420, l: 280 - half, t: 0, rx: 0, ry: 90, tz: 280 - half, origin: "right center" },
-            // left
-            { w: DEPTH, h: 420, l: -half, t: 0, rx: 0, ry: -90, tz: half, origin: "left center" },
-            // top
-            { w: 280, h: DEPTH, l: 0, t: -half, rx: 90, ry: 0, tz: half, origin: "center top" },
-            // bottom
-            { w: 280, h: DEPTH, l: 0, t: 420 - half, rx: -90, ry: 0, tz: 420 - half, origin: "center bottom" },
-          ].map((e, i) => (
-            <div key={`edge-${i}`} style={{
-              position: "absolute",
-              width: e.w, height: e.h,
-              left: e.l, top: e.t,
-              background: `#111`,
-              borderLeft: i < 2 ? `1px solid ${edgeColor}33` : undefined,
-              borderRight: i < 2 ? `1px solid ${edgeColor}33` : undefined,
-              borderTop: i >= 2 ? `1px solid ${edgeColor}33` : undefined,
-              borderBottom: i >= 2 ? `1px solid ${edgeColor}33` : undefined,
-              transform: `rotateX(${e.rx}deg) rotateY(${e.ry}deg)`,
-              transformOrigin: e.origin,
-            }} />
-          ))}
-
-          {/* ═══ BACK FACE ═══ */}
-          <div
-            style={{
-              ...cardFaceStyle,
-              transform: `rotateY(180deg) translateZ(${half}px)`,
-              boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.5)`,
-            }}
-          >
-            <div className="absolute inset-0 bg-[#0a0a0a]" />
-
-            {/* Subtle pattern background */}
-            <div className="absolute inset-0 opacity-[0.04]" style={{
-              backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, currentColor 10px, currentColor 11px)`,
-              color: config.colors[1],
-            }} />
-
-            {/* Holographic foil on back */}
-            <div className="absolute inset-0 pointer-events-none z-10" style={{
-              background: `linear-gradient(${foilAngle + 180}deg, transparent 20%, rgba(255,255,255,0.03) 35%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.03) 65%, transparent 80%)`,
-            }} />
-
-            {/* Top / bottom borders */}
-            <div className="absolute top-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
-            <div className="absolute bottom-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
-
-            {/* Back content */}
-            <div className="relative z-20 flex flex-col items-center justify-center h-full p-6">
-              {/* Big centered spray chart */}
-              <div className="w-52 h-52 text-zinc-300 mb-4">
-                {stats.sprayHits.length > 0 ? (
-                  <MiniSprayChart hits={stats.sprayHits} glowColor={config.glow} />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <svg viewBox="0 0 80 80" className="w-20 h-20 opacity-10">
-                      <path d="M 40 70 L 10 40 L 40 10 L 70 40 Z" fill="none" stroke="currentColor" strokeWidth="2" />
-                      <rect x="37" y="67" width="6" height="6" fill="currentColor" transform="rotate(45 40 70)" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-
-              {/* Name + number */}
-              <div
-                className="text-5xl font-black mb-1"
-                style={{
-                  backgroundImage: gradientStr,
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  filter: `drop-shadow(0 0 8px ${config.glow})`,
-                }}
-              >
-                #{stats.player.number}
-              </div>
-              <div className="text-lg font-black text-white mb-3">{fullName(stats.player)}</div>
-
-              {/* Game summary line */}
-              <div className="text-[11px] text-zinc-500 mb-4">
-                vs {opponentName} &middot; {gameDate}
-              </div>
-
-              {/* Condensed box score */}
-              <div className="w-full grid grid-cols-3 gap-y-2 text-center">
-                <div>
-                  <div className="text-2xl font-black text-white">{stats.hits}<span className="text-zinc-600 text-sm">/{stats.atBats}</span></div>
-                  <div className="text-[9px] text-zinc-600 uppercase tracking-wider">Hits</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-black text-white">{stats.rbis}</div>
-                  <div className="text-[9px] text-zinc-600 uppercase tracking-wider">RBI</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-black" style={{ backgroundImage: gradientStr, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                    {stats.atBats > 0 ? formatAvg(stats.avg) : "-"}
-                  </div>
-                  <div className="text-[9px] text-zinc-600 uppercase tracking-wider">AVG</div>
-                </div>
-              </div>
 
               {/* Rarity badge */}
-              <div className="mt-auto pt-4">
+              <div className="flex justify-center mt-3">
                 <span
                   className="text-[10px] font-black uppercase tracking-[0.25em] px-3 py-1 rounded-full border"
                   style={{
