@@ -226,6 +226,11 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
   const foilAngle = 135 + (rot.y % 360) * 0.5;
   const shimmerAngle = 115 + (rot.y % 360) * 0.7;
 
+  // Card thickness
+  const DEPTH = 6;
+  const half = DEPTH / 2;
+  const edgeColor = config.colors[0];
+
   const cardFaceStyle: React.CSSProperties = {
     position: "absolute",
     width: "100%",
@@ -261,7 +266,7 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
           <div
             style={{
               ...cardFaceStyle,
-              transform: `translateZ(0)`,
+              transform: `translateZ(${half}px)`,
               boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.5)`,
             }}
           >
@@ -384,11 +389,36 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
             </div>
           </div>
 
+          {/* ═══ EDGE STRIPS (card thickness) ═══ */}
+          {[
+            // right
+            { w: DEPTH, h: 420, l: 280 - half, t: 0, rx: 0, ry: 90, tz: 280 - half, origin: "right center" },
+            // left
+            { w: DEPTH, h: 420, l: -half, t: 0, rx: 0, ry: -90, tz: half, origin: "left center" },
+            // top
+            { w: 280, h: DEPTH, l: 0, t: -half, rx: 90, ry: 0, tz: half, origin: "center top" },
+            // bottom
+            { w: 280, h: DEPTH, l: 0, t: 420 - half, rx: -90, ry: 0, tz: 420 - half, origin: "center bottom" },
+          ].map((e, i) => (
+            <div key={`edge-${i}`} style={{
+              position: "absolute",
+              width: e.w, height: e.h,
+              left: e.l, top: e.t,
+              background: `#111`,
+              borderLeft: i < 2 ? `1px solid ${edgeColor}33` : undefined,
+              borderRight: i < 2 ? `1px solid ${edgeColor}33` : undefined,
+              borderTop: i >= 2 ? `1px solid ${edgeColor}33` : undefined,
+              borderBottom: i >= 2 ? `1px solid ${edgeColor}33` : undefined,
+              transform: `rotateX(${e.rx}deg) rotateY(${e.ry}deg)`,
+              transformOrigin: e.origin,
+            }} />
+          ))}
+
           {/* ═══ BACK FACE ═══ */}
           <div
             style={{
               ...cardFaceStyle,
-              transform: "rotateY(180deg)",
+              transform: `rotateY(180deg) translateZ(${half}px)`,
               boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.5)`,
             }}
           >
