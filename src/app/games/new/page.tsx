@@ -277,8 +277,7 @@ export default function NewGamePage() {
                   {logoSvg.trim() ? (
                     <div
                       className="w-8 h-8 [&>svg]:w-full [&>svg]:h-full"
-                      style={{ color: colorFg }}
-                      dangerouslySetInnerHTML={{ __html: logoSvg.replace(/fill="[^"]*"/g, 'fill="currentColor"').replace(/stroke="[^"]*"/g, 'stroke="currentColor"') }}
+                      dangerouslySetInnerHTML={{ __html: logoSvg }}
                     />
                   ) : (
                     <span className="text-lg font-bold" style={{ color: colorFg }}>
