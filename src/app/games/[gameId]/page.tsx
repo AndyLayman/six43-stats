@@ -123,6 +123,7 @@ export default function GameDetailPage() {
 
   // Editing state
   const [editingInfo, setEditingInfo] = useState(false);
+  const [editingBranding, setEditingBranding] = useState(false);
   const [editOpponent, setEditOpponent] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editLocation, setEditLocation] = useState<"home" | "away">("home");
@@ -197,6 +198,29 @@ export default function GameDetailPage() {
     if (!error) {
       setGame({ ...game, opponent: editOpponent.trim(), date: editDate, location: editLocation, game_time: editGameTime.trim() || null, notes: editNotes.trim() || null, opponent_logo_svg: editLogoSvg.trim() || null, opponent_color_fg: editColorFg, opponent_color_bg: editColorBg });
       setEditingInfo(false);
+    }
+    setSavingInfo(false);
+  }
+
+  function startEditBranding() {
+    if (!game) return;
+    setEditLogoSvg(game.opponent_logo_svg || "");
+    setEditColorFg(game.opponent_color_fg || "#ffffff");
+    setEditColorBg(game.opponent_color_bg || "#000000");
+    setEditingBranding(true);
+  }
+
+  async function saveBranding() {
+    if (!game) return;
+    setSavingInfo(true);
+    const { error } = await supabase.from("games").update({
+      opponent_logo_svg: editLogoSvg.trim() || null,
+      opponent_color_fg: editColorFg,
+      opponent_color_bg: editColorBg,
+    }).eq("id", gameId);
+    if (!error) {
+      setGame({ ...game, opponent_logo_svg: editLogoSvg.trim() || null, opponent_color_fg: editColorFg, opponent_color_bg: editColorBg });
+      setEditingBranding(false);
     }
     setSavingInfo(false);
   }
@@ -704,6 +728,115 @@ export default function GameDetailPage() {
           <CardContent className="p-4">
             <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Notes</div>
             <div className="text-sm whitespace-pre-wrap">{game.notes}</div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Opponent Branding — always editable */}
+      {!editingBranding && (
+        <Card className="glass">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Opponent Branding</div>
+              <button
+                onClick={startEditBranding}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+              >
+                <EditPencil width={12} height={12} /> Edit
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-14 h-14 rounded-lg border border-border/50 flex items-center justify-center overflow-hidden shrink-0"
+                style={{ backgroundColor: game.opponent_color_bg || "#000000" }}
+              >
+                {game.opponent_logo_svg ? (
+                  <div
+                    className="w-10 h-10 [&>svg]:w-full [&>svg]:h-full"
+                    dangerouslySetInnerHTML={{ __html: game.opponent_logo_svg }}
+                  />
+                ) : (
+                  <span className="text-2xl font-bold" style={{ color: game.opponent_color_fg || "#ffffff" }}>
+                    {game.opponent?.[0]?.toUpperCase() || "?"}
+                  </span>
+                )}
+              </div>
+              <div>
+                <div className="font-medium">{game.opponent}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-4 h-4 rounded-sm border border-border/30" style={{ backgroundColor: game.opponent_color_fg || "#ffffff" }} />
+                  <div className="w-4 h-4 rounded-sm border border-border/30" style={{ backgroundColor: game.opponent_color_bg || "#000000" }} />
+                  <span className="text-xs text-muted-foreground">{game.opponent_logo_svg ? "Custom logo" : "No logo"}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {editingBranding && (
+        <Card className="glass border-primary/30">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Edit Opponent Branding</div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditingBranding(false)} className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1">
+                  <Xmark width={12} height={12} /> Cancel
+                </button>
+                <button onClick={saveBranding} disabled={savingInfo} className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1 font-medium">
+                  <Check width={12} height={12} /> {savingInfo ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label>Team Colors</Label>
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">Logo</label>
+                  <input
+                    type="color"
+                    value={editColorFg}
+                    onChange={(e) => setEditColorFg(e.target.value)}
+                    className="w-10 h-10 rounded-lg border border-border/50 cursor-pointer bg-transparent p-0.5"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">BG</label>
+                  <input
+                    type="color"
+                    value={editColorBg}
+                    onChange={(e) => setEditColorBg(e.target.value)}
+                    className="w-10 h-10 rounded-lg border border-border/50 cursor-pointer bg-transparent p-0.5"
+                  />
+                </div>
+                <div
+                  className="w-12 h-12 rounded-lg border border-border/50 flex items-center justify-center overflow-hidden shrink-0"
+                  style={{ backgroundColor: editColorBg }}
+                >
+                  {editLogoSvg.trim() ? (
+                    <div
+                      className="w-8 h-8 [&>svg]:w-full [&>svg]:h-full"
+                      dangerouslySetInnerHTML={{ __html: editLogoSvg }}
+                    />
+                  ) : (
+                    <span className="text-lg font-bold" style={{ color: editColorFg }}>
+                      {game.opponent?.[0]?.toUpperCase() || "?"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-logo-svg">Logo SVG Code</Label>
+              <textarea
+                id="edit-logo-svg"
+                value={editLogoSvg}
+                onChange={(e) => setEditLogoSvg(e.target.value)}
+                placeholder='<svg viewBox="0 0 24 24">...</svg>'
+                rows={3}
+                className="w-full mt-1 rounded-xl border border-border/50 bg-input/50 px-3 py-2 text-sm font-mono focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30 resize-y"
+              />
+            </div>
           </CardContent>
         </Card>
       )}
