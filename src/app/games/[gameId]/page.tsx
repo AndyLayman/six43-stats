@@ -128,6 +128,9 @@ export default function GameDetailPage() {
   const [editLocation, setEditLocation] = useState<"home" | "away">("home");
   const [editGameTime, setEditGameTime] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editLogoSvg, setEditLogoSvg] = useState("");
+  const [editColorFg, setEditColorFg] = useState("#ffffff");
+  const [editColorBg, setEditColorBg] = useState("#000000");
   const [savingInfo, setSavingInfo] = useState(false);
 
   // Venue editing
@@ -172,6 +175,9 @@ export default function GameDetailPage() {
     setEditLocation(game.location || "home");
     setEditGameTime(game.game_time || "");
     setEditNotes(game.notes || "");
+    setEditLogoSvg(game.opponent_logo_svg || "");
+    setEditColorFg(game.opponent_color_fg || "#ffffff");
+    setEditColorBg(game.opponent_color_bg || "#000000");
     setEditingInfo(true);
   }
 
@@ -184,9 +190,12 @@ export default function GameDetailPage() {
       location: editLocation,
       game_time: editGameTime.trim() || null,
       notes: editNotes.trim() || null,
+      opponent_logo_svg: editLogoSvg.trim() || null,
+      opponent_color_fg: editColorFg,
+      opponent_color_bg: editColorBg,
     }).eq("id", gameId);
     if (!error) {
-      setGame({ ...game, opponent: editOpponent.trim(), date: editDate, location: editLocation, game_time: editGameTime.trim() || null, notes: editNotes.trim() || null });
+      setGame({ ...game, opponent: editOpponent.trim(), date: editDate, location: editLocation, game_time: editGameTime.trim() || null, notes: editNotes.trim() || null, opponent_logo_svg: editLogoSvg.trim() || null, opponent_color_fg: editColorFg, opponent_color_bg: editColorBg });
       setEditingInfo(false);
     }
     setSavingInfo(false);
@@ -519,6 +528,57 @@ export default function GameDetailPage() {
                 rows={3}
                 placeholder="Game notes, reminders..."
                 className="w-full rounded-xl border border-border/50 bg-input/50 px-3 py-2 text-sm focus:border-primary/50 focus:outline-none resize-none"
+              />
+            </div>
+            {/* Opponent Branding */}
+            <div>
+              <Label>Opponent Colors</Label>
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">Logo</label>
+                  <input
+                    type="color"
+                    value={editColorFg}
+                    onChange={(e) => setEditColorFg(e.target.value)}
+                    className="w-10 h-10 rounded-lg border border-border/50 cursor-pointer bg-transparent p-0.5"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">BG</label>
+                  <input
+                    type="color"
+                    value={editColorBg}
+                    onChange={(e) => setEditColorBg(e.target.value)}
+                    className="w-10 h-10 rounded-lg border border-border/50 cursor-pointer bg-transparent p-0.5"
+                  />
+                </div>
+                <div
+                  className="w-12 h-12 rounded-lg border border-border/50 flex items-center justify-center overflow-hidden shrink-0"
+                  style={{ backgroundColor: editColorBg }}
+                >
+                  {editLogoSvg.trim() ? (
+                    <div
+                      className="w-8 h-8 [&>svg]:w-full [&>svg]:h-full"
+                      style={{ color: editColorFg }}
+                      dangerouslySetInnerHTML={{ __html: editLogoSvg.replace(/fill="[^"]*"/g, 'fill="currentColor"').replace(/stroke="[^"]*"/g, 'stroke="currentColor"') }}
+                    />
+                  ) : (
+                    <span className="text-lg font-bold" style={{ color: editColorFg }}>
+                      {editOpponent.trim() ? editOpponent.trim()[0].toUpperCase() : "?"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-logo-svg">Logo SVG Code</Label>
+              <textarea
+                id="edit-logo-svg"
+                value={editLogoSvg}
+                onChange={(e) => setEditLogoSvg(e.target.value)}
+                placeholder='<svg viewBox="0 0 24 24">...</svg>'
+                rows={3}
+                className="w-full mt-1 rounded-xl border border-border/50 bg-input/50 px-3 py-2 text-sm font-mono focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30 resize-y"
               />
             </div>
           </CardContent>
