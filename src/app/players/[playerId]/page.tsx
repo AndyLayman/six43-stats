@@ -15,6 +15,7 @@ import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, Fiel
 import { fullName } from "@/lib/player-name";
 import { StatTip } from "@/components/stat-tip";
 import { NavArrowLeft, Trophy, Gym } from "iconoir-react";
+import { PlayerDetailSkeleton } from "@/components/skeleton";
 
 type SprayFilter = "both" | "hits" | "outs";
 
@@ -123,11 +124,7 @@ export default function PlayerDetailPage() {
   }, [battingStats]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <PlayerDetailSkeleton />;
   }
 
   if (!player) {

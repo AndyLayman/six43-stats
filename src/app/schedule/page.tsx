@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { formatTime12 } from "@/lib/stats/calculations";
 import { TimePicker } from "@/components/time-picker";
 import { useRefresh } from "@/components/pull-to-refresh";
+import { ScheduleSkeleton } from "@/components/skeleton";
 import type { Game, Practice } from "@/lib/scoring/types";
 
 type ScheduleItem =
@@ -287,11 +288,7 @@ export default function SchedulePage() {
   const totalSelected = selectedGames.size + selectedPractices.size;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <ScheduleSkeleton />;
   }
 
   return (
@@ -455,7 +452,7 @@ export default function SchedulePage() {
             : "Nothing scheduled yet."}
         </p>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 stagger-children">
           {Array.from(grouped.entries()).map(([monthKey, monthItems]) => {
             const [year, monthIdx] = monthKey.split("-").map(Number);
             const monthLabel = `${MONTH_NAMES[monthIdx]} ${year}`;

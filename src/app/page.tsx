@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MilestoneFeed } from "@/components/milestone-feed";
 import { useRefresh } from "@/components/pull-to-refresh";
+import { DashboardSkeleton } from "@/components/skeleton";
+import { AnimatedNumber } from "@/components/animated-number";
 import { formatTime12 } from "@/lib/stats/calculations";
 import { fullName } from "@/lib/player-name";
 import { Trophy, Gym } from "iconoir-react";
@@ -83,12 +85,12 @@ export default function Dashboard() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useRefresh(load);
 
+  const formatAvgCounter = useCallback((v: number) => {
+    return v.toFixed(3).replace(/^0/, "");
+  }, []);
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
@@ -108,38 +110,53 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4 stagger-children">
-        {[
-          { label: "Players", value: players.length, href: "/players" },
-          { label: "Games Played", value: allFinalGames.length, href: "/schedule" },
-          {
-            label: "Record",
-            value: `${allFinalGames.filter((g) => g.our_score > g.opponent_score).length}-${allFinalGames.filter((g) => g.our_score < g.opponent_score).length}`,
-            href: "/schedule",
-          },
-          {
-            label: "Team AVG",
-            value:
-              battingStats.length > 0
-                ? (battingStats.reduce((sum, s) => sum + Number(s.avg), 0) / battingStats.length)
-                    .toFixed(3)
-                    .replace(/^0/, "")
+        {(() => {
+          const wins = allFinalGames.filter((g) => g.our_score > g.opponent_score).length;
+          const losses = allFinalGames.filter((g) => g.our_score < g.opponent_score).length;
+          const teamAvg = battingStats.length > 0
+            ? battingStats.reduce((sum, s) => sum + Number(s.avg), 0) / battingStats.length
+            : null;
+
+          const cards: { label: string; href: string; content: React.ReactNode }[] = [
+            {
+              label: "Players",
+              href: "/players",
+              content: <AnimatedNumber value={players.length} />,
+            },
+            {
+              label: "Games Played",
+              href: "/schedule",
+              content: <AnimatedNumber value={allFinalGames.length} />,
+            },
+            {
+              label: "Record",
+              href: "/schedule",
+              content: <><AnimatedNumber value={wins} />-<AnimatedNumber value={losses} /></>,
+            },
+            {
+              label: "Team AVG",
+              href: "/leaderboard",
+              content: teamAvg !== null
+                ? <AnimatedNumber value={teamAvg} format={formatAvgCounter} duration={800} />
                 : "---",
-            href: "/leaderboard",
-          },
-        ].map((stat) => (
-          <Link key={stat.label} href={stat.href}>
-            <Card className="card-hover glass gradient-border h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {stat.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{stat.value}</div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+            },
+          ];
+
+          return cards.map((stat) => (
+            <Link key={stat.label} href={stat.href}>
+              <Card className="card-hover glass gradient-border h-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    {stat.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{stat.content}</div>
+                </CardContent>
+              </Card>
+            </Link>
+          ));
+        })()}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { NavArrowUpSolid, NavArrowDownSolid } from "iconoir-react";
@@ -35,6 +35,23 @@ function gameTimeToday(dateStr: string, timeStr: string | null): Date | null {
 /** Milliseconds until a given Date, floored to 0. */
 function msUntil(target: Date): number {
   return Math.max(0, target.getTime() - Date.now());
+}
+
+function ScorePop({ value, className }: { value: number; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const prevRef = useRef(value);
+
+  useEffect(() => {
+    if (prevRef.current !== value && ref.current) {
+      ref.current.classList.remove("score-pop");
+      // Force reflow to restart animation
+      void ref.current.offsetWidth;
+      ref.current.classList.add("score-pop");
+    }
+    prevRef.current = value;
+  }, [value]);
+
+  return <span ref={ref} className={className}>{value}</span>;
 }
 
 export function LiveGameTicker() {
@@ -206,9 +223,9 @@ export function LiveGameTicker() {
 
       {/* Score */}
       <div className="flex items-center gap-1.5 text-sm font-bold tabular-nums">
-        <span className="text-foreground">{game.ourScore}</span>
+        <ScorePop value={game.ourScore} className="text-foreground" />
         <span className="text-muted-foreground">-</span>
-        <span className="text-foreground">{game.opponentScore}</span>
+        <ScorePop value={game.opponentScore} className="text-foreground" />
       </div>
 
       {/* Mini diamond + inning */}

@@ -8,31 +8,100 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatAvg } from "@/lib/stats/calculations";
-import type { BattingStats, FieldingStats } from "@/lib/scoring/types";
+import type { BattingStats, FieldingStats, PlateAppearance, Game } from "@/lib/scoring/types";
 import { StatTip } from "@/components/stat-tip";
 import { computeBadges, BadgeRow } from "@/components/leaderboard-badges";
 import { useRefresh } from "@/components/pull-to-refresh";
 import { useAuth } from "@/components/auth-provider";
+import { LeaderboardSkeleton } from "@/components/skeleton";
 import { Lock } from "iconoir-react";
 
 type SortKey = keyof BattingStats;
+
+function Sparkline({ data, width = 60, height = 18 }: { data: number[]; width?: number; height?: number }) {
+  if (data.length < 2) return null;
+  const min = Math.min(...data) * 0.9;
+  const max = Math.max(...data) * 1.1;
+  const range = max - min || 0.001;
+  const pad = 2;
+  const w = width - pad * 2;
+  const h = height - pad * 2;
+  const points = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * w;
+    const y = pad + h - ((v - min) / range) * h;
+    return `${x},${y}`;
+  }).join(" ");
+  const lastX = pad + w;
+  const lastY = pad + h - ((data[data.length - 1] - min) / range) * h;
+  return (
+    <svg width={width} height={height} className="inline-block align-middle">
+      <polyline points={points} fill="none" stroke="#E9D7B4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+      <circle cx={lastX} cy={lastY} r="2" fill="#E9D7B4" />
+    </svg>
+  );
+}
 
 export default function LeaderboardPage() {
   const { hasRole, loading: authLoading } = useAuth();
 
   const [battingStats, setBattingStats] = useState<BattingStats[]>([]);
   const [fieldingStats, setFieldingStats] = useState<FieldingStats[]>([]);
+  const [avgTrends, setAvgTrends] = useState<Map<number, number[]>>(new Map());
   const [sortBy, setSortBy] = useState<SortKey>("avg");
   const [sortAsc, setSortAsc] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [battingRes, fieldingRes] = await Promise.all([
+    const [battingRes, fieldingRes, pasRes, gamesRes] = await Promise.all([
       cachedQuery<BattingStats[]>("batting_stats_all", () => supabase.from("batting_stats_season").select("*")),
       cachedQuery<FieldingStats[]>("fielding_stats_all", () => supabase.from("fielding_stats_season").select("*")),
+      cachedQuery<PlateAppearance[]>("plate_appearances:us", () =>
+        supabase.from("plate_appearances").select("player_id,game_id,is_at_bat,is_hit").eq("team", "us")
+      ),
+      cachedQuery<Game[]>("games:all", () => supabase.from("games").select("*")),
     ]);
     setBattingStats(battingRes.data ?? []);
     setFieldingStats(fieldingRes.data ?? []);
+
+    // Compute per-player running AVG sparkline data
+    const pas = pasRes.data ?? [];
+    const games = (gamesRes.data ?? []).filter(g => g.status === "final").sort((a, b) => a.date.localeCompare(b.date));
+    const gameOrder = new Map(games.map((g, i) => [g.id, i]));
+
+    const byPlayer = new Map<number, PlateAppearance[]>();
+    for (const pa of pas) {
+      if (!pa.player_id) continue;
+      const arr = byPlayer.get(pa.player_id) ?? [];
+      arr.push(pa);
+      byPlayer.set(pa.player_id, arr);
+    }
+
+    const trends = new Map<number, number[]>();
+    for (const [pid, playerPAs] of byPlayer) {
+      // Group PAs by game, sorted by game date
+      const gameGroups = new Map<string, PlateAppearance[]>();
+      for (const pa of playerPAs) {
+        const arr = gameGroups.get(pa.game_id) ?? [];
+        arr.push(pa);
+        gameGroups.set(pa.game_id, arr);
+      }
+      const sortedGameIds = [...gameGroups.keys()]
+        .filter(id => gameOrder.has(id))
+        .sort((a, b) => (gameOrder.get(a) ?? 0) - (gameOrder.get(b) ?? 0));
+
+      if (sortedGameIds.length < 2) continue;
+
+      let cumHits = 0, cumAB = 0;
+      const points: number[] = [];
+      for (const gid of sortedGameIds) {
+        const gPAs = gameGroups.get(gid)!;
+        cumAB += gPAs.filter(pa => pa.is_at_bat).length;
+        cumHits += gPAs.filter(pa => pa.is_hit).length;
+        points.push(cumAB > 0 ? cumHits / cumAB : 0);
+      }
+      trends.set(pid, points);
+    }
+    setAvgTrends(trends);
     setLoading(false);
   }, []);
 
@@ -77,11 +146,7 @@ export default function LeaderboardPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <LeaderboardSkeleton />;
   }
 
   const SortHeader = ({ label, field }: { label: string; field: SortKey }) => (
@@ -164,11 +229,16 @@ export default function LeaderboardPage() {
                               </span>
                               <span className="font-semibold">{stat.player_name}</span>
                             </div>
-                            <span className="text-lg font-extrabold tabular-nums text-gradient-bright">
-                              {sortBy === "avg" || sortBy === "obp" || sortBy === "slg" || sortBy === "ops"
-                                ? formatAvg(Number(stat[sortBy]))
-                                : String(stat[sortBy])}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              {avgTrends.has(stat.player_id) && (
+                                <Sparkline data={avgTrends.get(stat.player_id)!} width={48} height={16} />
+                              )}
+                              <span className="text-lg font-extrabold tabular-nums text-gradient-bright">
+                                {sortBy === "avg" || sortBy === "obp" || sortBy === "slg" || sortBy === "ops"
+                                  ? formatAvg(Number(stat[sortBy]))
+                                  : String(stat[sortBy])}
+                              </span>
+                            </div>
                           </div>
                           <div className="grid grid-cols-4 gap-2 text-center">
                             {[
@@ -231,6 +301,9 @@ export default function LeaderboardPage() {
                               <Link href={`/players/${stat.player_id}`} className="font-medium hover:text-primary transition-colors">
                                 {stat.player_name}
                               </Link>
+                              {avgTrends.has(stat.player_id) && (
+                                <Sparkline data={avgTrends.get(stat.player_id)!} />
+                              )}
                               {badges.get(stat.player_id)?.length ? (
                                 <BadgeRow badges={badges.get(stat.player_id)!} />
                               ) : null}

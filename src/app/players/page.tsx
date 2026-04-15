@@ -12,6 +12,8 @@ import { formatAvg } from "@/lib/stats/calculations";
 import { NavArrowUp, NavArrowDown } from "iconoir-react";
 import { fullName } from "@/lib/player-name";
 import { useRefresh } from "@/components/pull-to-refresh";
+import { PlayersSkeleton } from "@/components/skeleton";
+import { PlayerCompare } from "@/components/player-compare";
 import type { Player } from "@/lib/scoring/types";
 
 interface PlayerWithStats extends Player {
@@ -122,6 +124,7 @@ export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showOrder, setShowOrder] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -193,23 +196,28 @@ export default function PlayersPage() {
   const optimizedOrder = useMemo(() => generateOptimizedOrder(players), [players]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <PlayersSkeleton />;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-extrabold tracking-tight text-gradient">Players</h1>
-        <Button
-          onClick={() => setShowOrder(true)}
-          className="bg-primary text-primary-foreground font-semibold"
-        >
-          Optimized Order
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowCompare(true)}
+            className="border-primary/30 text-primary hover:bg-primary/10 font-semibold"
+          >
+            Compare
+          </Button>
+          <Button
+            onClick={() => setShowOrder(true)}
+            className="bg-primary text-primary-foreground font-semibold"
+          >
+            Optimized Order
+          </Button>
+        </div>
       </div>
 
       <Dialog open={showOrder} onOpenChange={setShowOrder}>
@@ -248,6 +256,8 @@ export default function PlayersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <PlayerCompare open={showCompare} onClose={() => setShowCompare(false)} players={players} />
 
       <Card className="glass border-border/50">
         <CardHeader className="px-3 sm:px-6">
