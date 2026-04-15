@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { cachedQuery } from "@/lib/query-cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MilestoneFeed } from "@/components/milestone-feed";
@@ -27,13 +28,13 @@ export default function Dashboard() {
     const fiveDaysAgo = new Date(Date.now() - 5 * 86400000).toISOString().split("T")[0];
 
     const [playersRes, recentRes, upcomingRes, allGamesRes, statsRes, gameChainRes, hardWorkerRes] = await Promise.all([
-      supabase.from("players").select("*").order("sort_order"),
-      supabase.from("games").select("*").gte("date", fiveDaysAgo).lte("date", today).order("date", { ascending: false }).limit(5),
-      supabase.from("games").select("*").gt("date", today).order("date", { ascending: true }).limit(5),
-      supabase.from("games").select("*").eq("status", "final"),
-      supabase.from("batting_stats_season").select("*").order("avg", { ascending: false }).limit(5),
-      supabase.from("chain_awards").select("*").eq("award_type", "game_chain").order("date", { ascending: false }).limit(1),
-      supabase.from("chain_awards").select("*").eq("award_type", "hard_worker").order("date", { ascending: false }).limit(1),
+      cachedQuery<Player[]>("players", () => supabase.from("players").select("*").order("sort_order")),
+      cachedQuery<Game[]>(`games:recent:${fiveDaysAgo}`, () => supabase.from("games").select("*").gte("date", fiveDaysAgo).lte("date", today).order("date", { ascending: false }).limit(5)),
+      cachedQuery<Game[]>(`games:upcoming:${today}`, () => supabase.from("games").select("*").gt("date", today).order("date", { ascending: true }).limit(5)),
+      cachedQuery<Game[]>("games:final", () => supabase.from("games").select("*").eq("status", "final")),
+      cachedQuery<BattingStats[]>("batting_stats", () => supabase.from("batting_stats_season").select("*").order("avg", { ascending: false }).limit(5)),
+      cachedQuery<ChainAward[]>("chain:game_chain", () => supabase.from("chain_awards").select("*").eq("award_type", "game_chain").order("date", { ascending: false }).limit(1)),
+      cachedQuery<ChainAward[]>("chain:hard_worker", () => supabase.from("chain_awards").select("*").eq("award_type", "hard_worker").order("date", { ascending: false }).limit(1)),
     ]);
 
     // Surface any Supabase errors

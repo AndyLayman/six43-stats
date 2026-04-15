@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { cachedQuery, invalidateCache } from "@/lib/query-cache";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -137,8 +138,8 @@ export default function SchedulePage() {
 
   const loadSchedule = useCallback(async () => {
     const [gamesRes, practicesRes] = await Promise.all([
-      supabase.from("games").select("*"),
-      supabase.from("practices").select("*"),
+      cachedQuery("games:all", () => supabase.from("games").select("*")),
+      cachedQuery("practices:all", () => supabase.from("practices").select("*")),
     ]);
     setGames(gamesRes.data ?? []);
     setPractices(practicesRes.data ?? []);
@@ -184,6 +185,7 @@ export default function SchedulePage() {
     await supabase.from("opponent_lineup").delete().eq("game_id", gameId);
     await supabase.from("game_lineup").delete().eq("game_id", gameId);
     await supabase.from("games").delete().eq("id", gameId);
+    invalidateCache("games");
     setGames((prev) => prev.filter((g) => g.id !== gameId));
     setDeleteTarget(null);
     setDeleting(false);
@@ -192,6 +194,7 @@ export default function SchedulePage() {
   async function handleDeletePractice(practice: Practice) {
     setDeleting(true);
     await supabase.from("practices").delete().eq("id", practice.id);
+    invalidateCache("practices");
     setPractices((prev) => prev.filter((p) => p.id !== practice.id));
     setDeleteTarget(null);
     setDeleting(false);
@@ -332,7 +335,7 @@ export default function SchedulePage() {
                   {showAddMenu ? <Xmark width={18} height={18} /> : <Plus width={18} height={18} />}
                 </Button>
                 {showAddMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-40 rounded-xl bg-card border border-border/50 shadow-lg z-30 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-card border border-border/50 shadow-lg z-30 overflow-hidden">
                     <Link
                       href="/games/new"
                       className="block w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors"
@@ -347,30 +350,26 @@ export default function SchedulePage() {
                     >
                       Log Practice
                     </button>
+                    <Link
+                      href="/practices/drills"
+                      className="block w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors border-t border-border/30"
+                      onClick={() => setShowAddMenu(false)}
+                    >
+                      Drill Library
+                    </Link>
+                    <Link
+                      href="/practices/templates"
+                      className="block w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors border-t border-border/30"
+                      onClick={() => setShowAddMenu(false)}
+                    >
+                      Plan Templates
+                    </Link>
                   </div>
                 )}
               </div>
             </>
           )}
         </div>
-      </div>
-
-      {/* Quick links */}
-      <div className="flex gap-3">
-        <Link
-          href="/practices/drills"
-          className="flex-1 rounded-xl border-2 border-border/50 bg-muted/30 p-3 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-        >
-          <div className="font-semibold text-sm group-hover:text-primary transition-colors">Drill Library</div>
-          <div className="text-xs text-muted-foreground">Create & manage drills</div>
-        </Link>
-        <Link
-          href="/practices/templates"
-          className="flex-1 rounded-xl border-2 border-border/50 bg-muted/30 p-3 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-        >
-          <div className="font-semibold text-sm group-hover:text-primary transition-colors">Plan Templates</div>
-          <div className="text-xs text-muted-foreground">Pre-built practice plans</div>
-        </Link>
       </div>
 
       {/* Log practice form */}

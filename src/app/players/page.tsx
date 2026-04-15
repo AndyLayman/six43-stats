@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { cachedQuery } from "@/lib/query-cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -151,8 +152,8 @@ export default function PlayersPage() {
 
   const load = useCallback(async () => {
     const [playersRes, statsRes] = await Promise.all([
-      supabase.from("players").select("*"),
-      supabase.from("batting_stats_season").select("*"),
+      cachedQuery<Player[]>("players", () => supabase.from("players").select("*")),
+      cachedQuery("batting_stats_all", () => supabase.from("batting_stats_season").select("*")),
     ]);
 
     const allPlayers: Player[] = playersRes.data ?? [];

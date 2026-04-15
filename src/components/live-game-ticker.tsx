@@ -65,8 +65,8 @@ export function LiveGameTicker() {
     }
 
     fetchLiveGame();
-    // Poll every 10 seconds for live updates
-    const interval = setInterval(fetchLiveGame, 10000);
+    // Poll every 30 seconds for live updates
+    const interval = setInterval(fetchLiveGame, 30000);
     // Also refresh when tab becomes visible (returning from live scoring)
     function handleVisibility() {
       if (document.visibilityState === "visible") fetchLiveGame();

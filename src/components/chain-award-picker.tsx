@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { fullName } from "@/lib/player-name";
 import type { Player, ChainAward } from "@/lib/scoring/types";
+import { Trophy, Gym } from "iconoir-react";
 
 interface ChainAwardPickerProps {
   players: Player[];
@@ -13,8 +14,8 @@ interface ChainAwardPickerProps {
 }
 
 const AWARDS = [
-  { type: "game_chain" as const, label: "Game Chain", emoji: "🏆" },
-  { type: "hard_worker" as const, label: "Hard Worker", emoji: "💪" },
+  { type: "game_chain" as const, label: "Game Chain", Icon: Trophy },
+  { type: "hard_worker" as const, label: "Hard Worker", Icon: Gym },
 ];
 
 export function ChainAwardPicker({ players, sourceType, sourceId, date }: ChainAwardPickerProps) {
@@ -84,7 +85,7 @@ export function ChainAwardPicker({ players, sourceType, sourceId, date }: ChainA
       {AWARDS.map((award) => (
         <div key={award.type}>
           <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-2 flex items-center gap-1.5">
-            <span className="text-base">{award.emoji}</span>
+            <award.Icon width={16} height={16} />
             {award.label}
             {saved[award.type] && selections[award.type] && (
               <span className="ml-auto text-[10px] normal-case text-primary font-normal">

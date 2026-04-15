@@ -357,7 +357,7 @@ export default function GameDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="space-y-3">
         <div className="flex items-center gap-3">
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden shrink-0"
@@ -375,13 +375,13 @@ export default function GameDetailPage() {
             )}
           </div>
           <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-gradient">
-            {game.location === "home" ? "vs" : "@"} {game.opponent}
-          </h1>
-          <p className="text-muted-foreground">
-            {gameDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
-            {game.game_time ? ` · ${formatTime12(game.game_time)}` : ""}
-          </p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-gradient">
+              {game.location === "home" ? "vs" : "@"} {game.opponent}
+            </h1>
+            <p className="text-muted-foreground">
+              {gameDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+              {game.game_time ? ` · ${formatTime12(game.game_time)}` : ""}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">

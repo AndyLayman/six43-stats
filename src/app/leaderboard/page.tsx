@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { cachedQuery } from "@/lib/query-cache";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,10 +12,14 @@ import type { BattingStats, FieldingStats } from "@/lib/scoring/types";
 import { StatTip } from "@/components/stat-tip";
 import { computeBadges, BadgeRow } from "@/components/leaderboard-badges";
 import { useRefresh } from "@/components/pull-to-refresh";
+import { useAuth } from "@/components/auth-provider";
+import { Lock } from "iconoir-react";
 
 type SortKey = keyof BattingStats;
 
 export default function LeaderboardPage() {
+  const { hasRole, loading: authLoading } = useAuth();
+
   const [battingStats, setBattingStats] = useState<BattingStats[]>([]);
   const [fieldingStats, setFieldingStats] = useState<FieldingStats[]>([]);
   const [sortBy, setSortBy] = useState<SortKey>("avg");
@@ -23,8 +28,8 @@ export default function LeaderboardPage() {
 
   const load = useCallback(async () => {
     const [battingRes, fieldingRes] = await Promise.all([
-      supabase.from("batting_stats_season").select("*"),
-      supabase.from("fielding_stats_season").select("*"),
+      cachedQuery<BattingStats[]>("batting_stats_all", () => supabase.from("batting_stats_season").select("*")),
+      cachedQuery<FieldingStats[]>("fielding_stats_all", () => supabase.from("fielding_stats_season").select("*")),
     ]);
     setBattingStats(battingRes.data ?? []);
     setFieldingStats(fieldingRes.data ?? []);
@@ -96,6 +101,24 @@ export default function LeaderboardPage() {
     { label: "OPS", field: "ops" },
     { label: "SB", field: "stolen_bases" },
   ];
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-muted-foreground animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!hasRole("admin", "manager")) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <Lock width={32} height={32} className="text-muted-foreground" />
+        <h1 className="text-xl font-bold text-foreground">Access Restricted</h1>
+        <p className="text-sm text-muted-foreground">Leaderboards are available to coaches and managers.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">

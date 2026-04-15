@@ -1,17 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import html2canvas from "html2canvas";
 import { supabase } from "@/lib/supabase";
-import type { Practice, Drill, PracticePlanItem, PracticeNote, ActionItem, PracticeAttendance, Player, SquadGroup, SquadMember } from "@/lib/scoring/types";
+import type { Practice, Drill, PracticePlanItem, PracticeNote, ActionItem, PracticeAttendance, Player, SquadGroup, SquadMember, ChainAward } from "@/lib/scoring/types";
 import { firstName, fullName } from "@/lib/player-name";
-
-const LETTER_RATIO = 11 / 8.5;
-const PAGE_PAD = 16;
-const PAGE_GAP = 10;
-const FOOTER_H = 20;
+import { Trophy, Gym, NavArrowLeft, ShareAndroid, Check } from "iconoir-react";
 
 function isEmptyHtml(html: string) {
   return html.replace(/<[^>]*>/g, "").trim().length === 0;
@@ -39,18 +34,13 @@ export default function SharedPracticePage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [squadGroups, setSquadGroups] = useState<SquadGroup[]>([]);
   const [squadMembers, setSquadMembers] = useState<SquadMember[]>([]);
+  const [chainAwards, setChainAwards] = useState<ChainAward[]>([]);
   const [loading, setLoading] = useState(true);
   const [shareMsg, setShareMsg] = useState("");
-  const [capturing, setCapturing] = useState(false);
-  const [pageCount, setPageCount] = useState(1);
-  const [innerH, setInnerH] = useState(0);
-  const [recapH, setRecapH] = useState(0);
-  const paperRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
-      const [practiceRes, planRes, drillsRes, notesRes, actionRes, attendanceRes, playersRes, groupsRes, membersRes] = await Promise.all([
+      const [practiceRes, planRes, drillsRes, notesRes, actionRes, attendanceRes, playersRes, groupsRes, membersRes, awardsRes] = await Promise.all([
         supabase.from("practices").select("*").eq("id", practiceId).single(),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
         supabase.from("drills").select("*").order("name"),
@@ -60,6 +50,7 @@ export default function SharedPracticePage() {
         supabase.from("players").select("*").order("sort_order"),
         supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
         supabase.from("practice_squad_members").select("*"),
+        supabase.from("chain_awards").select("*").eq("source_type", "practice").eq("source_id", practiceId),
       ]);
 
       setPractice(practiceRes.data);
@@ -73,6 +64,7 @@ export default function SharedPracticePage() {
       setSquadGroups(groups);
       const groupIds = new Set(groups.map((g) => g.id));
       setSquadMembers(((membersRes.data ?? []) as SquadMember[]).filter((m) => groupIds.has(m.group_id)));
+      setChainAwards((awardsRes.data ?? []) as ChainAward[]);
 
       const attMap = new Map<number, boolean>();
       for (const a of (attendanceRes.data ?? []) as PracticeAttendance[]) {
@@ -84,41 +76,38 @@ export default function SharedPracticePage() {
     load();
   }, [practiceId]);
 
-  const measure = useCallback(() => {
-    if (!paperRef.current || !measureRef.current) return;
-    const pageW = paperRef.current.offsetWidth;
-    const pageH = Math.round(pageW * LETTER_RATIO);
-    const inner = pageH - 2 * PAGE_PAD;
-    const measuredH = measureRef.current.offsetHeight;
-    const needed = Math.max(1, Math.ceil((measuredH + FOOTER_H) / inner));
-    setInnerH(inner);
-    setRecapH(measuredH);
-    setPageCount(needed);
-  }, []);
-
-  useLayoutEffect(() => { measure(); });
-
-  useEffect(() => {
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [measure]);
+  async function handleShare() {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${practice?.title ?? "Practice"} Recap`, url });
+      } catch { /* cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(url);
+      setShareMsg("Link copied!");
+      setTimeout(() => setShareMsg(""), 2000);
+    }
+  }
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0", fontFamily: "'Montserrat', sans-serif" }}>
-        <div style={{ width: 32, height: 32, borderRadius: "50%", border: "2px solid #CCC", borderTopColor: "transparent", animation: "spin 0.8s linear infinite" }} />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground animate-pulse">Loading...</div>
       </div>
     );
   }
 
   if (!practice) {
-    return <div style={{ textAlign: "center", padding: "80px 0", color: "#999", fontFamily: "'Montserrat', sans-serif" }}>Practice not found</div>;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Practice not found</div>
+      </div>
+    );
   }
 
   const topLevelItems = planItems.filter((i) => !i.group_id);
   const completedItems = topLevelItems.filter((i) => i.completed);
   const presentPlayers = players.filter((p) => attendance.get(p.id) === true);
-  // If attendance was tracked, any player not marked present is absent
   const absentPlayers = attendance.size > 0
     ? players.filter((p) => attendance.get(p.id) !== true)
     : [];
@@ -130,269 +119,249 @@ export default function SharedPracticePage() {
     notesByPlayer.set(n.player_id, arr);
   }
 
-  function getDrill(drillId: string | null): Drill | undefined {
-    if (!drillId) return undefined;
-    return drills.find((d) => d.id === drillId);
-  }
+  const completionPct = topLevelItems.length > 0
+    ? Math.round((completedItems.length / topLevelItems.length) * 100)
+    : 0;
 
-  async function handleShare() {
-    if (!paperRef.current) return;
-    setCapturing(true);
-    try {
-      const canvas = await html2canvas(paperRef.current, {
-        scale: 2,
-        backgroundColor: "#E8E8E8",
-        useCORS: true,
-      });
-      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
-      if (!blob) { setCapturing(false); return; }
+  const gameChain = chainAwards.find(a => a.award_type === "game_chain");
+  const hardWorker = chainAwards.find(a => a.award_type === "hard_worker");
+  const gameChainPlayer = gameChain ? players.find(p => p.id === gameChain.player_id) : null;
+  const hardWorkerPlayer = hardWorker ? players.find(p => p.id === hardWorker.player_id) : null;
 
-      const file = new File([blob], `${(practice?.title ?? "Practice").replace(/\s+/g, "_")}_Recap.png`, { type: "image/png" });
-
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ title: `${practice?.title ?? "Practice"} Recap`, files: [file] });
-        } catch { /* cancelled */ }
-      } else {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = file.name;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        setShareMsg("Image saved!");
-        setTimeout(() => setShareMsg(""), 2000);
-      }
-    } catch {
-      setShareMsg("Couldn't capture image");
-      setTimeout(() => setShareMsg(""), 2000);
-    }
-    setCapturing(false);
-  }
-
-  // Spacer pushes footer to the bottom of the last page
-  const spacerH = innerH > 0 ? Math.max(0, pageCount * innerH - recapH - FOOTER_H) : 0;
-
-  // Recap content (rendered in each page viewport and in the measuring div)
-  const recapContent = (
-    <>
-      {/* Logo + Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "8px" }}>
-        <svg width="16" height="14" viewBox="0 0 33 28" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0, marginRight: "8px", marginTop: "1px" }}>
-          <path fillRule="evenodd" clipRule="evenodd" d="M6.82602 3.80953C11.9054 -1.26984 20.1407 -1.26984 25.2201 3.80953L31.3444 9.93381C32.28 10.8695 32.2801 12.3865 31.3444 13.3222L17.7173 26.9492C16.7816 27.8849 15.2646 27.8849 14.3289 26.9492L0.701741 13.3222C-0.233923 12.3865 -0.233904 10.8695 0.701741 9.93381L6.82602 3.80953ZM16.9149 3.21411C16.3178 3.15929 15.7168 3.16214 15.1202 3.22257L14.8005 3.255C13.4619 3.3906 12.1692 3.81828 11.0138 4.50791C10.5194 4.80305 10.0537 5.14404 9.62298 5.52628L9.19067 5.91001C8.90516 6.1634 9.03836 6.63444 9.41429 6.70075L14.6669 7.62732C17.3189 8.09514 19.9345 8.75021 22.4939 9.58752L27.7916 11.3205C28.0221 11.3959 28.1955 11.1072 28.0207 10.9391L22.758 5.88093L21.7436 5.103C20.3447 4.03017 18.6705 3.37528 16.9149 3.21411Z" fill="#111111"/>
-        </svg>
-        <div>
-          <h1 style={{ fontSize: "12px", fontWeight: 700, margin: 0, letterSpacing: "-0.02em", color: "#000" }}>
-            {practice.title}
-          </h1>
-          <p style={{ fontSize: "8px", fontWeight: 400, margin: "1px 0 0", color: "#666" }}>
+  return (
+    <div className="min-h-screen bg-background -mx-4 -mt-4 sm:-mt-6">
+      {/* Header */}
+      <header className="border-b border-border/50 px-4 py-4">
+        <div className="max-w-xl mx-auto">
+          <div className="flex items-center justify-between mb-3">
+            <Link href="/schedule" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <NavArrowLeft width={16} height={16} />
+              Back
+            </Link>
+            <div className="flex items-center gap-2">
+              {shareMsg && <span className="text-xs text-primary">{shareMsg}</span>}
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              >
+                <ShareAndroid width={14} height={14} />
+                Share
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <img src="/logos/Logo-White.svg" alt="Six43" className="h-5 w-auto dark:block hidden" />
+            <img src="/logos/Logo-Black.svg" alt="Six43" className="h-5 w-auto dark:hidden block" />
+            <h1 className="text-xl font-extrabold tracking-tight text-foreground">
+              {practice.title}
+            </h1>
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5">
             {formatFullDate(practice.date)}
             {practice.venue ? ` · ${practice.venue}` : ""}
           </p>
         </div>
-      </div>
+      </header>
 
-      <hr style={{ border: "none", borderTop: "1px solid #E0E0E0", margin: "0 0 8px" }} />
+      {/* Content */}
+      <main className="max-w-xl mx-auto px-4 py-5 space-y-3">
 
-      {/* Attendance */}
-      {attendance.size > 0 && (
-        <div style={{ marginBottom: "8px" }}>
-          <h2 style={{ fontSize: "6px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#999", margin: "0 0 2px" }}>Attendance</h2>
-          <p style={{ fontSize: "8px", fontWeight: 300, margin: "0 0 1px", color: "#333" }}>
-            {presentPlayers.length} present{absentPlayers.length > 0 ? ` · ${absentPlayers.length} absent` : ""}
-          </p>
-          {absentPlayers.length > 0 && (
-            <p style={{ fontSize: "8px", fontWeight: 300, color: "#888", margin: 0 }}>
-              Absent: {absentPlayers.map((p) => `${firstName(p)}`).join(", ")}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* What We Covered */}
-      {topLevelItems.length > 0 && (
-        <div style={{ marginBottom: "8px" }}>
-          <h2 style={{ fontSize: "6px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#999", margin: "0 0 2px" }}>
-            What We Covered
-          </h2>
-          <ul style={{ margin: 0, paddingLeft: "10px", fontSize: "8px", fontWeight: 300, lineHeight: 1.5, color: "#333" }}>
-            {topLevelItems.map((item) => {
-              const drill = getDrill(item.drill_id);
-              const isSquadSplit = item.label === "Squad Split" && !item.drill_id;
-              return (
-                <li key={item.id}>
-                  <span style={{ fontWeight: item.completed ? 400 : 300 }}>
-                    {item.completed ? "✓ " : "○ "}
-                    {item.label}
-                  </span>
-                  {!isSquadSplit && item.duration_minutes > 0 && (
-                    <span style={{ color: "#999", fontSize: "7px" }}> ({item.duration_minutes} min)</span>
-                  )}
-                  {isSquadSplit && squadGroups.length > 0 && (
-                    <span style={{ color: "#999", fontSize: "7px" }}> ({squadGroups.length} groups)</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          <p style={{ fontSize: "7px", fontWeight: 300, color: "#999", margin: "2px 0 0" }}>
-            {completedItems.length}/{topLevelItems.length} completed
-          </p>
-        </div>
-      )}
-
-      {/* Team Notes */}
-      {practice.notes && !isEmptyHtml(practice.notes) && (
-        <div style={{ marginBottom: "8px" }}>
-          <h2 style={{ fontSize: "6px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#999", margin: "0 0 2px" }}>Team Notes</h2>
-          <div
-            style={{ fontSize: "8px", fontWeight: 300, lineHeight: 1.4, color: "#333" }}
-            dangerouslySetInnerHTML={{ __html: practice.notes }}
-          />
-        </div>
-      )}
-
-      {/* Player Notes */}
-      {notesByPlayer.size > 0 && (
-        <div style={{ marginBottom: "8px" }}>
-          <h2 style={{ fontSize: "6px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#999", margin: "0 0 2px" }}>Player Notes</h2>
-          {[...notesByPlayer.entries()].map(([pid, playerNotes]) => {
-            const player = players.find((p) => p.id === pid);
-            if (!player) return null;
-            return (
-              <div key={pid} style={{ marginBottom: "3px" }}>
-                <p style={{ fontSize: "8px", fontWeight: 600, color: "#222", margin: "0 0 1px" }}>
-                  #{player.number} {fullName(player)}
-                </p>
-                {playerNotes.map((n) => (
-                  <div key={n.id} style={{ fontSize: "8px", fontWeight: 300, lineHeight: 1.3, color: "#444", marginBottom: "1px", paddingLeft: "6px" }}>
-                    {n.focus_area && (
-                      <span style={{ fontSize: "6px", fontWeight: 700, color: "#888", textTransform: "uppercase", marginRight: "3px" }}>
-                        {n.focus_area}
-                      </span>
-                    )}
-                    {stripHtml(n.note)}
-                  </div>
-                ))}
+        {/* Quick Stats Row */}
+        {(attendance.size > 0 || topLevelItems.length > 0) && (
+          <div className="flex gap-3">
+            {attendance.size > 0 && (
+              <div className="flex-1 rounded-xl border border-border/50 bg-card p-4">
+                <div className="text-2xl font-extrabold text-foreground leading-none">{presentPlayers.length}</div>
+                <div className="text-[11px] font-medium text-muted-foreground mt-1">Players Present</div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+            {topLevelItems.length > 0 && (
+              <div className="flex-1 rounded-xl border border-border/50 bg-card p-4">
+                <div className="text-2xl font-extrabold text-foreground leading-none">{completionPct}%</div>
+                <div className="text-[11px] font-medium text-muted-foreground mt-1">Plan Completed</div>
+              </div>
+            )}
+            {attendance.size > 0 && absentPlayers.length > 0 && (
+              <div className="flex-1 rounded-xl border border-border/50 bg-card p-4">
+                <div className="text-2xl font-extrabold text-foreground leading-none">{absentPlayers.length}</div>
+                <div className="text-[11px] font-medium text-muted-foreground mt-1">Absent</div>
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Action Items */}
-      {actionItems.length > 0 && (
-        <div style={{ marginBottom: "4px" }}>
-          <h2 style={{ fontSize: "6px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#999", margin: "0 0 2px" }}>Action Items</h2>
-          <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: "8px", fontWeight: 300, lineHeight: 1.5, color: "#333" }}>
-            {actionItems.map((item) => {
-              const player = item.player_id ? players.find((p) => p.id === item.player_id) : null;
-              return (
-                <li key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: "4px" }}>
-                  <span style={{
-                    display: "inline-block",
-                    width: "8px",
-                    height: "8px",
-                    border: item.completed ? "none" : "1px solid #CCC",
-                    borderRadius: "2px",
-                    flexShrink: 0,
-                    marginTop: "2px",
-                    background: item.completed ? "#DDD" : "none",
-                    textAlign: "center",
-                    lineHeight: "8px",
-                    fontSize: "6px",
-                    color: "#888",
-                  }}>
-                    {item.completed ? "✓" : ""}
-                  </span>
-                  <span style={{ textDecoration: item.completed ? "line-through" : "none", color: item.completed ? "#999" : "#333" }}>
-                    {item.text}
-                    {player && (
-                      <span style={{ fontSize: "7px", color: "#999" }}> (#{player.number})</span>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </>
-  );
-
-  const footerContent = (
-    <div>
-      <hr style={{ border: "none", borderTop: "1px solid #EEE", margin: "0 0 4px" }} />
-      <p style={{ fontSize: "6px", fontWeight: 300, color: "#BBB", textAlign: "center", margin: 0 }}>
-        Shared from Six43
-      </p>
-    </div>
-  );
-
-  return (
-    <div style={{ background: "#E8E8E8", minHeight: "100vh", padding: "16px 12px", fontFamily: "'Montserrat', sans-serif" }}>
-      {/* Nav bar — outside the paper */}
-      <div style={{ maxWidth: "540px", margin: "0 auto 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Link href="/schedule" style={{ fontSize: "11px", fontWeight: 500, color: "#666", textDecoration: "none" }}>
-          ← Schedule
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          {shareMsg && <span style={{ fontSize: "10px", color: "#3b82f6" }}>{shareMsg}</span>}
-          <button
-            onClick={handleShare}
-            disabled={capturing}
-            style={{
-              fontSize: "11px", fontWeight: 600, color: "#FFF", background: capturing ? "#666" : "#111",
-              border: "none", borderRadius: "6px", padding: "6px 12px", cursor: capturing ? "wait" : "pointer",
-            }}
-          >
-            {capturing ? "Capturing..." : "Share as Photo"}
-          </button>
-        </div>
-      </div>
-
-      {/* Separate page cards */}
-      <div ref={paperRef} style={{ maxWidth: "540px", margin: "0 auto", background: "#E8E8E8", padding: "2px 0", position: "relative" }}>
-        {/* Hidden measuring div — same inner width as page cards */}
-        <div style={{
-          position: "absolute", visibility: "hidden",
-          top: 0, left: PAGE_PAD, right: PAGE_PAD,
-          pointerEvents: "none", zIndex: -1,
-        }}>
-          <div ref={measureRef}>{recapContent}</div>
-        </div>
-
-        {Array.from({ length: pageCount }).map((_, i) => {
-          const pageH = innerH > 0 ? innerH + 2 * PAGE_PAD : undefined;
-          return (
-            <div
-              key={i}
-              style={{
-                background: "#FFFFFF",
-                height: pageH,
-                aspectRatio: pageH ? undefined : "8.5 / 11",
-                borderRadius: "6px",
-                boxShadow: "0 2px 16px rgba(0,0,0,0.10)",
-                overflow: "hidden",
-                padding: PAGE_PAD,
-                marginBottom: i < pageCount - 1 ? PAGE_GAP : 0,
-              }}
-            >
-              {/* Inner clip viewport */}
-              <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
-                <div style={{
-                  position: "absolute",
-                  top: 0, left: 0, right: 0,
-                  transform: innerH > 0 ? `translateY(${-i * innerH}px)` : undefined,
-                }}>
-                  {recapContent}
-                  <div style={{ height: spacerH }} />
-                  {footerContent}
+        {/* Chain Awards */}
+        {(gameChainPlayer || hardWorkerPlayer) && (
+          <div className="flex gap-3">
+            {gameChainPlayer && (
+              <div className="flex-1 rounded-xl border border-border/50 bg-card p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Trophy width={16} height={16} className="text-primary" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Game Chain</span>
                 </div>
+                <div className="text-sm font-bold text-foreground">{fullName(gameChainPlayer)}</div>
               </div>
+            )}
+            {hardWorkerPlayer && (
+              <div className="flex-1 rounded-xl border border-border/50 bg-card p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Gym width={16} height={16} className="text-primary" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Hard Worker</span>
+                </div>
+                <div className="text-sm font-bold text-foreground">{fullName(hardWorkerPlayer)}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Absent Players */}
+        {absentPlayers.length > 0 && (
+          <div className="rounded-xl border border-border/50 bg-card p-4">
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">Absent</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {absentPlayers.map((p) => (
+                <span key={p.id} className="text-xs font-medium text-muted-foreground bg-muted rounded-md px-2.5 py-1">
+                  {firstName(p)}
+                </span>
+              ))}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        )}
+
+        {/* What We Covered */}
+        {topLevelItems.length > 0 && (
+          <div className="rounded-xl border border-border/50 bg-card p-4">
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+              What We Covered
+            </h2>
+            <div className="space-y-0">
+              {topLevelItems.map((item, i) => {
+                const isSquadSplit = item.label === "Squad Split" && !item.drill_id;
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-2.5 py-2.5"
+                    style={{ borderTop: i > 0 ? "1px solid var(--border)" : "none" }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex items-center justify-center shrink-0"
+                      style={{
+                        background: item.completed ? "var(--primary)" : "var(--muted)",
+                        color: item.completed ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                      }}
+                    >
+                      {item.completed && <Check width={12} height={12} />}
+                    </div>
+                    <span className={`text-sm flex-1 ${item.completed ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                      {item.label}
+                    </span>
+                    {!isSquadSplit && item.duration_minutes > 0 && (
+                      <span className="text-xs text-muted-foreground shrink-0">{item.duration_minutes}m</span>
+                    )}
+                    {isSquadSplit && squadGroups.length > 0 && (
+                      <span className="text-xs text-muted-foreground shrink-0">{squadGroups.length} groups</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Team Notes */}
+        {practice.notes && !isEmptyHtml(practice.notes) && (
+          <div className="rounded-xl border border-border/50 bg-card p-4">
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">Team Notes</h2>
+            <div
+              className="text-sm text-foreground/80 leading-relaxed [&>p]:mb-1.5 [&>ul]:pl-4 [&>ul]:list-disc"
+              dangerouslySetInnerHTML={{ __html: practice.notes }}
+            />
+          </div>
+        )}
+
+        {/* Player Notes */}
+        {notesByPlayer.size > 0 && (
+          <div className="rounded-xl border border-border/50 bg-card p-4">
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Player Notes</h2>
+            <div className="space-y-4">
+              {[...notesByPlayer.entries()].map(([pid, playerNotes]) => {
+                const player = players.find((p) => p.id === pid);
+                if (!player) return null;
+                return (
+                  <div key={pid}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[11px] font-bold text-primary-foreground bg-primary rounded px-1.5 py-0.5 leading-none">
+                        {player.number}
+                      </span>
+                      <span className="text-sm font-bold text-foreground">
+                        {fullName(player)}
+                      </span>
+                    </div>
+                    {playerNotes.map((n) => (
+                      <div key={n.id} className="mb-1">
+                        {n.focus_area && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 rounded px-1.5 py-0.5 mr-1.5 inline-block">
+                            {n.focus_area}
+                          </span>
+                        )}
+                        <span className="text-sm text-foreground/70">
+                          {stripHtml(n.note)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Action Items */}
+        {actionItems.length > 0 && (
+          <div className="rounded-xl border border-border/50 bg-card p-4">
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Action Items</h2>
+            <div className="space-y-0">
+              {actionItems.map((item, i) => {
+                const player = item.player_id ? players.find((p) => p.id === item.player_id) : null;
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-2.5 py-2.5"
+                    style={{ borderTop: i > 0 ? "1px solid var(--border)" : "none" }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex items-center justify-center shrink-0 mt-px"
+                      style={{
+                        background: item.completed ? "var(--primary)" : "transparent",
+                        border: item.completed ? "none" : "2px solid var(--border)",
+                        color: item.completed ? "var(--primary-foreground)" : "transparent",
+                      }}
+                    >
+                      {item.completed && <Check width={12} height={12} />}
+                    </div>
+                    <div className="flex-1">
+                      <span className={`text-sm ${item.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                        {item.text}
+                      </span>
+                      {player && (
+                        <span className="text-xs text-muted-foreground ml-1.5">#{player.number}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-center gap-1.5 pt-4 pb-2">
+          <svg width="14" height="12" viewBox="0 0 33 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fillRule="evenodd" clipRule="evenodd" d="M6.82602 3.80953C11.9054 -1.26984 20.1407 -1.26984 25.2201 3.80953L31.3444 9.93381C32.28 10.8695 32.2801 12.3865 31.3444 13.3222L17.7173 26.9492C16.7816 27.8849 15.2646 27.8849 14.3289 26.9492L0.701741 13.3222C-0.233923 12.3865 -0.233904 10.8695 0.701741 9.93381L6.82602 3.80953ZM16.9149 3.21411C16.3178 3.15929 15.7168 3.16214 15.1202 3.22257L14.8005 3.255C13.4619 3.3906 12.1692 3.81828 11.0138 4.50791C10.5194 4.80305 10.0537 5.14404 9.62298 5.52628L9.19067 5.91001C8.90516 6.1634 9.03836 6.63444 9.41429 6.70075L14.6669 7.62732C17.3189 8.09514 19.9345 8.75021 22.4939 9.58752L27.7916 11.3205C28.0221 11.3959 28.1955 11.1072 28.0207 10.9391L22.758 5.88093L21.7436 5.103C20.3447 4.03017 18.6705 3.37528 16.9149 3.21411Z" fill="var(--muted-foreground)" fillOpacity="0.5"/>
+          </svg>
+          <span className="text-[11px] font-medium text-muted-foreground/50">Six43</span>
+        </div>
+      </main>
     </div>
   );
 }
