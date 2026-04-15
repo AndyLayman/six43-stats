@@ -131,7 +131,7 @@ export default function SharedPracticePage() {
   return (
     <div className="min-h-screen bg-background -mx-4 -mt-4 sm:-mt-6">
       {/* Header */}
-      <header className="border-b border-border/50 bg-sidebar px-4 py-4">
+      <header className="border-b border-border/50 px-4 py-4">
         <div className="max-w-xl mx-auto">
           <div className="flex items-center justify-between mb-3">
             <Link href="/schedule" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -149,9 +149,13 @@ export default function SharedPracticePage() {
               </button>
             </div>
           </div>
-          <h1 className="text-xl font-extrabold tracking-tight text-foreground">
-            {practice.title}
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <img src="/logos/Stats-White.svg" alt="Stats" className="h-5 w-auto dark:block hidden" />
+            <img src="/logos/Stats-Black.svg" alt="Stats" className="h-5 w-auto dark:hidden block" />
+            <h1 className="text-xl font-extrabold tracking-tight text-foreground">
+              {practice.title}
+            </h1>
+          </div>
           <p className="text-sm text-muted-foreground mt-0.5">
             {formatFullDate(practice.date)}
             {practice.venue ? ` · ${practice.venue}` : ""}
