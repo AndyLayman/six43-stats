@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, sessionReady } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 export type TeamRole = "admin" | "manager" | "teammate" | "parent" | "guest";
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    sessionReady.then(() => supabase.auth.getSession()).then(({ data: { session } }) => {
       const u = session?.user ?? null;
       setUser(u);
       if (u) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase, sessionReady } from "@/lib/supabase";
 import { NavArrowUpSolid, NavArrowDownSolid } from "iconoir-react";
 
 interface LiveGame {
@@ -57,6 +57,7 @@ export function LiveGameTicker() {
       if (!mounted) return;
       clearTimer();
 
+      await sessionReady;
       const today = new Date().toISOString().slice(0, 10);
 
       // 1. Check for an in-progress game first

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase, sessionReady } from "@/lib/supabase";
 import type { PlateAppearance, Game, Player } from "@/lib/scoring/types";
 import { fullName } from "@/lib/player-name";
 
@@ -20,6 +20,7 @@ export function MilestoneFeed() {
 
   useEffect(() => {
     async function compute() {
+      await sessionReady;
       const [pasRes, gamesRes, playersRes] = await Promise.all([
         supabase.from("plate_appearances").select("*").eq("team", "us").order("created_at"),
         supabase.from("games").select("*").eq("status", "final").order("date"),
