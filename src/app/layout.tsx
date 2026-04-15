@@ -89,6 +89,7 @@ export default function RootLayout({
           <BottomNav />
           <ToastContainer />
         </AuthProvider>
+        <script src="https://www.inflight.co/widget.js" data-workspace="dhriiord" async />
       </body>
     </html>
   );
