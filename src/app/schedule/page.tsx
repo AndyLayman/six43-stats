@@ -332,7 +332,7 @@ export default function SchedulePage() {
                   {showAddMenu ? <Xmark width={18} height={18} /> : <Plus width={18} height={18} />}
                 </Button>
                 {showAddMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-40 rounded-xl bg-card border border-border/50 shadow-lg z-30 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-card border border-border/50 shadow-lg z-30 overflow-hidden">
                     <Link
                       href="/games/new"
                       className="block w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors"
@@ -347,30 +347,26 @@ export default function SchedulePage() {
                     >
                       Log Practice
                     </button>
+                    <Link
+                      href="/practices/drills"
+                      className="block w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors border-t border-border/30"
+                      onClick={() => setShowAddMenu(false)}
+                    >
+                      Drill Library
+                    </Link>
+                    <Link
+                      href="/practices/templates"
+                      className="block w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors border-t border-border/30"
+                      onClick={() => setShowAddMenu(false)}
+                    >
+                      Plan Templates
+                    </Link>
                   </div>
                 )}
               </div>
             </>
           )}
         </div>
-      </div>
-
-      {/* Quick links */}
-      <div className="flex gap-3">
-        <Link
-          href="/practices/drills"
-          className="flex-1 rounded-xl border-2 border-border/50 bg-muted/30 p-3 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-        >
-          <div className="font-semibold text-sm group-hover:text-primary transition-colors">Drill Library</div>
-          <div className="text-xs text-muted-foreground">Create & manage drills</div>
-        </Link>
-        <Link
-          href="/practices/templates"
-          className="flex-1 rounded-xl border-2 border-border/50 bg-muted/30 p-3 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-        >
-          <div className="font-semibold text-sm group-hover:text-primary transition-colors">Plan Templates</div>
-          <div className="text-xs text-muted-foreground">Pre-built practice plans</div>
-        </Link>
       </div>
 
       {/* Log practice form */}
