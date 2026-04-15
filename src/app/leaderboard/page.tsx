@@ -145,6 +145,24 @@ export default function LeaderboardPage() {
     return max > 0 ? `${Math.min((value / max) * 100, 100)}%` : "0%";
   }
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-muted-foreground animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!hasRole("admin", "manager")) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <Lock width={32} height={32} className="text-muted-foreground" />
+        <h1 className="text-xl font-bold text-foreground">Access Restricted</h1>
+        <p className="text-sm text-muted-foreground">Leaderboards are available to coaches and managers.</p>
+      </div>
+    );
+  }
+
   if (loading) {
     return <LeaderboardSkeleton />;
   }
@@ -166,24 +184,6 @@ export default function LeaderboardPage() {
     { label: "OPS", field: "ops" },
     { label: "SB", field: "stolen_bases" },
   ];
-
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-muted-foreground animate-pulse">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!hasRole("admin", "manager")) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <Lock width={32} height={32} className="text-muted-foreground" />
-        <h1 className="text-xl font-bold text-foreground">Access Restricted</h1>
-        <p className="text-sm text-muted-foreground">Leaderboards are available to coaches and managers.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
