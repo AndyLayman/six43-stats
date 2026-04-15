@@ -85,6 +85,49 @@ export default function PlayerDetailPage() {
     return sorted.map(g => cumulativeAvg.get(g.game_id) ?? 0);
   }, [gameLog, cumulativeAvg]);
 
+  // Compute running trends for all rate stats (AVG, OBP, SLG, OPS) + cumulative counting stats
+  const statTrends = useMemo(() => {
+    if (gameLog.length < 2) return new Map<string, number[]>();
+    const sorted = [...gameLog].sort((a, b) => a.date.localeCompare(b.date));
+    let cumAB = 0, cumHits = 0, cumBB = 0, cumHBP = 0, cumSF = 0, cumPA = 0;
+    let cumTB = 0, cumHR = 0, cumRBI = 0;
+    const avgPts: number[] = [], obpPts: number[] = [], slgPts: number[] = [], opsPts: number[] = [];
+    const hrPts: number[] = [], rbiPts: number[] = [];
+
+    for (const g of sorted) {
+      for (const pa of g.appearances) {
+        cumPA++;
+        if (pa.is_at_bat) cumAB++;
+        if (pa.is_hit) cumHits++;
+        if (pa.result === "BB") cumBB++;
+        if (pa.result === "HBP") cumHBP++;
+        if (pa.result === "SAC") cumSF++;
+        cumTB += pa.total_bases;
+        if (pa.result === "HR") cumHR++;
+        cumRBI += pa.rbis;
+      }
+      const avg = cumAB > 0 ? cumHits / cumAB : 0;
+      const obpDenom = cumAB + cumBB + cumHBP + cumSF;
+      const obp = obpDenom > 0 ? (cumHits + cumBB + cumHBP) / obpDenom : 0;
+      const slg = cumAB > 0 ? cumTB / cumAB : 0;
+      avgPts.push(avg);
+      obpPts.push(obp);
+      slgPts.push(slg);
+      opsPts.push(obp + slg);
+      hrPts.push(cumHR);
+      rbiPts.push(cumRBI);
+    }
+
+    const trends = new Map<string, number[]>();
+    trends.set("AVG", avgPts);
+    trends.set("OBP", obpPts);
+    trends.set("SLG", slgPts);
+    trends.set("OPS", opsPts);
+    trends.set("HR", hrPts);
+    trends.set("RBI", rbiPts);
+    return trends;
+  }, [gameLog]);
+
   const milestones = useMemo(() => {
     if (!battingStats || Number(battingStats.at_bats) === 0) return [];
     type Tier = "bronze" | "silver" | "gold";
@@ -170,14 +213,22 @@ export default function PlayerDetailPage() {
             { label: "OPS", value: formatAvg(Number(battingStats.ops)) },
             { label: "HR", value: String(battingStats.home_runs) },
             { label: "RBI", value: String(battingStats.rbis) },
-          ].map((s) => (
-            <Card key={s.label} className="glass gradient-border card-hover">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{s.value}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium"><StatTip label={s.label} /></div>
-              </CardContent>
-            </Card>
-          ))}
+          ].map((s) => {
+            const trend = statTrends.get(s.label);
+            return (
+              <Card key={s.label} className="glass gradient-border card-hover">
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{s.value}</div>
+                  {trend && trend.length >= 2 && (
+                    <div className="mt-1.5">
+                      <Sparkline data={trend} width={64} height={18} />
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mt-1"><StatTip label={s.label} /></div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
