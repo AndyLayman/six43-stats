@@ -140,7 +140,7 @@ export default function SharedPracticePage() {
     : 0;
 
   return (
-    <div style={{ background: "#F5F5F0", minHeight: "100vh", fontFamily: "'Montserrat', sans-serif" }}>
+    <div style={{ background: "#2f241F", minHeight: "100vh", fontFamily: "'Montserrat', sans-serif" }}>
       {/* Header */}
       <header style={{ background: "#111", color: "#FFF", padding: "0" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px 20px 24px" }}>
