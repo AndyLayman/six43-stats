@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [chainHolders, setChainHolders] = useState<{ gameChain: { player: Player; award: ChainAward } | null; hardWorker: { player: Player; award: ChainAward } | null }>({ gameChain: null, hardWorker: null });
   const [loading, setLoading] = useState(true);
   const [showUpcoming, setShowUpcoming] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const today = new Date().toISOString().split("T")[0];
@@ -34,6 +35,18 @@ export default function Dashboard() {
       supabase.from("chain_awards").select("*").eq("award_type", "game_chain").order("date", { ascending: false }).limit(1),
       supabase.from("chain_awards").select("*").eq("award_type", "hard_worker").order("date", { ascending: false }).limit(1),
     ]);
+
+    // Surface any Supabase errors
+    const results = { playersRes, recentRes, upcomingRes, allGamesRes, statsRes, gameChainRes, hardWorkerRes };
+    const errors = Object.entries(results)
+      .filter(([, res]) => res.error)
+      .map(([key, res]) => `${key}: ${res.error!.message}`);
+    if (errors.length > 0) {
+      console.error("[Dashboard] query errors:", errors);
+      setFetchError(errors.join("; "));
+    } else {
+      setFetchError(null);
+    }
 
     const recent = recentRes.data ?? [];
     const upcoming = upcomingRes.data ?? [];
@@ -68,6 +81,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
+      {fetchError && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <strong>Data error:</strong> {fetchError}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gradient">Dashboard</h1>
         <Link href="/games/new">
