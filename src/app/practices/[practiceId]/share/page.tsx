@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import type { Practice, Drill, PracticePlanItem, PracticeNote, ActionItem, PracticeAttendance, Player, SquadGroup, SquadMember } from "@/lib/scoring/types";
+import type { Practice, Drill, PracticePlanItem, PracticeNote, ActionItem, PracticeAttendance, Player, SquadGroup, SquadMember, ChainAward } from "@/lib/scoring/types";
 import { firstName, fullName } from "@/lib/player-name";
 
 function isEmptyHtml(html: string) {
@@ -42,12 +42,13 @@ export default function SharedPracticePage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [squadGroups, setSquadGroups] = useState<SquadGroup[]>([]);
   const [squadMembers, setSquadMembers] = useState<SquadMember[]>([]);
+  const [chainAwards, setChainAwards] = useState<ChainAward[]>([]);
   const [loading, setLoading] = useState(true);
   const [shareMsg, setShareMsg] = useState("");
 
   useEffect(() => {
     async function load() {
-      const [practiceRes, planRes, drillsRes, notesRes, actionRes, attendanceRes, playersRes, groupsRes, membersRes] = await Promise.all([
+      const [practiceRes, planRes, drillsRes, notesRes, actionRes, attendanceRes, playersRes, groupsRes, membersRes, awardsRes] = await Promise.all([
         supabase.from("practices").select("*").eq("id", practiceId).single(),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
         supabase.from("drills").select("*").order("name"),
@@ -57,6 +58,7 @@ export default function SharedPracticePage() {
         supabase.from("players").select("*").order("sort_order"),
         supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
         supabase.from("practice_squad_members").select("*"),
+        supabase.from("chain_awards").select("*").eq("source_type", "practice").eq("source_id", practiceId),
       ]);
 
       setPractice(practiceRes.data);
@@ -70,6 +72,7 @@ export default function SharedPracticePage() {
       setSquadGroups(groups);
       const groupIds = new Set(groups.map((g) => g.id));
       setSquadMembers(((membersRes.data ?? []) as SquadMember[]).filter((m) => groupIds.has(m.group_id)));
+      setChainAwards((awardsRes.data ?? []) as ChainAward[]);
 
       const attMap = new Map<number, boolean>();
       for (const a of (attendanceRes.data ?? []) as PracticeAttendance[]) {
@@ -198,6 +201,39 @@ export default function SharedPracticePage() {
                 <div style={{ fontSize: 11, fontWeight: 500, color: "#999", marginTop: 4 }}>Absent</div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Chain Awards */}
+        {chainAwards.length > 0 && (
+          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+            {chainAwards.map((award) => {
+              const player = players.find((p) => p.id === award.player_id);
+              if (!player) return null;
+              const isGameChain = award.award_type === "game_chain";
+              return (
+                <div
+                  key={award.id}
+                  style={{
+                    flex: 1, borderRadius: 12, padding: "16px",
+                    background: isGameChain
+                      ? "linear-gradient(135deg, #FEF3C7, #FDE68A)"
+                      : "linear-gradient(135deg, #DBEAFE, #BFDBFE)",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <div style={{ fontSize: 20, marginBottom: 6 }}>
+                    {isGameChain ? "🏆" : "💪"}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: isGameChain ? "#92400E" : "#1E40AF", marginBottom: 2 }}>
+                    {isGameChain ? "Game Chain" : "Hard Worker"}
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: isGameChain ? "#78350F" : "#1E3A8A" }}>
+                    {fullName(player)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
