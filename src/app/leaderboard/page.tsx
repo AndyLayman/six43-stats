@@ -17,7 +17,7 @@ import { Lock } from "iconoir-react";
 type SortKey = keyof BattingStats;
 
 export default function LeaderboardPage() {
-  const { hasRole, loading: authLoading } = useAuth();
+  const { hasRole, activeTeam, loading: authLoading } = useAuth();
 
   const [battingStats, setBattingStats] = useState<BattingStats[]>([]);
   const [fieldingStats, setFieldingStats] = useState<FieldingStats[]>([]);
@@ -26,16 +26,17 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!activeTeam) return;
     const [battingRes, fieldingRes] = await Promise.all([
-      supabase.from("batting_stats_season").select("*"),
-      supabase.from("fielding_stats_season").select("*"),
+      supabase.from("batting_stats_season").select("*").eq("team_id", activeTeam.team_id),
+      supabase.from("fielding_stats_season").select("*").eq("team_id", activeTeam.team_id),
     ]);
     setBattingStats(battingRes.data ?? []);
     setFieldingStats(fieldingRes.data ?? []);
     setLoading(false);
-  }, []);
+  }, [activeTeam]);
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
   useRefresh(load);
 
   function handleSort(key: SortKey) {

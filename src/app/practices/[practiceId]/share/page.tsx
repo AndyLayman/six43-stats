@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { Practice, Drill, PracticePlanItem, PracticeNote, ActionItem, PracticeAttendance, Player, SquadGroup, SquadMember, ChainAward } from "@/lib/scoring/types";
 import { firstName, fullName } from "@/lib/player-name";
+import { useAuth } from "@/components/auth-provider";
 import { Trophy, Gym, NavArrowLeft, ShareAndroid, Check } from "iconoir-react";
 
 function isEmptyHtml(html: string) {
@@ -24,6 +25,7 @@ function formatFullDate(dateStr: string): string {
 export default function SharedPracticePage() {
   const params = useParams();
   const practiceId = params.practiceId as string;
+  const { activeTeam } = useAuth();
 
   const [practice, setPractice] = useState<Practice | null>(null);
   const [planItems, setPlanItems] = useState<PracticePlanItem[]>([]);
@@ -39,15 +41,16 @@ export default function SharedPracticePage() {
   const [shareMsg, setShareMsg] = useState("");
 
   useEffect(() => {
+    if (!activeTeam) return;
     async function load() {
       const [practiceRes, planRes, drillsRes, notesRes, actionRes, attendanceRes, playersRes, groupsRes, membersRes, awardsRes] = await Promise.all([
-        supabase.from("practices").select("*").eq("id", practiceId).single(),
+        supabase.from("practices").select("*").eq("id", practiceId).eq("team_id", activeTeam!.team_id).single(),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
-        supabase.from("drills").select("*").order("name"),
+        supabase.from("drills").select("*").eq("team_id", activeTeam!.team_id).order("name"),
         supabase.from("practice_notes").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("practice_attendance").select("*").eq("practice_id", practiceId),
-        supabase.from("players").select("*").order("sort_order"),
+        supabase.from("players").select("*").eq("team_id", activeTeam!.team_id).order("sort_order"),
         supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
         supabase.from("practice_squad_members").select("*"),
         supabase.from("chain_awards").select("*").eq("source_type", "practice").eq("source_id", practiceId),
@@ -74,7 +77,7 @@ export default function SharedPracticePage() {
       setLoading(false);
     }
     load();
-  }, [practiceId]);
+  }, [practiceId, activeTeam]);
 
   async function handleShare() {
     const url = window.location.href;

@@ -18,6 +18,7 @@ interface AuthContextValue {
   user: User | null;
   memberships: TeamMembership[];
   activeTeam: TeamMembership | null;
+  setActiveTeam: (team: TeamMembership) => void;
   loading: boolean;
   signOut: () => Promise<void>;
   hasRole: (...roles: TeamRole[]) => boolean;
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   memberships: [],
   activeTeam: null,
+  setActiveTeam: () => {},
   loading: true,
   signOut: async () => {},
   hasRole: () => false,
@@ -39,6 +41,7 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [memberships, setMemberships] = useState<TeamMembership[]>([]);
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadMemberships = useCallback(async (userId: string) => {
@@ -134,7 +137,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMemberships([]);
   }, []);
 
-  const activeTeam = memberships[0] ?? null;
+  const activeTeam = memberships.find((m) => m.team_id === activeTeamId) ?? memberships[0] ?? null;
+
+  const setActiveTeam = useCallback((team: TeamMembership) => {
+    setActiveTeamId(team.team_id);
+    try { localStorage.setItem("activeTeamId", team.team_id); } catch {}
+  }, []);
+
+  // Restore saved team selection on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("activeTeamId");
+      if (saved) setActiveTeamId(saved);
+    } catch {}
+  }, []);
 
   const hasRole = useCallback(
     (...roles: TeamRole[]) => {
@@ -145,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <AuthContext.Provider value={{ user, memberships, activeTeam, loading, signOut, hasRole }}>
+    <AuthContext.Provider value={{ user, memberships, activeTeam, setActiveTeam, loading, signOut, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

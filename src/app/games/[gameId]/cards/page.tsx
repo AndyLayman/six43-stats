@@ -8,6 +8,7 @@ import { fullName } from "@/lib/player-name";
 import { isAtBat, isHit, formatAvg } from "@/lib/stats/calculations";
 import { getResultColor } from "@/lib/scoring/scorebook";
 import type { Player, PlateAppearance, PlateAppearanceResult, Game } from "@/lib/scoring/types";
+import { useAuth } from "@/components/auth-provider";
 import { NavArrowLeft, ShareAndroid } from "iconoir-react";
 
 // ── Rarity tiers based on game performance ──
@@ -534,17 +535,19 @@ function StatBox({ label, value, max, highlight, config, small }: {
 export default function PlayerCardsPage() {
   const params = useParams();
   const gameId = params.gameId as string;
+  const { activeTeam } = useAuth();
   const [game, setGame] = useState<Game | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerGameStats[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!activeTeam) return;
     async function load() {
       const [gameRes, lineupRes, playersRes, pasRes] = await Promise.all([
-        supabase.from("games").select("*").eq("id", gameId).single(),
+        supabase.from("games").select("*").eq("id", gameId).eq("team_id", activeTeam!.team_id).single(),
         supabase.from("game_lineup").select("*").eq("game_id", gameId).order("batting_order"),
-        supabase.from("players").select("*"),
+        supabase.from("players").select("*").eq("team_id", activeTeam!.team_id),
         supabase.from("plate_appearances").select("*").eq("game_id", gameId).eq("team", "us").order("created_at"),
       ]);
 
@@ -566,7 +569,7 @@ export default function PlayerCardsPage() {
       setLoading(false);
     }
     load();
-  }, [gameId]);
+  }, [gameId, activeTeam]);
 
   async function handleShare() {
     const url = window.location.href;

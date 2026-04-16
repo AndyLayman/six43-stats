@@ -5,26 +5,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/components/auth-provider";
 import { getLeagueConfig, updateLeagueConfig, type LeagueConfig } from "@/lib/league-config";
 
 export default function SettingsPage() {
+  const { activeTeam } = useAuth();
   const [config, setConfig] = useState<LeagueConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
-    const c = await getLeagueConfig();
+    if (!activeTeam) return;
+    const c = await getLeagueConfig(activeTeam.team_id);
     setConfig(c);
     setLoading(false);
-  }, []);
+  }, [activeTeam]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleSave = async () => {
-    if (!config) return;
+    if (!config || !activeTeam) return;
     setSaving(true);
-    const ok = await updateLeagueConfig(config);
+    const ok = await updateLeagueConfig(activeTeam.team_id, config);
     setSaving(false);
     if (ok) {
       setSaved(true);

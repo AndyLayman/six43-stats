@@ -11,6 +11,7 @@ import { VenuePicker } from "@/components/venue-picker";
 import { TimePicker } from "@/components/time-picker";
 import { CustomSelect } from "@/components/custom-select";
 import { fullName } from "@/lib/player-name";
+import { useAuth } from "@/components/auth-provider";
 import type { Player } from "@/lib/scoring/types";
 import { NavArrowUp, NavArrowDown, Menu } from "iconoir-react";
 import {
@@ -106,6 +107,7 @@ function SortableNewLineupRow({ player, orderIdx, totalSelected, position, onPos
 
 export default function NewGamePage() {
   const router = useRouter();
+  const { activeTeam } = useAuth();
   const [opponent, setOpponent] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [location, setLocation] = useState<"home" | "away">("home");
@@ -121,8 +123,9 @@ export default function NewGamePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!activeTeam) return;
     async function load() {
-      const { data } = await supabase.from("players").select("*").order("sort_order");
+      const { data } = await supabase.from("players").select("*").eq("team_id", activeTeam!.team_id).order("sort_order");
       const allPlayers: Player[] = data ?? [];
       setPlayers(allPlayers);
       setSelectedPlayers(allPlayers.map((p) => p.id));
@@ -134,7 +137,7 @@ export default function NewGamePage() {
       setPositions(defaultPositions);
     }
     load();
-  }, []);
+  }, [activeTeam]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -145,6 +148,7 @@ export default function NewGamePage() {
     const { data: game, error } = await supabase
       .from("games")
       .insert({
+        team_id: activeTeam!.team_id,
         opponent: opponent.trim(),
         date,
         location,

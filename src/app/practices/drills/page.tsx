@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichEditor } from "@/components/rich-editor";
 import type { Drill } from "@/lib/scoring/types";
+import { useAuth } from "@/components/auth-provider";
 import { NavArrowLeft, Trash, EditPencil } from "iconoir-react";
 
 const CATEGORIES = ["General", "Warm Up", "Hitting", "Fielding", "Throwing", "Baserunning", "Conditioning", "Team", "Game", "Catcher"];
 
 export default function DrillLibraryPage() {
+  const { activeTeam } = useAuth();
   const [drills, setDrills] = useState<Drill[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingDrill, setEditingDrill] = useState<Drill | null>(null);
@@ -27,13 +29,15 @@ export default function DrillLibraryPage() {
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!activeTeam) return;
     loadDrills();
-  }, []);
+  }, [activeTeam]);
 
   async function loadDrills() {
     const { data } = await supabase
       .from("drills")
       .select("*")
+      .eq("team_id", activeTeam!.team_id)
       .order("category")
       .order("name");
     setDrills(data ?? []);
@@ -63,6 +67,7 @@ export default function DrillLibraryPage() {
     setSaving(true);
 
     const payload = {
+      team_id: activeTeam!.team_id,
       name: name.trim(),
       description: description,
       duration_minutes: duration ? parseInt(duration) : null,

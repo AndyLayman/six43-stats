@@ -14,6 +14,7 @@ import { ProgressionChart } from "@/components/progression-chart";
 import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType, ChainAward } from "@/lib/scoring/types";
 import { fullName } from "@/lib/player-name";
 import { StatTip } from "@/components/stat-tip";
+import { useAuth } from "@/components/auth-provider";
 import { NavArrowLeft } from "iconoir-react";
 
 type SprayFilter = "both" | "hits" | "outs";
@@ -21,6 +22,7 @@ type SprayFilter = "both" | "hits" | "outs";
 export default function PlayerDetailPage() {
   const params = useParams();
   const playerId = Number(params.playerId);
+  const { activeTeam } = useAuth();
   const [player, setPlayer] = useState<Player | null>(null);
   const [battingStats, setBattingStats] = useState<BattingStats | null>(null);
   const [fieldingStats, setFieldingStats] = useState<FieldingStats | null>(null);
@@ -32,13 +34,14 @@ export default function PlayerDetailPage() {
   const [chainAwards, setChainAwards] = useState<ChainAward[]>([]);
 
   useEffect(() => {
+    if (!activeTeam) return;
     async function load() {
       const [playerRes, battingRes, fieldingRes, pasRes, gamesRes, awardsRes] = await Promise.all([
-        supabase.from("players").select("*").eq("id", playerId).single(),
+        supabase.from("players").select("*").eq("id", playerId).eq("team_id", activeTeam!.team_id).single(),
         supabase.from("batting_stats_season").select("*").eq("player_id", playerId).single(),
         supabase.from("fielding_stats_season").select("*").eq("player_id", playerId).single(),
         supabase.from("plate_appearances").select("*").eq("player_id", playerId).order("created_at"),
-        supabase.from("games").select("*").eq("status", "final").order("date", { ascending: false }),
+        supabase.from("games").select("*").eq("status", "final").eq("team_id", activeTeam!.team_id).order("date", { ascending: false }),
         supabase.from("chain_awards").select("*").eq("player_id", playerId).order("date", { ascending: false }),
       ]);
 
@@ -62,7 +65,7 @@ export default function PlayerDetailPage() {
       setLoading(false);
     }
     load();
-  }, [playerId]);
+  }, [playerId, activeTeam]);
 
   const cumulativeAvg = useMemo(() => {
     if (gameLog.length === 0) return new Map<string, number>();

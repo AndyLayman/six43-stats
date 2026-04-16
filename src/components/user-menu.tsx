@@ -6,7 +6,7 @@ import { useAuth } from "@/components/auth-provider";
 import { LogOut, Settings, User } from "iconoir-react";
 
 export function UserMenu() {
-  const { user, activeTeam, signOut } = useAuth();
+  const { user, memberships, activeTeam, setActiveTeam, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -42,6 +42,29 @@ export function UserMenu() {
               <p className="text-xs text-muted-foreground mt-0.5">{roleLabel}{activeTeam?.team_name ? ` · ${activeTeam.team_name}` : ""}</p>
             )}
           </div>
+          {memberships.length > 1 && (
+            <div className="px-4 py-2 border-b border-border/30">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Switch Team</p>
+              {memberships.map((m) => (
+                <button
+                  key={m.team_id}
+                  onClick={() => {
+                    setActiveTeam(m);
+                    setOpen(false);
+                    router.refresh();
+                  }}
+                  className={`flex items-center justify-between w-full px-2 py-1.5 rounded-md text-sm transition-colors ${
+                    m.team_id === activeTeam?.team_id
+                      ? "bg-primary/15 text-primary font-semibold"
+                      : "text-muted-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {m.team_name}
+                  {m.team_id === activeTeam?.team_id && <span className="text-xs">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => {
               setOpen(false);

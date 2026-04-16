@@ -11,6 +11,7 @@ import { formatAvg } from "@/lib/stats/calculations";
 import { NavArrowUp, NavArrowDown } from "iconoir-react";
 import { fullName } from "@/lib/player-name";
 import { useRefresh } from "@/components/pull-to-refresh";
+import { useAuth } from "@/components/auth-provider";
 import type { Player } from "@/lib/scoring/types";
 
 interface PlayerWithStats extends Player {
@@ -118,6 +119,7 @@ type SortKey = "name" | "number" | "games" | "plate_appearances" | "at_bats" | "
 type SortDir = "asc" | "desc";
 
 export default function PlayersPage() {
+  const { activeTeam } = useAuth();
   const [players, setPlayers] = useState<PlayerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showOrder, setShowOrder] = useState(false);
@@ -150,9 +152,10 @@ export default function PlayersPage() {
   }, [players, sortKey, sortDir]);
 
   const load = useCallback(async () => {
+    if (!activeTeam) return;
     const [playersRes, statsRes] = await Promise.all([
-      supabase.from("players").select("*"),
-      supabase.from("batting_stats_season").select("*"),
+      supabase.from("players").select("*").eq("team_id", activeTeam.team_id),
+      supabase.from("batting_stats_season").select("*").eq("team_id", activeTeam.team_id),
     ]);
 
     const allPlayers: Player[] = playersRes.data ?? [];
@@ -184,9 +187,9 @@ export default function PlayersPage() {
     merged.sort((a, b) => a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name));
     setPlayers(merged);
     setLoading(false);
-  }, []);
+  }, [activeTeam]);
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
   useRefresh(load);
 
   const optimizedOrder = useMemo(() => generateOptimizedOrder(players), [players]);

@@ -9,9 +9,11 @@ import { MilestoneFeed } from "@/components/milestone-feed";
 import { useRefresh } from "@/components/pull-to-refresh";
 import { formatTime12 } from "@/lib/stats/calculations";
 import { fullName } from "@/lib/player-name";
+import { useAuth } from "@/components/auth-provider";
 import type { Game, Player, BattingStats, ChainAward } from "@/lib/scoring/types";
 
 export default function Dashboard() {
+  const { activeTeam } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [recentGames, setRecentGames] = useState<Game[]>([]);
   const [upcomingGames, setUpcomingGames] = useState<Game[]>([]);
@@ -22,17 +24,18 @@ export default function Dashboard() {
   const [showUpcoming, setShowUpcoming] = useState(false);
 
   const load = useCallback(async () => {
+    if (!activeTeam) return;
     const today = new Date().toISOString().split("T")[0];
     const fiveDaysAgo = new Date(Date.now() - 5 * 86400000).toISOString().split("T")[0];
 
     const [playersRes, recentRes, upcomingRes, allGamesRes, statsRes, gameChainRes, hardWorkerRes] = await Promise.all([
-      supabase.from("players").select("*").order("sort_order"),
-      supabase.from("games").select("*").gte("date", fiveDaysAgo).lte("date", today).order("date", { ascending: false }).limit(5),
-      supabase.from("games").select("*").gt("date", today).order("date", { ascending: true }).limit(5),
-      supabase.from("games").select("*").eq("status", "final"),
-      supabase.from("batting_stats_season").select("*").order("avg", { ascending: false }).limit(5),
-      supabase.from("chain_awards").select("*").eq("award_type", "game_chain").order("date", { ascending: false }).limit(1),
-      supabase.from("chain_awards").select("*").eq("award_type", "hard_worker").order("date", { ascending: false }).limit(1),
+      supabase.from("players").select("*").eq("team_id", activeTeam.team_id).order("sort_order"),
+      supabase.from("games").select("*").eq("team_id", activeTeam.team_id).gte("date", fiveDaysAgo).lte("date", today).order("date", { ascending: false }).limit(5),
+      supabase.from("games").select("*").eq("team_id", activeTeam.team_id).gt("date", today).order("date", { ascending: true }).limit(5),
+      supabase.from("games").select("*").eq("team_id", activeTeam.team_id).eq("status", "final"),
+      supabase.from("batting_stats_season").select("*").eq("team_id", activeTeam.team_id).order("avg", { ascending: false }).limit(5),
+      supabase.from("chain_awards").select("*").eq("team_id", activeTeam.team_id).eq("award_type", "game_chain").order("date", { ascending: false }).limit(1),
+      supabase.from("chain_awards").select("*").eq("team_id", activeTeam.team_id).eq("award_type", "hard_worker").order("date", { ascending: false }).limit(1),
     ]);
 
     const recent = recentRes.data ?? [];
@@ -53,9 +56,9 @@ export default function Dashboard() {
     });
     setShowUpcoming(recent.length === 0);
     setLoading(false);
-  }, []);
+  }, [activeTeam]);
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
   useRefresh(load);
 
   if (loading) {

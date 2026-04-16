@@ -17,6 +17,7 @@ import type {
 import { fullName, firstName } from "@/lib/player-name";
 import { formatTime12 } from "@/lib/stats/calculations";
 import { NavArrowLeft, Menu, Check, Trash, Xmark, Group, Plus, Play, DoubleCheck, NavArrowUp, NavArrowDown, MapPin } from 'iconoir-react'
+import { useAuth } from "@/components/auth-provider";
 import { VenuePicker } from "@/components/venue-picker";
 import {
   DndContext,
@@ -105,6 +106,7 @@ function DroppableGroup({ groupId, children, color }: { groupId: string; childre
 export default function PracticeSetupPage() {
   const params = useParams();
   const practiceId = params.practiceId as string;
+  const { activeTeam } = useAuth();
 
   const [practice, setPractice] = useState<Practice | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,13 +150,14 @@ export default function PracticeSetupPage() {
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
 
   useEffect(() => {
+    if (!activeTeam) return;
     async function load() {
       const [practiceRes, planRes, templatesRes, templateItemsRes, drillsRes, groupsRes] = await Promise.all([
-        supabase.from("practices").select("*").eq("id", practiceId).single(),
+        supabase.from("practices").select("*").eq("id", practiceId).eq("team_id", activeTeam!.team_id).single(),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
-        supabase.from("practice_plan_templates").select("*").order("name"),
+        supabase.from("practice_plan_templates").select("*").eq("team_id", activeTeam!.team_id).order("name"),
         supabase.from("practice_plan_template_items").select("*").order("sort_order"),
-        supabase.from("drills").select("*").order("name"),
+        supabase.from("drills").select("*").eq("team_id", activeTeam!.team_id).order("name"),
         supabase.from("practice_squad_groups").select("*").eq("practice_id", practiceId).order("sort_order"),
       ]);
 
@@ -170,7 +173,7 @@ export default function PracticeSetupPage() {
       // Load review data for completed practices
       if (practiceRes.data?.completed) {
         const [playersRes, attRes, notesRes, actionsRes] = await Promise.all([
-          supabase.from("players").select("*").order("sort_order"),
+          supabase.from("players").select("*").eq("team_id", activeTeam!.team_id).order("sort_order"),
           supabase.from("practice_attendance").select("*").eq("practice_id", practiceId),
           supabase.from("practice_notes").select("*").eq("practice_id", practiceId).order("created_at"),
           supabase.from("action_items").select("*").eq("practice_id", practiceId).order("created_at"),
@@ -188,7 +191,7 @@ export default function PracticeSetupPage() {
       setLoading(false);
     }
     load();
-  }, [practiceId]);
+  }, [practiceId, activeTeam]);
 
   // ---- Squad Groups ----
   const GROUP_COLORS = [
