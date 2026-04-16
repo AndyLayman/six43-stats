@@ -28,6 +28,27 @@ const defaults: LeagueConfig = {
   extraHitterAllowed: false,
 }
 
+export async function updateLeagueConfig(config: LeagueConfig): Promise<boolean> {
+  const { error } = await supabase
+    .from("league_config")
+    .update({
+      max_innings: config.maxInnings,
+      allow_re_entry: config.allowReEntry,
+      mercy_rule_enabled: config.mercyRuleEnabled,
+      mercy_rule_run_difference: config.mercyRuleRunDifference,
+      mercy_rule_after_inning: config.mercyRuleAfterInning,
+      pitch_count_enabled: config.pitchCountEnabled,
+      pitch_count_max_per_game: config.pitchCountMaxPerGame,
+      pitch_count_max_per_week: config.pitchCountMaxPerWeek,
+      batting_order_size: config.battingOrderSize,
+      continuous_batting_order: config.continuousBattingOrder,
+      extra_hitter_allowed: config.extraHitterAllowed,
+    })
+    .eq("id", 1)
+
+  return !error
+}
+
 export async function getLeagueConfig(): Promise<LeagueConfig> {
   const { data, error } = await supabase
     .from("league_config")

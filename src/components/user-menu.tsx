@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
-import { LogOut, User } from "iconoir-react";
+import { LogOut, Settings, User } from "iconoir-react";
 
 export function UserMenu() {
   const { user, activeTeam, signOut } = useAuth();
@@ -42,6 +42,16 @@ export function UserMenu() {
               <p className="text-xs text-muted-foreground mt-0.5">{roleLabel}{activeTeam?.team_name ? ` · ${activeTeam.team_name}` : ""}</p>
             )}
           </div>
+          <button
+            onClick={() => {
+              setOpen(false);
+              router.push("/settings");
+            }}
+            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+          >
+            <Settings width={16} height={16} />
+            Settings
+          </button>
           <button
             onClick={async () => {
               setOpen(false);
