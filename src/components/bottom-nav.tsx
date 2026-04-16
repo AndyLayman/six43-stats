@@ -22,7 +22,7 @@ export function BottomNav() {
           <Link
             key={href}
             href={href}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 mx-1 rounded-lg transition-colors ${active ? "bg-primary/30" : ""}`}
+            className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 mx-1 transition-colors ${active ? "bg-primary/50" : ""}`}
             style={{ color: active ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}
           >
             <Icon width={22} height={22} strokeWidth={active ? 2 : 1.5} />
