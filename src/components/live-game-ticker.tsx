@@ -118,17 +118,17 @@ export function LiveGameTicker() {
             transform="rotate(45 12 20)" />
           {/* 3rd base */}
           <rect x="1.5" y="9.5" width="5" height="5" rx="0.5"
-            fill={game.runnerThird ? "#E9D7B4" : "#111111"}
+            fill={game.runnerThird ? "#E9D7B4" : "transparent"}
             stroke="#E9D7B4" strokeWidth="0.75"
             transform="rotate(45 4 12)" />
           {/* 2nd base */}
           <rect x="9.5" y="1.5" width="5" height="5" rx="0.5"
-            fill={game.runnerSecond ? "#E9D7B4" : "#111111"}
+            fill={game.runnerSecond ? "#E9D7B4" : "transparent"}
             stroke="#E9D7B4" strokeWidth="0.75"
             transform="rotate(45 12 4)" />
           {/* 1st base */}
           <rect x="17.5" y="9.5" width="5" height="5" rx="0.5"
-            fill={game.runnerFirst ? "#E9D7B4" : "#111111"}
+            fill={game.runnerFirst ? "#E9D7B4" : "transparent"}
             stroke="#E9D7B4" strokeWidth="0.75"
             transform="rotate(45 20 12)" />
         </svg>
