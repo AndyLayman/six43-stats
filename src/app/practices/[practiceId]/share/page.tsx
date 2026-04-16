@@ -150,8 +150,8 @@ export default function SharedPracticePage() {
             </div>
           </div>
           <div className="flex items-center gap-2.5">
-            <img src="/logos/Stats-White.svg" alt="Stats" className="h-5 w-auto dark:block hidden" />
-            <img src="/logos/Stats-Black.svg" alt="Stats" className="h-5 w-auto dark:hidden block" />
+            <img src="/logos/Logo-White.svg" alt="Six43" className="h-5 w-auto dark:block hidden" />
+            <img src="/logos/Logo-Black.svg" alt="Six43" className="h-5 w-auto dark:hidden block" />
             <h1 className="text-xl font-extrabold tracking-tight text-foreground">
               {practice.title}
             </h1>

@@ -100,9 +100,7 @@ export function ChainAwardPicker({ players, sourceType, sourceId, date }: ChainA
                 onClick={() => handleSelect(award.type, p.id)}
                 className={`h-10 rounded-xl text-xs font-bold border-2 transition-all active:scale-95 select-none truncate px-1 ${
                   selections[award.type] === p.id
-                    ? award.type === "game_chain"
-                      ? "bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-md"
-                      : "bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-md"
+                    ? "bg-primary/20 text-primary border-primary/40 shadow-md"
                     : "bg-muted/30 text-foreground border-border/50"
                 }`}
               >

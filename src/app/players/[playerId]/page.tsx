@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,13 +8,16 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { formatAvg } from "@/lib/stats/calculations";
 import { SprayChart } from "@/components/scoring/SprayChart";
 import { ProgressionChart } from "@/components/progression-chart";
-import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType, ChainAward } from "@/lib/scoring/types";
+import type { Player, PlateAppearance, PlateAppearanceResult, BattingStats, FieldingStats, HitType, ChainAward, Game } from "@/lib/scoring/types";
 import { fullName } from "@/lib/player-name";
 import { StatTip } from "@/components/stat-tip";
-import { NavArrowLeft } from "iconoir-react";
+import { NavArrowLeft, Trophy, Gym } from "iconoir-react";
+import { PlayerDetailSkeleton } from "@/components/skeleton";
+import { computePlayerMilestones } from "@/components/milestone-feed";
 
 type SprayFilter = "both" | "hits" | "outs";
 
@@ -30,6 +33,7 @@ export default function PlayerDetailPage() {
   const [sprayFilter, setSprayFilter] = useState<SprayFilter>("both");
   const [heatMode, setHeatMode] = useState(false);
   const [chainAwards, setChainAwards] = useState<ChainAward[]>([]);
+  const [expandedStat, setExpandedStat] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -84,6 +88,119 @@ export default function PlayerDetailPage() {
     return sorted.map(g => cumulativeAvg.get(g.game_id) ?? 0);
   }, [gameLog, cumulativeAvg]);
 
+  // Compute running trends for all rate stats (AVG, OBP, SLG, OPS) + cumulative counting stats
+  const statTrends = useMemo(() => {
+    if (gameLog.length < 2) return new Map<string, number[]>();
+    const sorted = [...gameLog].sort((a, b) => a.date.localeCompare(b.date));
+    let cumAB = 0, cumHits = 0, cumBB = 0, cumHBP = 0, cumSF = 0, cumPA = 0;
+    let cumTB = 0, cumHR = 0, cumRBI = 0;
+    const avgPts: number[] = [], obpPts: number[] = [], slgPts: number[] = [], opsPts: number[] = [];
+    const hrPts: number[] = [], rbiPts: number[] = [];
+
+    for (const g of sorted) {
+      for (const pa of g.appearances) {
+        cumPA++;
+        if (pa.is_at_bat) cumAB++;
+        if (pa.is_hit) cumHits++;
+        if (pa.result === "BB") cumBB++;
+        if (pa.result === "HBP") cumHBP++;
+        if (pa.result === "SAC") cumSF++;
+        cumTB += pa.total_bases;
+        if (pa.result === "HR") cumHR++;
+        cumRBI += pa.rbis;
+      }
+      const avg = cumAB > 0 ? cumHits / cumAB : 0;
+      const obpDenom = cumAB + cumBB + cumHBP + cumSF;
+      const obp = obpDenom > 0 ? (cumHits + cumBB + cumHBP) / obpDenom : 0;
+      const slg = cumAB > 0 ? cumTB / cumAB : 0;
+      avgPts.push(avg);
+      obpPts.push(obp);
+      slgPts.push(slg);
+      opsPts.push(obp + slg);
+      hrPts.push(cumHR);
+      rbiPts.push(cumRBI);
+    }
+
+    const trends = new Map<string, number[]>();
+    trends.set("AVG", avgPts);
+    trends.set("OBP", obpPts);
+    trends.set("SLG", slgPts);
+    trends.set("OPS", opsPts);
+    trends.set("HR", hrPts);
+    trends.set("RBI", rbiPts);
+    return trends;
+  }, [gameLog]);
+
+  // Per-game chart data for expanded view (includes opponent labels + per-game values)
+  const expandedChartData = useMemo(() => {
+    if (gameLog.length < 2) return new Map<string, { label: string; cumulative: number; perGame: number }[]>();
+    const sorted = [...gameLog].sort((a, b) => a.date.localeCompare(b.date));
+    let cumAB = 0, cumHits = 0, cumBB = 0, cumHBP = 0, cumSF = 0;
+    let cumTB = 0, cumHR = 0, cumRBI = 0;
+
+    const isRate = (k: string) => ["AVG", "OBP", "SLG", "OPS"].includes(k);
+
+    const rows: {
+      label: string;
+      AVG: number; OBP: number; SLG: number; OPS: number; HR: number; RBI: number;
+      gAVG: number; gOBP: number; gSLG: number; gOPS: number; gHR: number; gRBI: number;
+    }[] = [];
+
+    for (const g of sorted) {
+      let gAB = 0, gH = 0, gBB = 0, gHBP = 0, gSF = 0, gTB = 0, gHR = 0, gRBI = 0;
+      for (const pa of g.appearances) {
+        if (pa.is_at_bat) { cumAB++; gAB++; }
+        if (pa.is_hit) { cumHits++; gH++; }
+        if (pa.result === "BB") { cumBB++; gBB++; }
+        if (pa.result === "HBP") { cumHBP++; gHBP++; }
+        if (pa.result === "SAC") { cumSF++; gSF++; }
+        cumTB += pa.total_bases; gTB += pa.total_bases;
+        if (pa.result === "HR") { cumHR++; gHR++; }
+        cumRBI += pa.rbis; gRBI += pa.rbis;
+      }
+      const avg = cumAB > 0 ? cumHits / cumAB : 0;
+      const obpD = cumAB + cumBB + cumHBP + cumSF;
+      const obp = obpD > 0 ? (cumHits + cumBB + cumHBP) / obpD : 0;
+      const slg = cumAB > 0 ? cumTB / cumAB : 0;
+      const gAvg = gAB > 0 ? gH / gAB : 0;
+      const gObpD = gAB + gBB + gHBP + gSF;
+      const gObp = gObpD > 0 ? (gH + gBB + gHBP) / gObpD : 0;
+      const gSlg = gAB > 0 ? gTB / gAB : 0;
+      const d = new Date(g.date + "T12:00:00");
+      rows.push({
+        label: `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} vs ${g.opponent}`,
+        AVG: avg, OBP: obp, SLG: slg, OPS: obp + slg,
+        HR: cumHR, RBI: cumRBI,
+        gAVG: gAvg, gOBP: gObp, gSLG: gSlg, gOPS: gObp + gSlg,
+        gHR: gHR, gRBI: gRBI,
+      });
+    }
+
+    const result = new Map<string, { label: string; cumulative: number; perGame: number }[]>();
+    for (const key of ["AVG", "OBP", "SLG", "OPS", "HR", "RBI"]) {
+      result.set(key, rows.map(r => ({
+        label: r.label,
+        cumulative: r[key as keyof typeof r] as number,
+        perGame: r[`g${key}` as keyof typeof r] as number,
+      })));
+    }
+    return result;
+  }, [gameLog]);
+
+  const formatStatValue = useCallback((key: string, v: number) => {
+    if (["AVG", "OBP", "SLG", "OPS"].includes(key)) return formatAvg(v);
+    return String(v);
+  }, []);
+
+  const playerTimeline = useMemo(() => {
+    if (allPAs.length === 0 || gameLog.length === 0 || !player) return [];
+    const gameMap = new Map<string, Game>();
+    for (const g of gameLog) {
+      gameMap.set(g.game_id, { id: g.game_id, date: g.date, opponent: g.opponent } as Game);
+    }
+    return computePlayerMilestones(playerId, fullName(player), allPAs, gameMap);
+  }, [allPAs, gameLog, player, playerId]);
+
   const milestones = useMemo(() => {
     if (!battingStats || Number(battingStats.at_bats) === 0) return [];
     type Tier = "bronze" | "silver" | "gold";
@@ -123,11 +240,7 @@ export default function PlayerDetailPage() {
   }, [battingStats]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <PlayerDetailSkeleton />;
   }
 
   if (!player) {
@@ -163,9 +276,9 @@ export default function PlayerDetailPage() {
         </div>
       </div>
 
-      {/* Season stat highlights */}
+      {/* Season stat highlights — tap to expand */}
       {battingStats && Number(battingStats.at_bats) > 0 && (
-        <div className="grid gap-3 grid-cols-3 md:grid-cols-6 stagger-children">
+        <div className="grid gap-3 grid-cols-3 md:grid-cols-6">
           {[
             { label: "AVG", value: formatAvg(Number(battingStats.avg)) },
             { label: "OBP", value: formatAvg(Number(battingStats.obp)) },
@@ -173,14 +286,122 @@ export default function PlayerDetailPage() {
             { label: "OPS", value: formatAvg(Number(battingStats.ops)) },
             { label: "HR", value: String(battingStats.home_runs) },
             { label: "RBI", value: String(battingStats.rbis) },
-          ].map((s) => (
-            <Card key={s.label} className="glass gradient-border card-hover">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{s.value}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium"><StatTip label={s.label} /></div>
-              </CardContent>
-            </Card>
-          ))}
+          ].map((s) => {
+            const trend = statTrends.get(s.label);
+            const isExpanded = expandedStat === s.label;
+            const chartData = expandedChartData.get(s.label);
+            const isRate = ["AVG", "OBP", "SLG", "OPS"].includes(s.label);
+
+            return (
+              <div
+                key={s.label}
+                className={`transition-all duration-300 ease-out ${
+                  isExpanded ? "col-span-3 md:col-span-6" : ""
+                }`}
+              >
+                <Card
+                  className={`glass gradient-border cursor-pointer select-none transition-all duration-300 ${
+                    isExpanded ? "border-primary/40" : "card-hover"
+                  }`}
+                  onClick={() => setExpandedStat(isExpanded ? null : s.label)}
+                >
+                  <CardContent className="p-4">
+                    {!isExpanded ? (
+                      /* Collapsed view */
+                      <div className="text-center">
+                        <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{s.value}</div>
+                        {trend && trend.length >= 2 && (
+                          <div className="mt-1.5">
+                            <Sparkline data={trend} width={64} height={18} />
+                          </div>
+                        )}
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mt-1"><StatTip label={s.label} /></div>
+                      </div>
+                    ) : (
+                      /* Expanded view */
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="text-3xl font-extrabold tabular-nums text-gradient-bright">{s.value}</div>
+                            <div className="text-sm text-muted-foreground uppercase tracking-wider font-bold">{s.label}</div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">Tap to close</div>
+                        </div>
+                        {chartData && chartData.length >= 2 ? (
+                          <div className="h-48">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                                <XAxis
+                                  dataKey="label"
+                                  tick={{ fontSize: 10, fill: "#8A8A8A" }}
+                                  tickLine={false}
+                                  axisLine={{ stroke: "#3A3A3A" }}
+                                  interval="preserveStartEnd"
+                                />
+                                <YAxis
+                                  tick={{ fontSize: 10, fill: "#8A8A8A" }}
+                                  tickLine={false}
+                                  axisLine={false}
+                                  width={32}
+                                  tickFormatter={(v: number) => isRate ? formatAvg(v) : String(v)}
+                                  domain={isRate ? ["auto", "auto"] : [0, "auto"]}
+                                />
+                                <Tooltip
+                                  contentStyle={{
+                                    background: "#1E1E1E",
+                                    border: "1px solid #3A3A3A",
+                                    borderRadius: "0.75rem",
+                                    fontSize: 12,
+                                  }}
+                                  formatter={(value: unknown, name: unknown) => [
+                                    isRate ? formatAvg(Number(value)) : Number(value),
+                                    name === "cumulative" ? `Season ${s.label}` : `Game ${s.label}`,
+                                  ]}
+                                  labelStyle={{ color: "#8A8A8A", fontSize: 11 }}
+                                />
+                                {/* Per-game values as dots */}
+                                <Line
+                                  type="monotone"
+                                  dataKey="perGame"
+                                  stroke="#574F3D"
+                                  strokeWidth={0}
+                                  dot={{ r: 3, fill: "#574F3D", strokeWidth: 0 }}
+                                  activeDot={{ r: 5, fill: "#574F3D" }}
+                                  name="perGame"
+                                />
+                                {/* Cumulative trend line */}
+                                <Line
+                                  type="monotone"
+                                  dataKey="cumulative"
+                                  stroke="#E9D7B4"
+                                  strokeWidth={2}
+                                  dot={false}
+                                  activeDot={{ r: 5, fill: "#E9D7B4", stroke: "#111111", strokeWidth: 2 }}
+                                  name="cumulative"
+                                />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground text-center py-8">Need more games to show trend</div>
+                        )}
+                        <div className="flex items-center justify-center gap-6 mt-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-4 h-0.5 bg-primary rounded-full" />
+                            <span>Season {s.label}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-[#574F3D]" />
+                            <span>Per Game</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -195,19 +416,14 @@ export default function PlayerDetailPage() {
               {chainAwards.map((award) => (
                 <div
                   key={award.id}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2 border ${
-                    award.award_type === "game_chain"
-                      ? "bg-amber-500/10 border-amber-500/30"
-                      : "bg-blue-500/10 border-blue-500/30"
-                  }`}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 border bg-primary/10 border-primary/30"
                 >
-                  <span className="text-xl">
-                    {award.award_type === "game_chain" ? "🏆" : "💪"}
-                  </span>
+                  {award.award_type === "game_chain"
+                    ? <Trophy className="w-5 h-5 text-primary shrink-0" />
+                    : <Gym className="w-5 h-5 text-primary shrink-0" />
+                  }
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-bold ${
-                      award.award_type === "game_chain" ? "text-amber-400" : "text-blue-400"
-                    }`}>
+                    <div className="text-sm font-bold text-primary">
                       {award.award_type === "game_chain" ? "Game Chain" : "Hard Worker"}
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -577,6 +793,33 @@ export default function PlayerDetailPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Player Timeline */}
+      {playerTimeline.length > 0 && (
+        <Card className="glass border-border/50">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="text-gradient">Season Timeline</CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6">
+            <div className="space-y-2 stagger-children">
+              {playerTimeline.map((m, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-xl border border-border/50 p-3"
+                >
+                  <m.icon width={20} height={20} className="shrink-0 text-primary" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">{m.text}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(m.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

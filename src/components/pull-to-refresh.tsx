@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+import { invalidateCache } from "@/lib/query-cache";
 
 /* ------------------------------------------------------------------ */
 /*  PullToRefresh UI component                                        */
@@ -137,6 +138,7 @@ export function RefreshProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleRefresh = useCallback(async () => {
+    invalidateCache();
     await Promise.all([...handlers.current].map((h) => h()));
   }, []);
 

@@ -18,6 +18,7 @@ import type { Game, GameLineup, Player, PlateAppearance, OpponentBatter } from "
 import { fullName } from "@/lib/player-name";
 import { StatTip } from "@/components/stat-tip";
 import { MapPin, NavArrowUp, NavArrowDown, EditPencil, Check, Xmark, Menu } from "iconoir-react";
+import { GameRecap } from "@/components/game-recap";
 import {
   DndContext,
   DragOverlay,
@@ -456,6 +457,11 @@ export default function GameDetailPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Game Recap — for final games */}
+      {game.status === "final" && appearances.length > 0 && (
+        <GameRecap game={game} appearances={appearances} players={allPlayers} />
       )}
 
       {/* Game Info — Editable for scheduled */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { NavArrowUpSolid, NavArrowDownSolid } from "iconoir-react";
@@ -18,64 +18,192 @@ interface LiveGame {
   runnerThird: boolean;
 }
 
+/**
+ * Parse a "HH:MM" game_time string into today's Date object.
+ * Returns null if game_time is missing or malformed.
+ */
+function gameTimeToday(dateStr: string, timeStr: string | null): Date | null {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  // dateStr is "YYYY-MM-DD"
+  const d = new Date(`${dateStr}T${timeStr}:00`);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
+/** Milliseconds until a given Date, floored to 0. */
+function msUntil(target: Date): number {
+  return Math.max(0, target.getTime() - Date.now());
+}
+
+function ScorePop({ value, className }: { value: number; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const prevRef = useRef(value);
+
+  useEffect(() => {
+    if (prevRef.current !== value && ref.current) {
+      ref.current.classList.remove("score-pop");
+      // Force reflow to restart animation
+      void ref.current.offsetWidth;
+      ref.current.classList.add("score-pop");
+    }
+    prevRef.current = value;
+  }, [value]);
+
+  return <span ref={ref} className={className}>{value}</span>;
+}
+
 export function LiveGameTicker() {
   const [game, setGame] = useState<LiveGame | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    async function fetchLiveGame() {
-      // Find an in-progress game
-      const { data: games } = await supabase
+    function clearTimer() {
+      if (timer !== null) { clearTimeout(timer); timer = null; }
+    }
+
+    function scheduleNext(fn: () => void, ms: number) {
+      clearTimer();
+      timer = setTimeout(fn, ms);
+    }
+
+    async function tick() {
+      if (!mounted) return;
+      clearTimer();
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      // 1. Check for an in-progress game first
+      const { data: liveGames } = await supabase
         .from("games")
         .select("id, opponent, our_score, opponent_score")
         .eq("status", "in_progress")
         .limit(1);
 
-      if (!mounted || !games || games.length === 0) {
-        if (mounted) setGame(null);
+      if (!mounted) return;
+
+      if (liveGames && liveGames.length > 0) {
+        // Live game found — fetch state and poll every 15s
+        const g = liveGames[0];
+        const { data: state } = await supabase
+          .from("game_state")
+          .select("*")
+          .eq("game_id", g.id)
+          .single();
+
+        if (!mounted) return;
+
+        if (state) {
+          setGame({
+            id: g.id,
+            opponent: g.opponent,
+            ourScore: g.our_score,
+            opponentScore: g.opponent_score,
+            inning: state.current_inning,
+            half: state.current_half,
+            outs: state.outs,
+            runnerFirst: !!(state.runner_first || state.opponent_runner_first),
+            runnerSecond: !!(state.runner_second || state.opponent_runner_second),
+            runnerThird: !!(state.runner_third || state.opponent_runner_third),
+          });
+        }
+
+        scheduleNext(tick, 15_000); // poll every 15s during a live game
         return;
       }
 
-      const g = games[0];
+      // No live game — clear the ticker
+      setGame(null);
 
-      // Fetch game state
-      const { data: state } = await supabase
-        .from("game_state")
-        .select("*")
-        .eq("game_id", g.id)
-        .single();
+      // 2. Check for a scheduled game today
+      const { data: todayGames } = await supabase
+        .from("games")
+        .select("id, date, game_time")
+        .eq("date", today)
+        .eq("status", "scheduled")
+        .limit(1);
 
       if (!mounted) return;
 
-      if (state) {
-        setGame({
-          id: g.id,
-          opponent: g.opponent,
-          ourScore: g.our_score,
-          opponentScore: g.opponent_score,
-          inning: state.current_inning,
-          half: state.current_half,
-          outs: state.outs,
-          runnerFirst: !!(state.runner_first || state.opponent_runner_first),
-          runnerSecond: !!(state.runner_second || state.opponent_runner_second),
-          runnerThird: !!(state.runner_third || state.opponent_runner_third),
-        });
+      if (todayGames && todayGames.length > 0) {
+        const g = todayGames[0];
+        const startTime = gameTimeToday(g.date, g.game_time);
+
+        if (startTime) {
+          const msToStart = msUntil(startTime);
+          const THIRTY_MIN = 30 * 60 * 1000;
+
+          if (msToStart <= 0) {
+            // Game should have started — poll every 60s to catch status change
+            scheduleNext(tick, 60_000);
+          } else if (msToStart <= THIRTY_MIN) {
+            // Within 30 min of game time — poll every 60s
+            scheduleNext(tick, 60_000);
+          } else {
+            // Game is far out — wake up 30 min before game time
+            scheduleNext(tick, msToStart - THIRTY_MIN);
+          }
+        } else {
+          // Game today but no time set — check every 5 min
+          scheduleNext(tick, 300_000);
+        }
+        return;
+      }
+
+      // 3. No game today — find the next upcoming game
+      const { data: nextGames } = await supabase
+        .from("games")
+        .select("id, date, game_time")
+        .gt("date", today)
+        .eq("status", "scheduled")
+        .order("date", { ascending: true })
+        .limit(1);
+
+      if (!mounted) return;
+
+      if (nextGames && nextGames.length > 0) {
+        const g = nextGames[0];
+        const startTime = gameTimeToday(g.date, g.game_time);
+
+        if (startTime) {
+          const msToStart = msUntil(startTime);
+          const THIRTY_MIN = 30 * 60 * 1000;
+          const ONE_HOUR = 60 * 60 * 1000;
+
+          if (msToStart <= THIRTY_MIN) {
+            // Very close to game time on a future date — poll every 60s
+            scheduleNext(tick, 60_000);
+          } else if (msToStart <= ONE_HOUR) {
+            // Within an hour — wake up 30 min before
+            scheduleNext(tick, msToStart - THIRTY_MIN);
+          } else {
+            // Far away — check again in 1 hour (setTimeout max is ~24 days, so this is safe)
+            scheduleNext(tick, ONE_HOUR);
+          }
+        } else {
+          // Next game has no time — check every hour
+          scheduleNext(tick, 3_600_000);
+        }
+      } else {
+        // No scheduled games at all — check once an hour
+        scheduleNext(tick, 3_600_000);
       }
     }
 
-    fetchLiveGame();
-    // Poll every 10 seconds for live updates
-    const interval = setInterval(fetchLiveGame, 10000);
+    tick();
+
     // Also refresh when tab becomes visible (returning from live scoring)
     function handleVisibility() {
-      if (document.visibilityState === "visible") fetchLiveGame();
+      if (document.visibilityState === "visible") tick();
     }
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       mounted = false;
-      clearInterval(interval);
+      clearTimer();
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
@@ -95,9 +223,9 @@ export function LiveGameTicker() {
 
       {/* Score */}
       <div className="flex items-center gap-1.5 text-sm font-bold tabular-nums">
-        <span className="text-foreground">{game.ourScore}</span>
+        <ScorePop value={game.ourScore} className="text-foreground" />
         <span className="text-muted-foreground">-</span>
-        <span className="text-foreground">{game.opponentScore}</span>
+        <ScorePop value={game.opponentScore} className="text-foreground" />
       </div>
 
       {/* Mini diamond + inning */}

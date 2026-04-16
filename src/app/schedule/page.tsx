@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { cachedQuery, invalidateCache } from "@/lib/query-cache";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { formatTime12 } from "@/lib/stats/calculations";
 import { TimePicker } from "@/components/time-picker";
 import { useRefresh } from "@/components/pull-to-refresh";
+import { ScheduleSkeleton } from "@/components/skeleton";
 import type { Game, Practice } from "@/lib/scoring/types";
 
 type ScheduleItem =
@@ -137,8 +139,8 @@ export default function SchedulePage() {
 
   const loadSchedule = useCallback(async () => {
     const [gamesRes, practicesRes] = await Promise.all([
-      supabase.from("games").select("*"),
-      supabase.from("practices").select("*"),
+      cachedQuery<Game[]>("games:all", () => supabase.from("games").select("*")),
+      cachedQuery<Practice[]>("practices:all", () => supabase.from("practices").select("*")),
     ]);
     setGames(gamesRes.data ?? []);
     setPractices(practicesRes.data ?? []);
@@ -184,6 +186,7 @@ export default function SchedulePage() {
     await supabase.from("opponent_lineup").delete().eq("game_id", gameId);
     await supabase.from("game_lineup").delete().eq("game_id", gameId);
     await supabase.from("games").delete().eq("id", gameId);
+    invalidateCache("games");
     setGames((prev) => prev.filter((g) => g.id !== gameId));
     setDeleteTarget(null);
     setDeleting(false);
@@ -192,6 +195,7 @@ export default function SchedulePage() {
   async function handleDeletePractice(practice: Practice) {
     setDeleting(true);
     await supabase.from("practices").delete().eq("id", practice.id);
+    invalidateCache("practices");
     setPractices((prev) => prev.filter((p) => p.id !== practice.id));
     setDeleteTarget(null);
     setDeleting(false);
@@ -284,11 +288,7 @@ export default function SchedulePage() {
   const totalSelected = selectedGames.size + selectedPractices.size;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <ScheduleSkeleton />;
   }
 
   return (
@@ -452,7 +452,7 @@ export default function SchedulePage() {
             : "Nothing scheduled yet."}
         </p>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 stagger-children">
           {Array.from(grouped.entries()).map(([monthKey, monthItems]) => {
             const [year, monthIdx] = monthKey.split("-").map(Number);
             const monthLabel = `${MONTH_NAMES[monthIdx]} ${year}`;

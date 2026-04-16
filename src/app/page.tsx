@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { cachedQuery } from "@/lib/query-cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MilestoneFeed } from "@/components/milestone-feed";
 import { useRefresh } from "@/components/pull-to-refresh";
+import { DashboardSkeleton } from "@/components/skeleton";
+import { AnimatedNumber } from "@/components/animated-number";
 import { formatTime12 } from "@/lib/stats/calculations";
 import { fullName } from "@/lib/player-name";
+import { Trophy, Gym } from "iconoir-react";
 import type { Game, Player, BattingStats, ChainAward } from "@/lib/scoring/types";
 
 export default function Dashboard() {
@@ -20,32 +24,55 @@ export default function Dashboard() {
   const [chainHolders, setChainHolders] = useState<{ gameChain: { player: Player; award: ChainAward } | null; hardWorker: { player: Player; award: ChainAward } | null }>({ gameChain: null, hardWorker: null });
   const [loading, setLoading] = useState(true);
   const [showUpcoming, setShowUpcoming] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const today = new Date().toISOString().split("T")[0];
-    const fiveDaysAgo = new Date(Date.now() - 5 * 86400000).toISOString().split("T")[0];
 
-    const [playersRes, recentRes, upcomingRes, allGamesRes, statsRes, gameChainRes, hardWorkerRes] = await Promise.all([
-      supabase.from("players").select("*").order("sort_order"),
-      supabase.from("games").select("*").gte("date", fiveDaysAgo).lte("date", today).order("date", { ascending: false }).limit(5),
-      supabase.from("games").select("*").gt("date", today).order("date", { ascending: true }).limit(5),
-      supabase.from("games").select("*").eq("status", "final"),
-      supabase.from("batting_stats_season").select("*").order("avg", { ascending: false }).limit(5),
-      supabase.from("chain_awards").select("*").eq("award_type", "game_chain").order("date", { ascending: false }).limit(1),
-      supabase.from("chain_awards").select("*").eq("award_type", "hard_worker").order("date", { ascending: false }).limit(1),
+    // 3 queries instead of 7: all games in one, both chain awards in one
+    const [playersRes, gamesRes, statsRes, chainRes] = await Promise.all([
+      cachedQuery<Player[]>("players", () => supabase.from("players").select("*").order("sort_order")),
+      cachedQuery<Game[]>("games:all", () => supabase.from("games").select("*")),
+      cachedQuery<BattingStats[]>("batting_stats", () => supabase.from("batting_stats_season").select("*").order("avg", { ascending: false }).limit(5)),
+      cachedQuery<ChainAward[]>("chain:all", () => supabase.from("chain_awards").select("*").order("date", { ascending: false }).limit(10)),
     ]);
 
-    const recent = recentRes.data ?? [];
-    const upcoming = upcomingRes.data ?? [];
-    const allPlayers: Player[] = playersRes.data ?? [];
+    // Surface any Supabase errors
+    const results = { playersRes, gamesRes, statsRes, chainRes };
+    const errors = Object.entries(results)
+      .filter(([, res]) => res.error)
+      .map(([key, res]) => `${key}: ${res.error!.message}`);
+    if (errors.length > 0) {
+      console.error("[Dashboard] query errors:", errors);
+      setFetchError(errors.join("; "));
+    } else {
+      setFetchError(null);
+    }
 
-    const gcAward: ChainAward | null = gameChainRes.data?.[0] ?? null;
-    const hwAward: ChainAward | null = hardWorkerRes.data?.[0] ?? null;
+    const allPlayers: Player[] = playersRes.data ?? [];
+    const allGames: Game[] = gamesRes.data ?? [];
+    const allChainAwards: ChainAward[] = chainRes.data ?? [];
+
+    // Derive recent, upcoming, and final games from the single query
+    const fiveDaysAgo = new Date(Date.now() - 5 * 86400000).toISOString().split("T")[0];
+    const recent = allGames
+      .filter((g) => g.date >= fiveDaysAgo && g.date <= today)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 5);
+    const upcoming = allGames
+      .filter((g) => g.date > today)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 5);
+    const finalGames = allGames.filter((g) => g.status === "final");
+
+    // Derive chain holders from single query
+    const gcAward = allChainAwards.find((a) => a.award_type === "game_chain") ?? null;
+    const hwAward = allChainAwards.find((a) => a.award_type === "hard_worker") ?? null;
 
     setPlayers(allPlayers);
     setRecentGames(recent);
     setUpcomingGames(upcoming);
-    setAllFinalGames(allGamesRes.data ?? []);
+    setAllFinalGames(finalGames);
     setBattingStats(statsRes.data ?? []);
     setChainHolders({
       gameChain: gcAward ? { player: allPlayers.find(p => p.id === gcAward.player_id)!, award: gcAward } : null,
@@ -58,16 +85,21 @@ export default function Dashboard() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useRefresh(load);
 
+  const formatAvgCounter = useCallback((v: number) => {
+    return v.toFixed(3).replace(/^0/, "");
+  }, []);
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
     <div className="space-y-8">
+      {fetchError && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <strong>Data error:</strong> {fetchError}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gradient">Dashboard</h1>
         <Link href="/games/new">
@@ -78,38 +110,53 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4 stagger-children">
-        {[
-          { label: "Players", value: players.length, href: "/players" },
-          { label: "Games Played", value: allFinalGames.length, href: "/schedule" },
-          {
-            label: "Record",
-            value: `${allFinalGames.filter((g) => g.our_score > g.opponent_score).length}-${allFinalGames.filter((g) => g.our_score < g.opponent_score).length}`,
-            href: "/schedule",
-          },
-          {
-            label: "Team AVG",
-            value:
-              battingStats.length > 0
-                ? (battingStats.reduce((sum, s) => sum + Number(s.avg), 0) / battingStats.length)
-                    .toFixed(3)
-                    .replace(/^0/, "")
+        {(() => {
+          const wins = allFinalGames.filter((g) => g.our_score > g.opponent_score).length;
+          const losses = allFinalGames.filter((g) => g.our_score < g.opponent_score).length;
+          const teamAvg = battingStats.length > 0
+            ? battingStats.reduce((sum, s) => sum + Number(s.avg), 0) / battingStats.length
+            : null;
+
+          const cards: { label: string; href: string; content: React.ReactNode }[] = [
+            {
+              label: "Players",
+              href: "/players",
+              content: <AnimatedNumber value={players.length} />,
+            },
+            {
+              label: "Games Played",
+              href: "/schedule",
+              content: <AnimatedNumber value={allFinalGames.length} />,
+            },
+            {
+              label: "Record",
+              href: "/schedule",
+              content: <><AnimatedNumber value={wins} />-<AnimatedNumber value={losses} /></>,
+            },
+            {
+              label: "Team AVG",
+              href: "/leaderboard",
+              content: teamAvg !== null
+                ? <AnimatedNumber value={teamAvg} format={formatAvgCounter} duration={800} />
                 : "---",
-            href: "/leaderboard",
-          },
-        ].map((stat) => (
-          <Link key={stat.label} href={stat.href}>
-            <Card className="card-hover glass gradient-border h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {stat.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{stat.value}</div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+            },
+          ];
+
+          return cards.map((stat) => (
+            <Link key={stat.label} href={stat.href}>
+              <Card className="card-hover glass gradient-border h-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    {stat.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-extrabold tabular-nums text-gradient-bright">{stat.content}</div>
+                </CardContent>
+              </Card>
+            </Link>
+          ));
+        })()}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -215,7 +262,7 @@ export default function Dashboard() {
                 >
                   <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Game Chain</div>
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">🏆</span>
+                    <Trophy className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                       <div className="font-bold text-sm truncate group-hover:text-primary transition-colors">
                         #{chainHolders.gameChain.player.number} {fullName(chainHolders.gameChain.player)}
@@ -234,7 +281,7 @@ export default function Dashboard() {
                 >
                   <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Hard Worker</div>
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">💪</span>
+                    <Gym className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                       <div className="font-bold text-sm truncate group-hover:text-primary transition-colors">
                         #{chainHolders.hardWorker.player.number} {fullName(chainHolders.hardWorker.player)}
