@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { PracticePlanTemplate, PracticePlanTemplateItem, Drill } from "@/lib/scoring/types";
+import { useAuth } from "@/components/auth-provider";
 import { NavArrowLeft, NavArrowUp, NavArrowDown, Xmark, Plus, EditPencil, Trash } from 'iconoir-react';
 
 interface TemplateWithItems extends PracticePlanTemplate {
@@ -16,6 +17,7 @@ interface TemplateWithItems extends PracticePlanTemplate {
 const CATEGORIES = ["General", "Warm Up", "Hitting", "Fielding", "Throwing", "Baserunning", "Conditioning", "Team", "Game", "Catcher"];
 
 export default function PlanTemplatesPage() {
+  const { activeTeam } = useAuth();
   const [templates, setTemplates] = useState<TemplateWithItems[]>([]);
   const [drills, setDrills] = useState<Drill[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,14 +36,15 @@ export default function PlanTemplatesPage() {
   const [showAllDrills, setShowAllDrills] = useState(false);
 
   useEffect(() => {
+    if (!activeTeam) return;
     loadAll();
-  }, []);
+  }, [activeTeam]);
 
   async function loadAll() {
     const [templatesRes, itemsRes, drillsRes] = await Promise.all([
-      supabase.from("practice_plan_templates").select("*").order("created_at", { ascending: false }),
+      supabase.from("practice_plan_templates").select("*").eq("team_id", activeTeam!.team_id).order("created_at", { ascending: false }),
       supabase.from("practice_plan_template_items").select("*").order("sort_order"),
-      supabase.from("drills").select("*").order("name"),
+      supabase.from("drills").select("*").eq("team_id", activeTeam!.team_id).order("name"),
     ]);
 
     const tpls = (templatesRes.data ?? []) as PracticePlanTemplate[];
@@ -62,7 +65,7 @@ export default function PlanTemplatesPage() {
     setSaving(true);
     const { data } = await supabase
       .from("practice_plan_templates")
-      .insert({ name: newName.trim() })
+      .insert({ team_id: activeTeam!.team_id, name: newName.trim() })
       .select()
       .single();
     if (data) {

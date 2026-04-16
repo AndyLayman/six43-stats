@@ -16,6 +16,7 @@ import type {
 } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
 import { CustomSelect } from "@/components/custom-select";
+import { useAuth } from "@/components/auth-provider";
 import { ChainAwardPicker } from "@/components/chain-award-picker";
 import {
   DndContext,
@@ -70,6 +71,7 @@ export default function LivePracticePage() {
   const params = useParams();
   const router = useRouter();
   const practiceId = params.practiceId as string;
+  const { activeTeam } = useAuth();
 
   const [practice, setPractice] = useState<Practice | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -126,12 +128,13 @@ export default function LivePracticePage() {
   const [ending, setEnding] = useState(false);
 
   useEffect(() => {
+    if (!activeTeam) return;
     async function load() {
       const [practiceRes, playersRes, planRes, drillsRes, attendanceRes, notesRes, actionRes, openActionRes, groupsRes, membersRes] = await Promise.all([
-        supabase.from("practices").select("*").eq("id", practiceId).single(),
-        supabase.from("players").select("*").order("sort_order"),
+        supabase.from("practices").select("*").eq("id", practiceId).eq("team_id", activeTeam!.team_id).single(),
+        supabase.from("players").select("*").eq("team_id", activeTeam!.team_id).order("sort_order"),
         supabase.from("practice_plan_items").select("*").eq("practice_id", practiceId).order("sort_order"),
-        supabase.from("drills").select("*").order("name"),
+        supabase.from("drills").select("*").eq("team_id", activeTeam!.team_id).order("name"),
         supabase.from("practice_attendance").select("*").eq("practice_id", practiceId),
         supabase.from("practice_notes").select("*").eq("practice_id", practiceId).order("created_at"),
         supabase.from("action_items").select("*").eq("practice_id", practiceId).order("created_at"),
@@ -178,7 +181,7 @@ export default function LivePracticePage() {
       setLoading(false);
     }
     load();
-  }, [practiceId]);
+  }, [practiceId, activeTeam]);
 
   // ---- Attendance ----
   async function toggleAttendance(playerId: number) {
@@ -238,7 +241,7 @@ export default function LivePracticePage() {
     if (!newActionText.trim()) return;
     const { data } = await supabase
       .from("action_items")
-      .insert({ practice_id: practiceId, player_id: newActionPlayer, text: newActionText.trim(), completed: false })
+      .insert({ team_id: activeTeam!.team_id, practice_id: practiceId, player_id: newActionPlayer, text: newActionText.trim(), completed: false })
       .select()
       .single();
     if (data) {

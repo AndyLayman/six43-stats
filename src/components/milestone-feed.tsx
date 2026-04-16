@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { cachedQuery } from "@/lib/query-cache";
+import { useAuth } from "@/components/auth-provider";
 import type { PlateAppearance, Game, Player } from "@/lib/scoring/types";
 import { fullName } from "@/lib/player-name";
 import { Star, Bonfire, Flash, FireFlame, Running, Archery, Medal } from "iconoir-react";
@@ -105,10 +106,12 @@ export function computePlayerMilestones(
 }
 
 export function MilestoneFeed() {
+  const { activeTeam } = useAuth();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!activeTeam) return;
     async function compute() {
       // Use cachedQuery so we share data with the dashboard (players, games)
       const [pasRes, gamesRes, playersRes] = await Promise.all([
@@ -116,10 +119,10 @@ export function MilestoneFeed() {
           supabase.from("plate_appearances").select("*").eq("team", "us").order("created_at")
         ),
         cachedQuery<Game[]>("games:all", () =>
-          supabase.from("games").select("*")
+          supabase.from("games").select("*").eq("team_id", activeTeam!.team_id)
         ),
         cachedQuery<Player[]>("players", () =>
-          supabase.from("players").select("*")
+          supabase.from("players").select("*").eq("team_id", activeTeam!.team_id)
         ),
       ]);
 
@@ -151,7 +154,7 @@ export function MilestoneFeed() {
       setLoading(false);
     }
     compute();
-  }, []);
+  }, [activeTeam]);
 
   if (loading) return null;
   if (milestones.length === 0) return null;

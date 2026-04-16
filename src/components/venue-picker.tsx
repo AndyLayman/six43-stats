@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +18,7 @@ interface VenuePickerProps {
 }
 
 export function VenuePicker({ venue, venueAddress, onVenueChange, onAddressChange }: VenuePickerProps) {
+  const { activeTeam } = useAuth();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [showManage, setShowManage] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -25,11 +27,12 @@ export function VenuePicker({ venue, venueAddress, onVenueChange, onAddressChang
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadVenues();
-  }, []);
+    if (activeTeam) loadVenues();
+  }, [activeTeam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadVenues() {
-    const { data } = await supabase.from("venues").select("*").order("name");
+    if (!activeTeam) return;
+    const { data } = await supabase.from("venues").select("*").eq("team_id", activeTeam.team_id).order("name");
     setVenues(data ?? []);
   }
 
@@ -58,7 +61,7 @@ export function VenuePicker({ venue, venueAddress, onVenueChange, onAddressChang
     if (editId) {
       await supabase.from("venues").update({ name: editName.trim(), address: editAddress.trim() }).eq("id", editId);
     } else {
-      await supabase.from("venues").insert({ name: editName.trim(), address: editAddress.trim() });
+      await supabase.from("venues").insert({ team_id: activeTeam!.team_id, name: editName.trim(), address: editAddress.trim() });
     }
     setSaving(false);
     setEditId(null);

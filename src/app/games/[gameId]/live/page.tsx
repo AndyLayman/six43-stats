@@ -22,6 +22,7 @@ import { getDefaultRunnerAdvances, canDoublePlay } from "@/lib/scoring/baseball-
 import { isAtBat, isHit, totalBases } from "@/lib/stats/calculations";
 import type { GameState, PlateAppearanceResult, RecordAtBatPayload, RunnerAdvance, Player, GameLineup, OpponentBatter, HitType } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
+import { useAuth } from "@/components/auth-provider";
 import { ChainAwardPicker } from "@/components/chain-award-picker";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
@@ -54,6 +55,7 @@ export default function LiveScoringPage() {
   const params = useParams();
   const router = useRouter();
   const gameId = params.gameId as string;
+  const { activeTeam } = useAuth();
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [stateHistory, setStateHistory] = useState<GameState[]>([]);
@@ -169,11 +171,12 @@ export default function LiveScoringPage() {
   }, []);
 
   useEffect(() => {
+    if (!activeTeam) return;
     async function load() {
       const [gameRes, lineupRes, playersRes, stateRes, opponentLineupRes] = await Promise.all([
-        supabase.from("games").select("*").eq("id", gameId).single(),
+        supabase.from("games").select("*").eq("id", gameId).eq("team_id", activeTeam!.team_id).single(),
         supabase.from("game_lineup").select("*").eq("game_id", gameId).order("batting_order"),
-        supabase.from("players").select("*"),
+        supabase.from("players").select("*").eq("team_id", activeTeam!.team_id),
         supabase.from("game_state").select("*").eq("game_id", gameId).single(),
         supabase.from("opponent_lineup").select("*").eq("game_id", gameId).order("batting_order"),
       ]);
@@ -303,7 +306,7 @@ export default function LiveScoringPage() {
       setLoading(false);
     }
     load();
-  }, [gameId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gameId, activeTeam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const persistState = useCallback(
     async (state: GameState, pitches?: { us: number; them: number }) => {

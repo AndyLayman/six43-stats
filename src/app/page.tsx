@@ -13,9 +13,11 @@ import { AnimatedNumber } from "@/components/animated-number";
 import { formatTime12 } from "@/lib/stats/calculations";
 import { fullName } from "@/lib/player-name";
 import { Trophy, Gym } from "iconoir-react";
+import { useAuth } from "@/components/auth-provider";
 import type { Game, Player, BattingStats, ChainAward } from "@/lib/scoring/types";
 
 export default function Dashboard() {
+  const { activeTeam } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [recentGames, setRecentGames] = useState<Game[]>([]);
   const [upcomingGames, setUpcomingGames] = useState<Game[]>([]);
@@ -27,14 +29,15 @@ export default function Dashboard() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!activeTeam) return;
     const today = new Date().toISOString().split("T")[0];
 
     // 3 queries instead of 7: all games in one, both chain awards in one
     const [playersRes, gamesRes, statsRes, chainRes] = await Promise.all([
-      cachedQuery<Player[]>("players", () => supabase.from("players").select("*").order("sort_order")),
-      cachedQuery<Game[]>("games:all", () => supabase.from("games").select("*")),
-      cachedQuery<BattingStats[]>("batting_stats", () => supabase.from("batting_stats_season").select("*").order("avg", { ascending: false }).limit(5)),
-      cachedQuery<ChainAward[]>("chain:all", () => supabase.from("chain_awards").select("*").order("date", { ascending: false }).limit(10)),
+      cachedQuery<Player[]>("players", () => supabase.from("players").select("*").eq("team_id", activeTeam.team_id).order("sort_order")),
+      cachedQuery<Game[]>("games:all", () => supabase.from("games").select("*").eq("team_id", activeTeam.team_id)),
+      cachedQuery<BattingStats[]>("batting_stats", () => supabase.from("batting_stats_season").select("*").eq("team_id", activeTeam.team_id).order("avg", { ascending: false }).limit(5)),
+      cachedQuery<ChainAward[]>("chain:all", () => supabase.from("chain_awards").select("*").eq("team_id", activeTeam.team_id).order("date", { ascending: false }).limit(10)),
     ]);
 
     // Surface any Supabase errors
@@ -80,9 +83,9 @@ export default function Dashboard() {
     });
     setShowUpcoming(recent.length === 0);
     setLoading(false);
-  }, []);
+  }, [activeTeam]);
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
   useRefresh(load);
 
   const formatAvgCounter = useCallback((v: number) => {

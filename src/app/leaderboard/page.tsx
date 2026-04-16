@@ -42,7 +42,7 @@ function Sparkline({ data, width = 60, height = 18 }: { data: number[]; width?: 
 }
 
 export default function LeaderboardPage() {
-  const { hasRole, loading: authLoading } = useAuth();
+  const { hasRole, activeTeam, loading: authLoading } = useAuth();
 
   const [battingStats, setBattingStats] = useState<BattingStats[]>([]);
   const [fieldingStats, setFieldingStats] = useState<FieldingStats[]>([]);
@@ -52,13 +52,14 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!activeTeam) return;
     const [battingRes, fieldingRes, pasRes, gamesRes] = await Promise.all([
-      cachedQuery<BattingStats[]>("batting_stats_all", () => supabase.from("batting_stats_season").select("*")),
-      cachedQuery<FieldingStats[]>("fielding_stats_all", () => supabase.from("fielding_stats_season").select("*")),
+      cachedQuery<BattingStats[]>("batting_stats_all", () => supabase.from("batting_stats_season").select("*").eq("team_id", activeTeam.team_id)),
+      cachedQuery<FieldingStats[]>("fielding_stats_all", () => supabase.from("fielding_stats_season").select("*").eq("team_id", activeTeam.team_id)),
       cachedQuery<PlateAppearance[]>("plate_appearances:us", () =>
         supabase.from("plate_appearances").select("player_id,game_id,is_at_bat,is_hit").eq("team", "us")
       ),
-      cachedQuery<Game[]>("games:all", () => supabase.from("games").select("*")),
+      cachedQuery<Game[]>("games:all", () => supabase.from("games").select("*").eq("team_id", activeTeam.team_id)),
     ]);
     setBattingStats(battingRes.data ?? []);
     setFieldingStats(fieldingRes.data ?? []);
@@ -103,9 +104,9 @@ export default function LeaderboardPage() {
     }
     setAvgTrends(trends);
     setLoading(false);
-  }, []);
+  }, [activeTeam]);
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
   useRefresh(load);
 
   function handleSort(key: SortKey) {

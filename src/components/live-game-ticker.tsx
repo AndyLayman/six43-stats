@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/auth-provider";
 import { NavArrowUpSolid, NavArrowDownSolid } from "iconoir-react";
 
 interface LiveGame {
@@ -55,9 +56,11 @@ function ScorePop({ value, className }: { value: number; className?: string }) {
 }
 
 export function LiveGameTicker() {
+  const { activeTeam } = useAuth();
   const [game, setGame] = useState<LiveGame | null>(null);
 
   useEffect(() => {
+    if (!activeTeam) return;
     let mounted = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -80,6 +83,7 @@ export function LiveGameTicker() {
       const { data: liveGames } = await supabase
         .from("games")
         .select("id, opponent, our_score, opponent_score")
+        .eq("team_id", activeTeam!.team_id)
         .eq("status", "in_progress")
         .limit(1);
 
@@ -206,7 +210,7 @@ export function LiveGameTicker() {
       clearTimer();
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, []);
+  }, [activeTeam]);
 
   if (!game) return null;
 

@@ -21,6 +21,7 @@ export type Database = {
           id: string
           player_id: number | null
           practice_id: string | null
+          team_id: string
           text: string
         }
         Insert: {
@@ -29,6 +30,7 @@ export type Database = {
           id?: string
           player_id?: number | null
           practice_id?: string | null
+          team_id: string
           text: string
         }
         Update: {
@@ -37,6 +39,7 @@ export type Database = {
           id?: string
           player_id?: number | null
           practice_id?: string | null
+          team_id?: string
           text?: string
         }
         Relationships: [
@@ -68,6 +71,13 @@ export type Database = {
             referencedRelation: "practices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "action_items_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
         ]
       }
       chain_awards: {
@@ -79,6 +89,7 @@ export type Database = {
           player_id: number
           source_id: string
           source_type: string
+          team_id: string
         }
         Insert: {
           award_type: string
@@ -88,6 +99,7 @@ export type Database = {
           player_id: number
           source_id: string
           source_type: string
+          team_id: string
         }
         Update: {
           award_type?: string
@@ -97,6 +109,7 @@ export type Database = {
           player_id?: number
           source_id?: string
           source_type?: string
+          team_id?: string
         }
         Relationships: [
           {
@@ -120,6 +133,13 @@ export type Database = {
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "chain_awards_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
         ]
       }
       drills: {
@@ -130,6 +150,7 @@ export type Database = {
           duration_minutes: number | null
           id: string
           name: string
+          team_id: string
           updated_at: string | null
         }
         Insert: {
@@ -139,6 +160,7 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           name: string
+          team_id: string
           updated_at?: string | null
         }
         Update: {
@@ -148,9 +170,18 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           name?: string
+          team_id?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "drills_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fielding_plays: {
         Row: {
@@ -444,6 +475,7 @@ export type Database = {
           our_score: number | null
           practice_notes: Json | null
           status: string | null
+          team_id: string
           venue: string | null
           venue_address: string | null
         }
@@ -465,6 +497,7 @@ export type Database = {
           our_score?: number | null
           practice_notes?: Json | null
           status?: string | null
+          team_id: string
           venue?: string | null
           venue_address?: string | null
         }
@@ -486,10 +519,72 @@ export type Database = {
           our_score?: number | null
           practice_notes?: Json | null
           status?: string | null
+          team_id?: string
           venue?: string | null
           venue_address?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "games_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      league_config: {
+        Row: {
+          allow_re_entry: boolean
+          batting_order_size: number
+          continuous_batting_order: boolean
+          extra_hitter_allowed: boolean
+          max_innings: number
+          mercy_rule_after_inning: number
+          mercy_rule_enabled: boolean
+          mercy_rule_run_difference: number
+          pitch_count_enabled: boolean
+          pitch_count_max_per_game: number
+          pitch_count_max_per_week: number
+          team_id: string
+        }
+        Insert: {
+          allow_re_entry?: boolean
+          batting_order_size?: number
+          continuous_batting_order?: boolean
+          extra_hitter_allowed?: boolean
+          max_innings?: number
+          mercy_rule_after_inning?: number
+          mercy_rule_enabled?: boolean
+          mercy_rule_run_difference?: number
+          pitch_count_enabled?: boolean
+          pitch_count_max_per_game?: number
+          pitch_count_max_per_week?: number
+          team_id: string
+        }
+        Update: {
+          allow_re_entry?: boolean
+          batting_order_size?: number
+          continuous_batting_order?: boolean
+          extra_hitter_allowed?: boolean
+          max_innings?: number
+          mercy_rule_after_inning?: number
+          mercy_rule_enabled?: boolean
+          mercy_rule_run_difference?: number
+          pitch_count_enabled?: boolean
+          pitch_count_max_per_game?: number
+          pitch_count_max_per_week?: number
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       library: {
         Row: {
@@ -716,6 +811,7 @@ export type Database = {
           photo_file: string | null
           song_file: string | null
           sort_order: number
+          team_id: string
           throws: string | null
         }
         Insert: {
@@ -731,6 +827,7 @@ export type Database = {
           photo_file?: string | null
           song_file?: string | null
           sort_order?: number
+          team_id: string
           throws?: string | null
         }
         Update: {
@@ -746,9 +843,18 @@ export type Database = {
           photo_file?: string | null
           song_file?: string | null
           sort_order?: number
+          team_id?: string
           throws?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "players_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       practice_attendance: {
         Row: {
@@ -948,18 +1054,29 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          team_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
           name: string
+          team_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
           name?: string
+          team_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "practice_plan_templates_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       practices: {
         Row: {
@@ -968,6 +1085,7 @@ export type Database = {
           id: string
           notes: string | null
           practice_time: string | null
+          team_id: string
           title: string
           venue: string | null
           venue_address: string | null
@@ -978,6 +1096,7 @@ export type Database = {
           id?: string
           notes?: string | null
           practice_time?: string | null
+          team_id: string
           title?: string
           venue?: string | null
           venue_address?: string | null
@@ -988,11 +1107,20 @@ export type Database = {
           id?: string
           notes?: string | null
           practice_time?: string | null
+          team_id?: string
           title?: string
           venue?: string | null
           venue_address?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "practices_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sounds: {
         Row: {
@@ -1000,20 +1128,31 @@ export type Database = {
           id: number
           label: string
           sort_order: number
+          team_id: string
         }
         Insert: {
           file_name: string
           id?: number
           label: string
           sort_order?: number
+          team_id: string
         }
         Update: {
           file_name?: string
           id?: number
           label?: string
           sort_order?: number
+          team_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sounds_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_members: {
         Row: {
@@ -1057,25 +1196,33 @@ export type Database = {
         Row: {
           color_bg: string
           color_fg: string
-          id: number
           logo_svg: string | null
           name: string
+          team_id: string
         }
         Insert: {
           color_bg?: string
           color_fg?: string
-          id?: number
           logo_svg?: string | null
           name?: string
+          team_id: string
         }
         Update: {
           color_bg?: string
           color_fg?: string
-          id?: number
           logo_svg?: string | null
           name?: string
+          team_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "team_settings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teams: {
         Row: {
@@ -1116,20 +1263,31 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          team_id: string
         }
         Insert: {
           address?: string
           created_at?: string | null
           id?: string
           name: string
+          team_id: string
         }
         Update: {
           address?: string
           created_at?: string | null
           id?: string
           name?: string
+          team_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "venues_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1153,11 +1311,20 @@ export type Database = {
           slg: number | null
           stolen_bases: number | null
           strikeouts: number | null
+          team_id: string | null
           total_bases: number | null
           triples: number | null
           walks: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "players_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fielding_stats_season: {
         Row: {
@@ -1168,9 +1335,18 @@ export type Database = {
           player_id: number | null
           player_name: string | null
           putouts: number | null
+          team_id: string | null
           total_chances: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "players_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {

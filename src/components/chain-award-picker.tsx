@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/auth-provider";
 import { fullName } from "@/lib/player-name";
 import type { Player, ChainAward } from "@/lib/scoring/types";
 import { Trophy, Gym } from "iconoir-react";
@@ -19,6 +20,7 @@ const AWARDS = [
 ];
 
 export function ChainAwardPicker({ players, sourceType, sourceId, date }: ChainAwardPickerProps) {
+  const { activeTeam } = useAuth();
   const [selections, setSelections] = useState<Record<string, number | null>>({
     game_chain: null,
     hard_worker: null,
@@ -66,6 +68,7 @@ export function ChainAwardPicker({ players, sourceType, sourceId, date }: ChainA
     // Insert new if selected
     if (newPlayerId !== null) {
       await supabase.from("chain_awards").insert({
+        team_id: activeTeam!.team_id,
         player_id: newPlayerId,
         award_type: awardType,
         source_type: sourceType,

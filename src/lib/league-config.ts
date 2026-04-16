@@ -28,10 +28,11 @@ const defaults: LeagueConfig = {
   extraHitterAllowed: false,
 }
 
-export async function updateLeagueConfig(config: LeagueConfig): Promise<boolean> {
+export async function updateLeagueConfig(teamId: string, config: LeagueConfig): Promise<boolean> {
   const { error } = await supabase
     .from("league_config")
-    .update({
+    .upsert({
+      team_id: teamId,
       max_innings: config.maxInnings,
       allow_re_entry: config.allowReEntry,
       mercy_rule_enabled: config.mercyRuleEnabled,
@@ -44,16 +45,15 @@ export async function updateLeagueConfig(config: LeagueConfig): Promise<boolean>
       continuous_batting_order: config.continuousBattingOrder,
       extra_hitter_allowed: config.extraHitterAllowed,
     })
-    .eq("id", 1)
 
   return !error
 }
 
-export async function getLeagueConfig(): Promise<LeagueConfig> {
+export async function getLeagueConfig(teamId: string): Promise<LeagueConfig> {
   const { data, error } = await supabase
     .from("league_config")
     .select("*")
-    .eq("id", 1)
+    .eq("team_id", teamId)
     .single()
 
   if (error || !data) return defaults

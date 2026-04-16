@@ -16,6 +16,7 @@ import { VenuePicker } from "@/components/venue-picker";
 import { TimePicker } from "@/components/time-picker";
 import type { Game, GameLineup, Player, PlateAppearance, OpponentBatter } from "@/lib/scoring/types";
 import { fullName } from "@/lib/player-name";
+import { useAuth } from "@/components/auth-provider";
 import { StatTip } from "@/components/stat-tip";
 import { MapPin, NavArrowUp, NavArrowDown, EditPencil, Check, Xmark, Menu } from "iconoir-react";
 import { GameRecap } from "@/components/game-recap";
@@ -114,6 +115,7 @@ export default function GameDetailPage() {
   const params = useParams();
   const router = useRouter();
   const gameId = params.gameId as string;
+  const { activeTeam } = useAuth();
 
   const [game, setGame] = useState<Game | null>(null);
   const [lineup, setLineup] = useState<(GameLineup & { player: Player })[]>([]);
@@ -147,13 +149,14 @@ export default function GameDetailPage() {
   const [savingLineup, setSavingLineup] = useState(false);
 
   useEffect(() => {
+    if (!activeTeam) return;
     async function load() {
       const [gameRes, lineupRes, pasRes, oppRes, playersRes] = await Promise.all([
-        supabase.from("games").select("*").eq("id", gameId).single(),
+        supabase.from("games").select("*").eq("id", gameId).eq("team_id", activeTeam!.team_id).single(),
         supabase.from("game_lineup").select("*, player:players(*)").eq("game_id", gameId).order("batting_order"),
         supabase.from("plate_appearances").select("*").eq("game_id", gameId).order("created_at"),
         supabase.from("opponent_lineup").select("*").eq("game_id", gameId).order("batting_order"),
-        supabase.from("players").select("*").order("sort_order"),
+        supabase.from("players").select("*").eq("team_id", activeTeam!.team_id).order("sort_order"),
       ]);
 
       setGame(gameRes.data);
@@ -165,7 +168,7 @@ export default function GameDetailPage() {
       setLoading(false);
     }
     load();
-  }, [gameId]);
+  }, [gameId, activeTeam]);
 
   // --- Scheduled game helpers ---
   const isScheduled = game?.status === "scheduled";

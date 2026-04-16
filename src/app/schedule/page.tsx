@@ -17,6 +17,7 @@ import { formatTime12 } from "@/lib/stats/calculations";
 import { TimePicker } from "@/components/time-picker";
 import { useRefresh } from "@/components/pull-to-refresh";
 import { ScheduleSkeleton } from "@/components/skeleton";
+import { useAuth } from "@/components/auth-provider";
 import type { Game, Practice } from "@/lib/scoring/types";
 
 type ScheduleItem =
@@ -33,6 +34,7 @@ type Filter = "all" | "games" | "practices";
 
 export default function SchedulePage() {
   const router = useRouter();
+  const { activeTeam } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,16 +140,17 @@ export default function SchedulePage() {
   const [creating, setCreating] = useState(false);
 
   const loadSchedule = useCallback(async () => {
+    if (!activeTeam) return;
     const [gamesRes, practicesRes] = await Promise.all([
-      cachedQuery<Game[]>("games:all", () => supabase.from("games").select("*")),
-      cachedQuery<Practice[]>("practices:all", () => supabase.from("practices").select("*")),
+      cachedQuery<Game[]>("games:all", () => supabase.from("games").select("*").eq("team_id", activeTeam.team_id)),
+      cachedQuery<Practice[]>("practices:all", () => supabase.from("practices").select("*").eq("team_id", activeTeam.team_id)),
     ]);
     setGames(gamesRes.data ?? []);
     setPractices(practicesRes.data ?? []);
     setLoading(false);
-  }, []);
+  }, [activeTeam]);
 
-  useEffect(() => { loadSchedule(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadSchedule(); }, [loadSchedule]);
   useRefresh(loadSchedule);
 
   // Build unified items list sorted by date (upcoming first, then past)
@@ -250,6 +253,7 @@ export default function SchedulePage() {
     const { data, error } = await supabase
       .from("practices")
       .insert({
+        team_id: activeTeam!.team_id,
         title: newTitle.trim(),
         date: newDate,
         venue: newVenue.trim() || null,
