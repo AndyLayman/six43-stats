@@ -23,6 +23,7 @@ import { isAtBat, isHit, totalBases } from "@/lib/stats/calculations";
 import type { GameState, PlateAppearanceResult, RecordAtBatPayload, RunnerAdvance, Player, GameLineup, OpponentBatter, HitType } from "@/lib/scoring/types";
 import { fullName, firstName } from "@/lib/player-name";
 import { useAuth } from "@/components/auth-provider";
+import { TeamLogoBadge } from "@/components/team-logo-badge";
 import { ChainAwardPicker } from "@/components/chain-award-picker";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
@@ -83,6 +84,9 @@ export default function LiveScoringPage() {
   const [batterHistory, setBatterHistory] = useState<{ x: number; y: number; result: PlateAppearanceResult; hitType: HitType | null }[]>([]);
   const [inningPositions, setInningPositions] = useState<{ player_id: number; position: string }[]>([]);
   const [opponentName, setOpponentName] = useState<string>("Them");
+  const [opponentLogoSvg, setOpponentLogoSvg] = useState<string | null>(null);
+  const [opponentColorBg, setOpponentColorBg] = useState<string | null>(null);
+  const [opponentColorFg, setOpponentColorFg] = useState<string | null>(null);
   const [hitProbability, setHitProbability] = useState<number | null>(null);
   const [ourTeamName, setOurTeamName] = useState<string>("Padres");
   const [gameLocation, setGameLocation] = useState<"home" | "away">("home");
@@ -234,6 +238,9 @@ export default function LiveScoringPage() {
       }
 
       if (gameRes.data?.opponent) setOpponentName(gameRes.data.opponent);
+      setOpponentLogoSvg(gameRes.data?.opponent_logo_svg ?? null);
+      setOpponentColorBg(gameRes.data?.opponent_color_bg ?? null);
+      setOpponentColorFg(gameRes.data?.opponent_color_fg ?? null);
       if (gameRes.data?.location) setGameLocation(gameRes.data.location);
       if (gameRes.data?.date) setGameDate(gameRes.data.date);
 
@@ -1022,9 +1029,16 @@ export default function LiveScoringPage() {
               <div className="flex items-center justify-between">
                 <div className="text-center flex-1">
                   <div className="text-3xl sm:text-4xl font-extrabold tabular-nums text-gradient-bright">{gameState.ourScore}</div>
-                  <div className="flex justify-center">
-                    <img src="/logos/Logo-White.svg" alt={ourTeamName} className="h-5 w-auto dark:block hidden" />
-                    <img src="/logos/Logo-Black.svg" alt={ourTeamName} className="h-5 w-auto dark:hidden block" />
+                  <div className="flex justify-center mt-1">
+                    <TeamLogoBadge
+                      logoSvg={activeTeam?.team_logo_svg}
+                      colorBg={activeTeam?.team_color_bg}
+                      colorFg={activeTeam?.team_color_fg}
+                      fallback={activeTeam?.team_name ?? ourTeamName}
+                      sizeClass="w-7 h-7"
+                      innerSizeClass="w-5 h-5"
+                      fallbackTextClass="text-sm"
+                    />
                   </div>
                 </div>
                 <div className="text-center px-3">
@@ -1090,7 +1104,17 @@ export default function LiveScoringPage() {
                 </div>
                 <div className="text-center flex-1">
                   <div className="text-3xl sm:text-4xl font-extrabold tabular-nums text-gradient-bright">{gameState.opponentScore}</div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium truncate max-w-[100px] mx-auto">{opponentName}</div>
+                  <div className="flex justify-center mt-1">
+                    <TeamLogoBadge
+                      logoSvg={opponentLogoSvg}
+                      colorBg={opponentColorBg}
+                      colorFg={opponentColorFg}
+                      fallback={opponentName}
+                      sizeClass="w-7 h-7"
+                      innerSizeClass="w-5 h-5"
+                      fallbackTextClass="text-sm"
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>

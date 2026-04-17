@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { TeamLogoBadge } from "@/components/team-logo-badge";
 import { NavArrowUpSolid, NavArrowDownSolid } from "iconoir-react";
 
 interface LiveGame {
@@ -11,6 +12,9 @@ interface LiveGame {
   opponent: string;
   ourScore: number;
   opponentScore: number;
+  opponentLogoSvg: string | null;
+  opponentColorBg: string | null;
+  opponentColorFg: string | null;
   inning: number;
   half: "top" | "bottom";
   outs: number;
@@ -82,7 +86,7 @@ export function LiveGameTicker() {
       // 1. Check for an in-progress game first
       const { data: liveGames } = await supabase
         .from("games")
-        .select("id, opponent, our_score, opponent_score")
+        .select("id, opponent, our_score, opponent_score, opponent_logo_svg, opponent_color_bg, opponent_color_fg")
         .eq("team_id", activeTeam!.team_id)
         .eq("status", "in_progress")
         .limit(1);
@@ -106,6 +110,9 @@ export function LiveGameTicker() {
             opponent: g.opponent,
             ourScore: g.our_score,
             opponentScore: g.opponent_score,
+            opponentLogoSvg: g.opponent_logo_svg ?? null,
+            opponentColorBg: g.opponent_color_bg ?? null,
+            opponentColorFg: g.opponent_color_fg ?? null,
             inning: state.current_inning,
             half: state.current_half,
             outs: state.outs,
@@ -225,13 +232,29 @@ export function LiveGameTicker() {
         <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
       </span>
 
-      {/* Team logo + score */}
+      {/* Team logos + score */}
       <div className="flex items-center gap-1.5 text-sm font-bold tabular-nums">
-        <img src="/logos/Logo-White.svg" alt="" className="h-4 w-auto shrink-0 dark:block hidden" />
-        <img src="/logos/Logo-Black.svg" alt="" className="h-4 w-auto shrink-0 dark:hidden block" />
+        <TeamLogoBadge
+          logoSvg={activeTeam?.team_logo_svg}
+          colorBg={activeTeam?.team_color_bg}
+          colorFg={activeTeam?.team_color_fg}
+          fallback={activeTeam?.team_name ?? "Us"}
+          sizeClass="w-5 h-5"
+          innerSizeClass="w-4 h-4"
+          fallbackTextClass="text-[10px]"
+        />
         <ScorePop value={game.ourScore} className="text-foreground" />
         <span className="text-muted-foreground">-</span>
         <ScorePop value={game.opponentScore} className="text-foreground" />
+        <TeamLogoBadge
+          logoSvg={game.opponentLogoSvg}
+          colorBg={game.opponentColorBg}
+          colorFg={game.opponentColorFg}
+          fallback={game.opponent}
+          sizeClass="w-5 h-5"
+          innerSizeClass="w-4 h-4"
+          fallbackTextClass="text-[10px]"
+        />
       </div>
 
       {/* Mini diamond + inning */}

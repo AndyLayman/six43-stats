@@ -10,6 +10,9 @@ export interface TeamMembership {
   team_id: string;
   team_name: string;
   team_slug: string;
+  team_logo_svg: string | null;
+  team_color_bg: string | null;
+  team_color_fg: string | null;
   role: TeamRole;
   player_id: number | null;
 }
@@ -48,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from("team_members")
-        .select("team_id, role, player_id, teams(name, slug)")
+        .select("team_id, role, player_id, teams(name, slug, logo_svg, color_bg, color_fg)")
         .eq("user_id", userId);
 
       if (error) {
@@ -59,11 +62,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data && data.length > 0) {
         const mapped = data.map((m: Record<string, unknown>) => {
-          const team = m.teams as { name: string; slug: string } | null;
+          const team = m.teams as {
+            name: string;
+            slug: string;
+            logo_svg: string | null;
+            color_bg: string | null;
+            color_fg: string | null;
+          } | null;
           return {
             team_id: m.team_id as string,
             team_name: team?.name ?? "",
             team_slug: team?.slug ?? "",
+            team_logo_svg: team?.logo_svg ?? null,
+            team_color_bg: team?.color_bg ?? null,
+            team_color_fg: team?.color_fg ?? null,
             role: m.role as TeamRole,
             player_id: m.player_id as number | null,
           };
@@ -75,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // First user auto-join: assign as admin of the default team
       const { data: defaultTeam, error: teamError } = await supabase
         .from("teams")
-        .select("id, name, slug")
+        .select("id, name, slug, logo_svg, color_bg, color_fg")
         .eq("slug", "default")
         .single();
 
@@ -96,6 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           team_id: defaultTeam.id,
           team_name: defaultTeam.name,
           team_slug: defaultTeam.slug,
+          team_logo_svg: defaultTeam.logo_svg ?? null,
+          team_color_bg: defaultTeam.color_bg ?? null,
+          team_color_fg: defaultTeam.color_fg ?? null,
           role: "admin",
           player_id: null,
         };
