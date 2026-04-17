@@ -39,18 +39,43 @@ function resetStuckLocks(authClient: unknown) {
   }
 }
 
+let lastHiddenAt: number | null = null;
+let lastVisibleAt: number | null = null;
 if (typeof document !== "undefined") {
   let wasHidden = false;
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
+      lastHiddenAt = Date.now();
       wasHidden = true;
       return;
     }
-    if (document.visibilityState === "visible" && wasHidden) {
-      wasHidden = false;
-      resetStuckLocks(supabase.auth);
+    if (document.visibilityState === "visible") {
+      lastVisibleAt = Date.now();
+      if (wasHidden) {
+        wasHidden = false;
+        resetStuckLocks(supabase.auth);
+      }
     }
   });
+}
+
+export interface SupabaseDebugInfo {
+  outerLocks: string[];
+  authLockAcquired: boolean;
+  pendingInLockLength: number;
+  lastHiddenAt: number | null;
+  lastVisibleAt: number | null;
+}
+
+export function getSupabaseDebugInfo(): SupabaseDebugInfo {
+  const a = (supabase?.auth as unknown as { lockAcquired?: boolean; pendingInLock?: unknown[] }) ?? {};
+  return {
+    outerLocks: [...activeLocks.keys()],
+    authLockAcquired: !!a.lockAcquired,
+    pendingInLockLength: Array.isArray(a.pendingInLock) ? a.pendingInLock.length : 0,
+    lastHiddenAt,
+    lastVisibleAt,
+  };
 }
 
 export const supabase = createBrowserClient(

@@ -8,6 +8,7 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>();
+const pendingQueries = new Set<string>();
 const DEFAULT_TTL = 30_000; // 30 seconds
 const QUERY_TIMEOUT_MS = 10_000; // iOS Safari can leave fetches pending
                                  // forever after a tab is briefly backgrounded;
@@ -61,21 +62,48 @@ export async function cachedQuery<T>(
     // Stale-while-revalidate: return what we have now, refresh for next time.
     // Fire-and-forget; errors and timeouts are ignored — the current cached
     // value stays in place until a future call succeeds.
+    pendingQueries.add(key);
     Promise.resolve(queryFn()).then((result) => {
       if (!result.error && result.data) {
         cache.set(key, { data: result.data, timestamp: Date.now() });
       }
-    }).catch(() => { /* keep stale */ });
+    }).catch(() => { /* keep stale */ }).finally(() => {
+      pendingQueries.delete(key);
+    });
     return { data: cached.data as T, error: null };
   }
 
   // First-ever load for this key: no cache to fall back to, must wait.
+  pendingQueries.add(key);
   const result = await withTimeout(queryFn(), QUERY_TIMEOUT_MS);
+  pendingQueries.delete(key);
   if (!result.error && result.data) {
     cache.set(key, { data: result.data, timestamp: Date.now() });
     return { data: result.data as T, error: null };
   }
   return { data: null, error: result.error };
+}
+
+export interface CacheSnapshotEntry {
+  key: string;
+  ageMs: number;
+  stale: boolean;
+  pending: boolean;
+}
+
+/** Inspect the in-memory cache for debugging. */
+export function getCacheSnapshot(): CacheSnapshotEntry[] {
+  const now = Date.now();
+  const keys = new Set<string>([...cache.keys(), ...pendingQueries]);
+  return [...keys].sort().map((key) => {
+    const entry = cache.get(key);
+    return {
+      key,
+      ageMs: entry ? now - entry.timestamp : -1,
+      stale: !!entry?.stale,
+      pending: pendingQueries.has(key),
+    };
+  });
 }
 
 /**
