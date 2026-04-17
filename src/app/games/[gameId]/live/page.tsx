@@ -1862,9 +1862,14 @@ export default function LiveScoringPage() {
                 {halfInningTransition.fromHalf === "top" ? "Mid" : "End"} {halfInningTransition.inning}
               </div>
               <div className="text-sm text-muted-foreground">
-                {halfInningTransition.fromHalf === "top"
-                  ? "Switching to offense"
-                  : halfInningTransition.inning < 6 ? "Switching to defense" : "Switching to defense"}
+                {(() => {
+                  // After top → bottom (home bats). After bottom → top (away bats).
+                  const weBatNext =
+                    halfInningTransition.fromHalf === "top"
+                      ? gameLocation === "home"
+                      : gameLocation === "away";
+                  return weBatNext ? "Switching to offense" : "Switching to defense";
+                })()}
               </div>
             </div>
 
