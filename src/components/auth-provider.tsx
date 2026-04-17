@@ -130,7 +130,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Guard against iOS leaving the initial getSession() fetch pending
+    // forever after a quick tab suspend. If the call doesn't resolve in
+    // 10s, fall through to the unauthenticated path so the UI isn't
+    // stuck at loading=true and every page's load() can proceed.
+    const AUTH_TIMEOUT_MS = 10_000;
+    let resolved = false;
+    const sessionTimer = setTimeout(() => {
+      if (resolved) return;
+      resolved = true;
+      console.warn("[Auth] getSession() timed out; continuing unauthenticated");
+      setLoading(false);
+    }, AUTH_TIMEOUT_MS);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(sessionTimer);
       const u = session?.user ?? null;
       setUser(u);
       if (u) {
@@ -138,6 +154,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setLoading(false);
       }
+    }).catch((err) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(sessionTimer);
+      console.error("[Auth] getSession() failed:", err);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -152,7 +174,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    // If iOS suspended the initial getSession() and we fell through
+    // unauthenticated, retry on tab return. A valid session will
+    // repopulate user without requiring a page reload.
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const u = session?.user ?? null;
+        setUser((prev) => {
+          if (prev?.id === u?.id) return prev;
+          if (u) loadMemberships(u.id);
+          else setMemberships([]);
+          return u;
+        });
+      }).catch(() => { /* ignore; nothing changed */ });
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibility);
+      clearTimeout(sessionTimer);
+    };
   }, [loadMemberships]);
 
   const signOut = useCallback(async () => {

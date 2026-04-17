@@ -16,7 +16,7 @@ interface TeamLogoBadgeProps {
 // rules inside it into the host document, which can break unrelated layout
 // (e.g. the bottom nav's fixed positioning). Serve the SVG as an <img>
 // data URL so it's isolated in its own image document.
-function svgToDataUrl(svg: string): string {
+export function svgToDataUrl(svg: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 

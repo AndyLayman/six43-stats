@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { svgToDataUrl } from "@/components/team-logo-badge";
 import { getLeagueConfig, updateLeagueConfig, type LeagueConfig } from "@/lib/league-config";
 
 interface TeamBranding {
@@ -143,10 +144,7 @@ export default function SettingsPage() {
                 style={{ backgroundColor: branding.colorBg }}
               >
                 {branding.logoSvg.trim() ? (
-                  <div
-                    className="w-8 h-8 [&>svg]:w-full [&>svg]:h-full"
-                    dangerouslySetInnerHTML={{ __html: branding.logoSvg }}
-                  />
+                  <img src={svgToDataUrl(branding.logoSvg)} alt="" className="w-8 h-8 object-contain" />
                 ) : (
                   <span className="text-lg font-bold" style={{ color: branding.colorFg }}>
                     {branding.name.trim()?.[0]?.toUpperCase() || "?"}

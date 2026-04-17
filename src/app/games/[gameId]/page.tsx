@@ -14,6 +14,7 @@ import { formatAvg, formatTime12 } from "@/lib/stats/calculations";
 import { CustomSelect } from "@/components/custom-select";
 import { VenuePicker } from "@/components/venue-picker";
 import { TimePicker } from "@/components/time-picker";
+import { svgToDataUrl } from "@/components/team-logo-badge";
 import type { Game, GameLineup, Player, PlateAppearance, OpponentBatter } from "@/lib/scoring/types";
 import { fullName } from "@/lib/player-name";
 import { useAuth } from "@/components/auth-provider";
@@ -368,10 +369,7 @@ export default function GameDetailPage() {
             style={{ backgroundColor: game.opponent_color_bg || "#1a1a1a" }}
           >
             {game.opponent_logo_svg ? (
-              <div
-                className="w-8 h-8 [&>svg]:w-full [&>svg]:h-full"
-                dangerouslySetInnerHTML={{ __html: game.opponent_logo_svg }}
-              />
+              <img src={svgToDataUrl(game.opponent_logo_svg)} alt="" className="w-8 h-8 object-contain" />
             ) : (
               <span className="text-xl font-bold" style={{ color: game.opponent_color_fg || "#ffffff" }}>
                 {game.opponent?.[0]?.toUpperCase() || "?"}
@@ -607,10 +605,7 @@ export default function GameDetailPage() {
                   style={{ backgroundColor: editColorBg }}
                 >
                   {editLogoSvg.trim() ? (
-                    <div
-                      className="w-8 h-8 [&>svg]:w-full [&>svg]:h-full"
-                      dangerouslySetInnerHTML={{ __html: editLogoSvg }}
-                    />
+                    <img src={svgToDataUrl(editLogoSvg)} alt="" className="w-8 h-8 object-contain" />
                   ) : (
                     <span className="text-lg font-bold" style={{ color: editColorFg }}>
                       {editOpponent.trim() ? editOpponent.trim()[0].toUpperCase() : "?"}
@@ -777,10 +772,7 @@ export default function GameDetailPage() {
                 style={{ backgroundColor: game.opponent_color_bg || "#000000" }}
               >
                 {game.opponent_logo_svg ? (
-                  <div
-                    className="w-10 h-10 [&>svg]:w-full [&>svg]:h-full"
-                    dangerouslySetInnerHTML={{ __html: game.opponent_logo_svg }}
-                  />
+                  <img src={svgToDataUrl(game.opponent_logo_svg)} alt="" className="w-10 h-10 object-contain" />
                 ) : (
                   <span className="text-2xl font-bold" style={{ color: game.opponent_color_fg || "#ffffff" }}>
                     {game.opponent?.[0]?.toUpperCase() || "?"}
@@ -840,10 +832,7 @@ export default function GameDetailPage() {
                   style={{ backgroundColor: editColorBg }}
                 >
                   {editLogoSvg.trim() ? (
-                    <div
-                      className="w-8 h-8 [&>svg]:w-full [&>svg]:h-full"
-                      dangerouslySetInnerHTML={{ __html: editLogoSvg }}
-                    />
+                    <img src={svgToDataUrl(editLogoSvg)} alt="" className="w-8 h-8 object-contain" />
                   ) : (
                     <span className="text-lg font-bold" style={{ color: editColorFg }}>
                       {game.opponent?.[0]?.toUpperCase() || "?"}

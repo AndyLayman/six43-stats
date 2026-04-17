@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VenuePicker } from "@/components/venue-picker";
+import { svgToDataUrl } from "@/components/team-logo-badge";
 import { TimePicker } from "@/components/time-picker";
 import { CustomSelect } from "@/components/custom-select";
 import { fullName } from "@/lib/player-name";
@@ -279,10 +280,7 @@ export default function NewGamePage() {
                   style={{ backgroundColor: colorBg }}
                 >
                   {logoSvg.trim() ? (
-                    <div
-                      className="w-8 h-8 [&>svg]:w-full [&>svg]:h-full"
-                      dangerouslySetInnerHTML={{ __html: logoSvg }}
-                    />
+                    <img src={svgToDataUrl(logoSvg)} alt="" className="w-8 h-8 object-contain" />
                   ) : (
                     <span className="text-lg font-bold" style={{ color: colorFg }}>
                       {opponent.trim() ? opponent.trim()[0].toUpperCase() : "?"}

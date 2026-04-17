@@ -18,6 +18,7 @@ import { TimePicker } from "@/components/time-picker";
 import { useRefresh } from "@/components/pull-to-refresh";
 import { ScheduleSkeleton } from "@/components/skeleton";
 import { useAuth } from "@/components/auth-provider";
+import { svgToDataUrl } from "@/components/team-logo-badge";
 import type { Game, Practice } from "@/lib/scoring/types";
 
 type ScheduleItem =
@@ -726,10 +727,7 @@ function GameRow({
         style={{ backgroundColor: game.opponent_color_bg || "#1a1a1a" }}
       >
         {game.opponent_logo_svg ? (
-          <div
-            className="w-6 h-6 [&>svg]:w-full [&>svg]:h-full"
-            dangerouslySetInnerHTML={{ __html: game.opponent_logo_svg }}
-          />
+          <img src={svgToDataUrl(game.opponent_logo_svg)} alt="" className="w-6 h-6 object-contain" />
         ) : (
           <span className="text-sm font-bold" style={{ color: game.opponent_color_fg || "#ffffff" }}>
             {game.opponent?.[0]?.toUpperCase() || "?"}
