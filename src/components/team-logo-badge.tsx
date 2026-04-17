@@ -12,6 +12,14 @@ interface TeamLogoBadgeProps {
   className?: string;
 }
 
+// Rendering an uploaded SVG via dangerouslySetInnerHTML leaks any <style>
+// rules inside it into the host document, which can break unrelated layout
+// (e.g. the bottom nav's fixed positioning). Serve the SVG as an <img>
+// data URL so it's isolated in its own image document.
+function svgToDataUrl(svg: string): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 export function TeamLogoBadge({
   logoSvg,
   colorBg,
@@ -23,16 +31,14 @@ export function TeamLogoBadge({
   className = "",
 }: TeamLogoBadgeProps) {
   const initial = fallback?.[0]?.toUpperCase() || "?";
+  const src = logoSvg && logoSvg.trim() ? svgToDataUrl(logoSvg) : null;
   return (
     <div
       className={`${sizeClass} rounded-md flex items-center justify-center overflow-hidden shrink-0 ${className}`}
       style={{ backgroundColor: colorBg || "#1a1a1a" }}
     >
-      {logoSvg ? (
-        <div
-          className={`${innerSizeClass} [&>svg]:w-full [&>svg]:h-full`}
-          dangerouslySetInnerHTML={{ __html: logoSvg }}
-        />
+      {src ? (
+        <img src={src} alt="" className={`${innerSizeClass} object-contain`} />
       ) : (
         <span className={`${fallbackTextClass} font-bold`} style={{ color: colorFg || "#ffffff" }}>
           {initial}
