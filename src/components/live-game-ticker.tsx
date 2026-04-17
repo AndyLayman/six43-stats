@@ -225,8 +225,10 @@ export function LiveGameTicker() {
         <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
       </span>
 
-      {/* Score */}
+      {/* Team logo + score */}
       <div className="flex items-center gap-1.5 text-sm font-bold tabular-nums">
+        <img src="/logos/Logo-White.svg" alt="" className="h-4 w-auto shrink-0 dark:block hidden" />
+        <img src="/logos/Logo-Black.svg" alt="" className="h-4 w-auto shrink-0 dark:hidden block" />
         <ScorePop value={game.ourScore} className="text-foreground" />
         <span className="text-muted-foreground">-</span>
         <ScorePop value={game.opponentScore} className="text-foreground" />
@@ -283,10 +285,6 @@ export function LiveGameTicker() {
         </div>
       </div>
 
-      {/* Opponent name (hidden on very small screens) */}
-      <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[80px]">
-        vs {game.opponent}
-      </span>
     </Link>
   );
 }
