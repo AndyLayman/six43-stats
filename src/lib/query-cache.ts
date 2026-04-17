@@ -51,8 +51,16 @@ export async function cachedQuery<T>(
   const result = await withTimeout(queryFn(), QUERY_TIMEOUT_MS);
   if (!result.error && result.data) {
     cache.set(key, { data: result.data, timestamp: Date.now() });
+    return { data: result.data as T, error: null };
   }
-  return { data: result.data as T, error: result.error };
+
+  // Query failed or timed out. Prefer any cached data (even expired) over
+  // surfacing an empty page — the user almost always wants to see the
+  // last-known-good data while we recover in the background.
+  if (cached) {
+    return { data: cached.data as T, error: null };
+  }
+  return { data: null, error: result.error };
 }
 
 /** Invalidate a specific cache key or all keys matching a prefix */
