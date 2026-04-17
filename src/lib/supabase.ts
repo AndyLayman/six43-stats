@@ -63,7 +63,40 @@ export const supabase = createBrowserClient(
 // page reload is the only reliable fix: fresh JS context, fresh network
 // pool. Everything that matters is already persisted to Supabase or
 // localStorage, so nothing user-visible is lost.
-const RELOAD_AFTER_HIDDEN_MS = 2_000;
+//
+// Threshold is high enough that a quick glance at notifications doesn't
+// trigger a reload, but low enough that a real suspend (where fetches
+// actually get stuck) still gets recovered.
+const RELOAD_AFTER_HIDDEN_MS = 10_000;
+
+// Live scoring page owns its own in-memory state during a game and has
+// a localStorage backup; reloading mid-at-bat would be disruptive. Skip
+// the auto-reload there — the user can pull-to-refresh or manually
+// reload if they need fresh data.
+function shouldSkipReload(): boolean {
+  if (typeof window === "undefined") return true;
+  return /^\/games\/[^/]+\/live/.test(window.location.pathname);
+}
+
+function showReloadingOverlay() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("six43-reloading-overlay")) return;
+  const style = document.createElement("style");
+  style.textContent = "@keyframes six43-spin{to{transform:rotate(360deg)}}";
+  const overlay = document.createElement("div");
+  overlay.id = "six43-reloading-overlay";
+  overlay.style.cssText =
+    "position:fixed;inset:0;background:#0A0A0A;color:#E9D7B4;display:flex;" +
+    "flex-direction:column;align-items:center;justify-content:center;" +
+    "z-index:2147483647;font-family:system-ui,-apple-system,sans-serif;gap:14px;" +
+    "animation:none;";
+  overlay.innerHTML =
+    '<div style="width:28px;height:28px;border:3px solid rgba(233,215,180,0.25);' +
+    'border-top-color:#E9D7B4;border-radius:50%;animation:six43-spin 900ms linear infinite;"></div>' +
+    '<div style="font-size:13px;letter-spacing:0.04em;opacity:0.75;">Refreshing…</div>';
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
+}
 
 let lastHiddenAt: number | null = null;
 let lastVisibleAt: number | null = null;
@@ -75,8 +108,15 @@ if (typeof document !== "undefined") {
     }
     if (document.visibilityState === "visible") {
       lastVisibleAt = Date.now();
-      if (lastHiddenAt !== null && Date.now() - lastHiddenAt >= RELOAD_AFTER_HIDDEN_MS) {
-        window.location.reload();
+      if (
+        lastHiddenAt !== null &&
+        Date.now() - lastHiddenAt >= RELOAD_AFTER_HIDDEN_MS &&
+        !shouldSkipReload()
+      ) {
+        showReloadingOverlay();
+        // Give the browser a frame to paint the overlay before the
+        // reload tears the document down.
+        requestAnimationFrame(() => window.location.reload());
       }
     }
   });
