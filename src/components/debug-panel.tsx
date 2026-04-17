@@ -20,9 +20,27 @@ function formatAt(t: number | null): string {
   return formatAge(diff) + " ago";
 }
 
+const DEBUG_KEY = "six43:debug";
+
+function readDebugFlag(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  try { return localStorage.getItem(DEBUG_KEY) === "1"; } catch { return false; }
+}
+
 export function DebugPanel() {
   const search = useSearchParams();
-  const enabled = search.get("debug") === "1";
+  const [storageEnabled, setStorageEnabled] = useState(false);
+  useEffect(() => {
+    setStorageEnabled(readDebugFlag());
+    const onStorage = () => setStorageEnabled(readDebugFlag());
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("six43:debug-toggled", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("six43:debug-toggled", onStorage);
+    };
+  }, []);
+  const enabled = search.get("debug") === "1" || storageEnabled;
   const { activeTeam, user, loading } = useAuth();
   const [cache, setCache] = useState<CacheSnapshotEntry[]>([]);
   const [sb, setSb] = useState<SupabaseDebugInfo | null>(null);
@@ -76,14 +94,44 @@ export function DebugPanel() {
   );
 }
 
-/** Tiny always-visible build stamp so we can verify which deploy is live. */
+/** Tiny always-visible build stamp; 5 quick taps toggle the debug panel
+ *  (useful in PWA where there's no URL bar to add ?debug=1).          */
 export function BuildStamp() {
+  const [tapCount, setTapCount] = useState(0);
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    try { setEnabled(localStorage.getItem(DEBUG_KEY) === "1"); } catch {}
+  }, []);
+  useEffect(() => {
+    if (tapCount === 0) return;
+    const t = setTimeout(() => setTapCount(0), 1500);
+    return () => clearTimeout(t);
+  }, [tapCount]);
+
+  const onTap = () => {
+    const next = tapCount + 1;
+    if (next >= 5) {
+      setTapCount(0);
+      try {
+        const current = localStorage.getItem(DEBUG_KEY) === "1";
+        localStorage.setItem(DEBUG_KEY, current ? "0" : "1");
+        setEnabled(!current);
+        window.dispatchEvent(new Event("six43:debug-toggled"));
+      } catch {}
+    } else {
+      setTapCount(next);
+    }
+  };
+
   return (
-    <div
-      className="fixed bottom-1 right-1 z-[100] text-[9px] font-mono text-muted-foreground/40 pointer-events-none select-none"
+    <button
+      type="button"
+      onClick={onTap}
+      className="fixed bottom-1 right-1 z-[100] text-[9px] font-mono text-muted-foreground/40 select-none bg-transparent border-0 p-1"
       style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+      aria-label="Build info"
     >
-      {BUILD_SHA}
-    </div>
+      {BUILD_SHA}{enabled ? "·debug" : ""}{tapCount > 0 && tapCount < 5 ? `·${tapCount}` : ""}
+    </button>
   );
 }
