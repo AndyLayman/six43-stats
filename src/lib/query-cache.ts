@@ -1,6 +1,10 @@
 interface CacheEntry {
   data: unknown;
   timestamp: number;
+  /** When true, the next cachedQuery call for this key forces a refetch
+   *  even if the entry is still within TTL. If the refetch fails, the
+   *  entry is still kept as a stale-fallback. Set by invalidateCache. */
+  stale?: boolean;
 }
 
 const cache = new Map<string, CacheEntry>();
@@ -35,7 +39,9 @@ function withTimeout<T>(
 
 /**
  * Cached Supabase query wrapper. Returns cached data instantly if fresh,
- * otherwise fetches and caches the result.
+ * otherwise fetches. On fetch failure (including timeout) returns any
+ * cached data we still have — even if expired or marked stale — in
+ * preference to leaving the page with no data at all.
  */
 export async function cachedQuery<T>(
   key: string,
@@ -44,8 +50,9 @@ export async function cachedQuery<T>(
   ttl = DEFAULT_TTL
 ): Promise<{ data: T | null; error: { message: string } | null }> {
   const cached = cache.get(key);
-  if (cached && Date.now() - cached.timestamp < ttl) {
-    return { data: cached.data as T, error: null };
+  const isFresh = cached && !cached.stale && Date.now() - cached.timestamp < ttl;
+  if (isFresh) {
+    return { data: cached!.data as T, error: null };
   }
 
   const result = await withTimeout(queryFn(), QUERY_TIMEOUT_MS);
@@ -54,24 +61,27 @@ export async function cachedQuery<T>(
     return { data: result.data as T, error: null };
   }
 
-  // Query failed or timed out. Prefer any cached data (even expired) over
-  // surfacing an empty page — the user almost always wants to see the
-  // last-known-good data while we recover in the background.
+  // Query failed or timed out — prefer stale cached data over an empty page
   if (cached) {
     return { data: cached.data as T, error: null };
   }
   return { data: null, error: result.error };
 }
 
-/** Invalidate a specific cache key or all keys matching a prefix */
+/**
+ * Mark entries stale so the next cachedQuery call will refetch. We do NOT
+ * delete — if the refetch fails, cachedQuery falls back to the stale copy.
+ * Without this, pull-to-refresh + a hung subsequent fetch left the user
+ * staring at empty pages.
+ */
 export function invalidateCache(keyOrPrefix?: string) {
   if (!keyOrPrefix) {
-    cache.clear();
+    for (const entry of cache.values()) entry.stale = true;
     return;
   }
-  for (const key of cache.keys()) {
+  for (const [key, entry] of cache) {
     if (key === keyOrPrefix || key.startsWith(keyOrPrefix + ":")) {
-      cache.delete(key);
+      entry.stale = true;
     }
   }
 }
