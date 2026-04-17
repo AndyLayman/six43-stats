@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { fullName } from "@/lib/player-name";
 import { isAtBat, isHit, formatAvg } from "@/lib/stats/calculations";
-import { getResultColor } from "@/lib/scoring/scorebook";
 import type { Player, PlateAppearance, PlateAppearanceResult, Game } from "@/lib/scoring/types";
 import { useAuth } from "@/components/auth-provider";
 import { NavArrowLeft, ShareAndroid } from "iconoir-react";
@@ -16,37 +15,44 @@ import { NavArrowLeft, ShareAndroid } from "iconoir-react";
 type Rarity = "common" | "rare" | "epic" | "legendary";
 
 function getRarity(stats: PlayerGameStats): Rarity {
-  // Tuned for youth baseball (2-3 ABs per game)
-  // Legendary: exceptional feat — HR, 3+ hits, or perfect day
   if (stats.homeRuns > 0 || stats.hits >= 3 || (stats.atBats >= 2 && stats.avg >= 1.0)) return "legendary";
-  // Epic: strong game — extra-base hit, multi-hit, 2+ RBI, or hit+steal combo
   if (stats.extraBaseHits >= 1 || stats.hits >= 2 || stats.rbis >= 2 || (stats.hits >= 1 && stats.stolenBases >= 1)) return "epic";
-  // Rare: contributed — got a hit, walk, RBI, or stolen base
   if (stats.hits >= 1 || stats.walks >= 1 || stats.rbis >= 1 || stats.stolenBases >= 1) return "rare";
-  // Common: no offensive contribution
   return "common";
 }
 
-const RARITY_CONFIG: Record<Rarity, { label: string; colors: string[]; glow: string }> = {
-  common: {
-    label: "Common",
-    colors: ["#a1a1aa", "#d4d4d8", "#a1a1aa"],
-    glow: "rgba(161,161,170,0.25)",
-  },
-  rare: {
-    label: "Rare",
-    colors: ["#3b82f6", "#67e8f9", "#3b82f6"],
-    glow: "rgba(59,130,246,0.35)",
+const RARITY_CONFIG: Record<Rarity, { label: string; panelColor: string; textOnPanel: string; gradientColors: string; glow: string; numberGradient: string }> = {
+  legendary: {
+    label: "LEGENDARY",
+    panelColor: "#FFE32C",
+    textOnPanel: "#111111",
+    gradientColors: "rgb(223,204,0), rgb(248,184,46), rgb(201,181,0)",
+    glow: "rgba(255,227,44,0.4)",
+    numberGradient: "linear-gradient(141deg, rgb(223,204,0) 0%, rgb(248,184,46) 28%, rgb(201,181,0) 72%)",
   },
   epic: {
-    label: "Epic",
-    colors: ["#a855f7", "#f0abfc", "#a855f7"],
-    glow: "rgba(168,85,247,0.4)",
+    label: "EPIC",
+    panelColor: "#5A0097",
+    textOnPanel: "#F7F7F7",
+    gradientColors: "rgb(145,0,223), rgb(248,46,157), rgb(154,0,201)",
+    glow: "rgba(90,0,151,0.4)",
+    numberGradient: "linear-gradient(149deg, rgb(145,0,223) 0%, rgb(248,46,157) 28%, rgb(154,0,201) 72%)",
   },
-  legendary: {
-    label: "Legendary",
-    colors: ["#f59e0b", "#fde68a", "#f97316"],
-    glow: "rgba(245,158,11,0.5)",
+  rare: {
+    label: "RARE",
+    panelColor: "#003097",
+    textOnPanel: "#F7F7F7",
+    gradientColors: "rgb(55,192,255), rgb(46,90,248), rgb(0,201,194)",
+    glow: "rgba(0,48,151,0.4)",
+    numberGradient: "linear-gradient(161deg, rgb(55,192,255) 0%, rgb(46,90,248) 28%, rgb(0,201,194) 72%)",
+  },
+  common: {
+    label: "COMMON",
+    panelColor: "#8D8D8D",
+    textOnPanel: "#F7F7F7",
+    gradientColors: "rgb(141,141,141), rgb(200,200,200), rgb(141,141,141)",
+    glow: "rgba(141,141,141,0.3)",
+    numberGradient: "linear-gradient(141deg, #aaa 0%, #ddd 50%, #aaa 100%)",
   },
 };
 
@@ -113,54 +119,308 @@ function computePlayerGameStats(player: Player, pas: PlateAppearance[]): PlayerG
   };
 }
 
-// ── Mini Spray Chart (non-interactive, for the card) ──
+function getHitSummary(stats: PlayerGameStats): string {
+  const parts: string[] = [];
+  if (stats.singles > 0) parts.push(`${stats.singles} Single${stats.singles > 1 ? "s" : ""}`);
+  if (stats.doubles > 0) parts.push(`${stats.doubles} Double${stats.doubles > 1 ? "s" : ""}`);
+  if (stats.triples > 0) parts.push(`${stats.triples} Triple${stats.triples > 1 ? "s" : ""}`);
+  if (stats.homeRuns > 0) parts.push(`${stats.homeRuns} HR${stats.homeRuns > 1 ? "s" : ""}`);
+  if (stats.walks > 0) parts.push(`${stats.walks} BB`);
+  if (parts.length === 0) return "No Hits";
+  return parts.join(", ");
+}
 
-function MiniSprayChart({ hits, glowColor }: { hits: SprayHit[]; glowColor: string }) {
+// ── Team name border text component ──
+function TeamBorderText({ teamName, count = 6 }: { teamName: string; count?: number }) {
   return (
-    <svg viewBox="0 100 300 200" className="w-full h-full">
-      {/* Foul lines */}
-      <line x1="150" y1="280" x2="16" y2="146" stroke="currentColor" strokeWidth="1.5" opacity="0.15" />
-      <line x1="150" y1="280" x2="284" y2="146" stroke="currentColor" strokeWidth="1.5" opacity="0.15" />
-      {/* Fence arc */}
-      <path d="M 16 146 A 160 160 0 0 1 284 146" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.15" />
-      {/* Infield diamond */}
-      <path d="M 150 280 L 80 210 L 150 140 L 220 210 Z" fill="currentColor" opacity="0.05" />
-      <line x1="150" y1="280" x2="80" y2="210" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-      <line x1="80" y1="210" x2="150" y2="140" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-      <line x1="150" y1="140" x2="220" y2="210" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-      <line x1="220" y1="210" x2="150" y2="280" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-      {/* Hit markers */}
-      {hits.map((h, i) => (
-        <g key={i}>
-          <circle cx={h.x} cy={h.y} r="8" fill={getResultColor(h.result)} opacity="0.2" />
-          <circle cx={h.x} cy={h.y} r="5" fill={getResultColor(h.result)} stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
-        </g>
+    <>
+      {Array.from({ length: count }).map((_, i) => (
+        <span key={i} className="shrink-0 text-[5px] font-semibold tracking-wider opacity-80 uppercase" style={{ color: "#111", fontFamily: "'Montserrat', sans-serif" }}>
+          {teamName}
+        </span>
       ))}
-      {/* Home plate */}
-      <rect x="145" y="275" width="10" height="10" fill="currentColor" opacity="0.4" transform="rotate(45 150 280)" />
-    </svg>
+    </>
+  );
+}
+
+// ── Rarity card numbering ──
+const RARITY_PRINT_RUN: Record<Rarity, number | null> = {
+  legendary: 1,
+  epic: 5,
+  rare: 25,
+  common: null,
+};
+
+function generateCardNumber(rarity: Rarity): string | null {
+  const total = RARITY_PRINT_RUN[rarity];
+  if (total === null) return null;
+  if (total === 1) return "1/1";
+  const num = Math.floor(Math.random() * total) + 1;
+  return `${num}/${total}`;
+}
+
+// ── Sparkle particles ──
+function Sparkles({ count = 20 }: { count?: number }) {
+  const sparkles = useMemo(() =>
+    Array.from({ length: count }).map((_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      size: 1.5 + Math.random() * 2.5,
+      delay: Math.random() * 3,
+      duration: 0.8 + Math.random() * 1.2,
+    })), [count]);
+
+  return (
+    <div className="absolute inset-0 z-[5] pointer-events-none overflow-hidden">
+      {sparkles.map((s) => (
+        <div
+          key={s.id}
+          className="absolute rounded-full bg-white"
+          style={{
+            left: `${s.left}%`,
+            top: `${s.top}%`,
+            width: s.size,
+            height: s.size,
+            animation: `sparkle ${s.duration}s ${s.delay}s infinite`,
+          }}
+        />
+      ))}
+      <style>{`
+        @keyframes sparkle {
+          0%, 100% { opacity: 0; transform: scale(0); }
+          50% { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Card face matching Figma design ──
+function CardFace({ stats, teamName, teamLogo, cardNumber, foilAngle, rotX, rotY }: {
+  stats: PlayerGameStats;
+  teamName: string;
+  teamLogo: string | null;
+  cardNumber: string | null;
+  foilAngle: number;
+  rotX: number;
+  rotY: number;
+}) {
+  const rarity = getRarity(stats);
+  const config = RARITY_CONFIG[rarity];
+  const fName = stats.player.first_name || "";
+  const lName = stats.player.last_name || "";
+
+  // Parallax offsets based on card tilt
+  const px = rotY * 0.1;
+  const py = rotX * -0.1;
+
+  return (
+    <div className="relative w-full h-full overflow-hidden" style={{ background: "#F7F7F7", fontFamily: "'Montserrat', sans-serif" }}>
+      {/* Holographic gradient background */}
+      <div className="absolute inset-0" style={{
+        backgroundImage: "linear-gradient(117deg, rgb(108,160,227) 5%, rgb(172,163,222) 10%, rgb(133,228,178) 15%, rgb(112,214,221) 20%, rgb(151,172,241) 24%, rgb(217,185,225) 29%, rgb(231,221,213) 33%, rgb(229,203,217) 41%, rgb(228,183,223) 49%, rgb(184,182,233) 56%, rgb(141,182,242) 65%, rgb(178,169,240) 74%, rgb(227,178,232) 80%, rgb(233,221,218) 86%, rgb(129,245,247) 93%, rgb(123,163,244) 99%)",
+        opacity: 0.6,
+      }} />
+
+      {/* Noise texture overlay */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: "url('data:image/svg+xml,%3Csvg viewBox=\"0 0 200 200\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cfilter id=\"n\"%3E%3CfeTurbulence type=\"fractalNoise\" baseFrequency=\"0.8\" numOctaves=\"4\" stitchTiles=\"stitch\"/%3E%3C/filter%3E%3Crect width=\"100%25\" height=\"100%25\" filter=\"url(%23n)\" opacity=\"0.08\"/%3E%3C/svg%3E')",
+        backgroundSize: "200px 200px",
+      }} />
+
+      {/* Holographic logo stamp — tiled logos masked by a moving rainbow gradient */}
+      <div className="absolute inset-0 z-[3] pointer-events-none" style={{
+        backgroundImage: "url('/six43-mark-white.svg?v=4'), url('/six43-mark-white.svg?v=4')",
+        backgroundSize: "22px 22px, 22px 22px",
+        backgroundPosition: "0 0, 11px 11px",
+        backgroundRepeat: "repeat, repeat",
+        opacity: 0.5,
+        mixBlendMode: "overlay",
+        mask: `linear-gradient(${foilAngle}deg, transparent 10%, black 30%, transparent 50%, black 70%, transparent 90%)`,
+        WebkitMask: `linear-gradient(${foilAngle}deg, transparent 10%, black 30%, transparent 50%, black 70%, transparent 90%)`,
+      }} />
+      {/* Rainbow color wash over the logos — smoothly shifts hue with rotation */}
+      <div className="absolute inset-0 z-[4] pointer-events-none" style={{
+        background: `linear-gradient(${foilAngle + 45}deg,
+          hsla(${(foilAngle * 2) % 360}, 80%, 70%, 0.15),
+          hsla(${(foilAngle * 2 + 60) % 360}, 80%, 70%, 0.2),
+          hsla(${(foilAngle * 2 + 120) % 360}, 80%, 70%, 0.15),
+          hsla(${(foilAngle * 2 + 180) % 360}, 80%, 70%, 0.2),
+          hsla(${(foilAngle * 2 + 240) % 360}, 80%, 70%, 0.15),
+          hsla(${(foilAngle * 2 + 300) % 360}, 80%, 70%, 0.2))`,
+        mixBlendMode: "color",
+        mask: `linear-gradient(${foilAngle}deg, transparent 10%, black 30%, transparent 50%, black 70%, transparent 90%)`,
+        WebkitMask: `linear-gradient(${foilAngle}deg, transparent 10%, black 30%, transparent 50%, black 70%, transparent 90%)`,
+      }} />
+
+      {/* Team name borders — top */}
+      <div className="absolute top-0 left-0 right-0 h-[4%] flex items-center justify-center gap-6 overflow-hidden z-10">
+        <TeamBorderText teamName={teamName} />
+      </div>
+
+      {/* Team name borders — bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-[4%] flex items-center justify-center gap-6 overflow-hidden z-10">
+        <TeamBorderText teamName={teamName} />
+      </div>
+
+      {/* Team name borders — left */}
+      <div className="absolute top-0 left-0 bottom-0 w-[4%] flex items-center justify-center z-10">
+        <div className="-rotate-90 flex gap-6 items-center whitespace-nowrap">
+          <TeamBorderText teamName={teamName} count={8} />
+        </div>
+      </div>
+
+      {/* Team name borders — right */}
+      <div className="absolute top-0 right-0 bottom-0 w-[4%] flex items-center justify-center z-10">
+        <div className="rotate-90 flex gap-6 items-center whitespace-nowrap">
+          <TeamBorderText teamName={teamName} count={8} />
+        </div>
+      </div>
+
+
+      {/* Rarity color block */}
+      <div className="absolute inset-[4%] z-[0]" style={{ backgroundColor: config.panelColor }} />
+
+      {/* Giant jersey number — on rarity color, below holo shape */}
+      <div className="absolute inset-0 flex items-center justify-center z-[0] pointer-events-none select-none overflow-hidden">
+        <span className="leading-none tracking-[-0.13em]" style={{ fontSize: "min(450px, 151cqw)", color: "#111", fontWeight: 700, marginRight: "40px" }}>
+          {stats.player.number}
+        </span>
+      </div>
+
+      {/* Holographic geometric shape — flattened from Figma */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/card-shape.svg"
+        alt=""
+        className="absolute z-[1] pointer-events-none"
+        style={{ top: "15.6%", left: "9.7%", width: "83.7%", height: "52.5%" }}
+      />
+
+      {/* Giant jersey number — behind rarity color, visible through holo border */}
+      {/* Figma: top=-242 on 1390h = -17.4%, font=1500px on 993w ≈ 151% */}
+
+      {/* Medium jersey number — on top of holo shape */}
+      {/* Figma: centered at x≈623 (63%), y=225 on 1390h = 16.2%, font=700px on 993w ≈ 70% */}
+      <div className="absolute left-0 right-0 flex justify-center z-[2] pointer-events-none select-none transition-transform duration-75" style={{ top: "22%", paddingLeft: "25%", transform: `translate(${px * -0.5}px, ${py * -0.5}px)` }}>
+        <span className="leading-none tracking-[-0.12em]" style={{ fontSize: "min(210px, 70cqw)", color: "#111", fontWeight: 500 }}>
+          {stats.player.number}
+        </span>
+      </div>
+
+      {/* Stats — top left (parallax: shifts with tilt) */}
+      <div className="absolute top-[18%] left-[14%] z-20 space-y-[6px] transition-transform duration-75" style={{ transform: `translate(${px * 1.5}px, ${py * 1.5}px)` }}>
+        <p className="font-medium text-[#111] leading-none text-[15px]">
+          {stats.hits} for {stats.atBats}
+        </p>
+        <p className="font-medium text-[#111] leading-none text-[15px]">
+          {stats.atBats > 0 ? formatAvg(stats.avg) : ".000"}
+        </p>
+        <p className="font-medium text-[#111] leading-none text-[15px]">
+          {getHitSummary(stats)}
+        </p>
+      </div>
+
+      {/* Card number — top right with gradient */}
+      {cardNumber && (
+        <div className="absolute top-[7.5%] right-[10%] z-20">
+          <span className="font-normal uppercase leading-none text-[10px]" style={{
+            backgroundImage: config.numberGradient,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}>
+            {cardNumber}
+          </span>
+        </div>
+      )}
+
+      {/* SIX43 branding — right side vertical */}
+      <div className="absolute top-[12%] right-[4%] z-20">
+        <span className="rotate-90 inline-block font-bold text-[5px] tracking-[0.44em] whitespace-nowrap" style={{ color: "#111" }}>
+          SIX43
+        </span>
+      </div>
+
+      {/* Six43 logo — bottom left */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/six43-logo.svg" alt="" className="absolute bottom-[10%] left-[10%] z-20 w-[50px] h-[50px]" />
+
+      {/* Colored name panel — bottom right (parallax) */}
+      <div className="absolute bottom-0 right-0 w-[48%] h-[28%] z-20 transition-transform duration-75" style={{ backgroundColor: config.panelColor }}>
+        {/* SIX43 branding in panel */}
+        <p className="absolute top-[10%] right-[8%] font-bold text-[5px] tracking-[0.44em]" style={{ color: config.textOnPanel }}>
+          SIX43
+        </p>
+
+        {/* Player name */}
+        <div className="absolute top-[20%] left-[17%] right-[5%]">
+          <p className="font-bold uppercase leading-[0.85] truncate text-[16px]" style={{ color: config.textOnPanel }}>
+            {fName}
+          </p>
+          <p className="font-light uppercase leading-[0.85] mt-[6px] truncate text-[16px]" style={{ color: config.textOnPanel }}>
+            {lName}
+          </p>
+        </div>
+
+        {/* Year */}
+        <p className="absolute bottom-[18%] left-[17%] font-bold text-[13px]" style={{ color: config.textOnPanel }}>
+          {new Date().getFullYear()}
+        </p>
+
+        {/* Rarity label */}
+        <p className="absolute bottom-[6%] left-[17%] font-bold text-[5px] tracking-[0.44em] uppercase" style={{ color: config.textOnPanel }}>
+          {config.label}
+        </p>
+      </div>
+
+      {/* Sparkle particles */}
+      <Sparkles />
+    </div>
   );
 }
 
 // ── 3D Rotatable Card ──
 
-function PlayerCard({ stats, game, opponentName, gameDate }: {
+function PlayerCard({ stats, teamName, teamLogo, cardNumber }: {
   stats: PlayerGameStats;
-  game: Game;
-  opponentName: string;
-  gameDate: string;
+  teamName: string;
+  teamLogo: string | null;
+  cardNumber: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rotRef = useRef({ x: 0, y: 0 }); // cumulative rotation
-  const velRef = useRef({ x: 0, y: 0 }); // velocity for momentum
+  const rotRef = useRef({ x: 0, y: 0 });
+  const velRef = useRef({ x: 0, y: 0 });
   const dragRef = useRef<{ startX: number; startY: number; startRotX: number; startRotY: number; lastX: number; lastY: number; lastTime: number } | null>(null);
   const animRef = useRef<number>(0);
   const [rot, setRot] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [dropPhase, setDropPhase] = useState<"falling" | "impact" | "settle" | "done">("falling");
+  const [flashOpacity, setFlashOpacity] = useState(0);
   const rarity = getRarity(stats);
   const config = RARITY_CONFIG[rarity];
 
-  // Momentum animation loop
+  // Drop slam reveal animation
+  useEffect(() => {
+    // Phase 1: falling (starts off-screen above)
+    const t1 = setTimeout(() => setDropPhase("impact"), 400);
+    // Phase 2: impact — flash + shockwave
+    const t2 = setTimeout(() => {
+      setFlashOpacity(0.8);
+      setDropPhase("settle");
+    }, 420);
+    // Phase 3: settle — flash fades, card bounces
+    const t3 = setTimeout(() => {
+      setFlashOpacity(0);
+      setDropPhase("done");
+      setRevealed(true);
+    }, 800);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, []);
+  const fName = stats.player.first_name || "";
+  const lName = stats.player.last_name || "";
+
   useEffect(() => {
     let running = true;
     function tick() {
@@ -183,13 +443,9 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     velRef.current = { x: 0, y: 0 };
     dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startRotX: rotRef.current.x,
-      startRotY: rotRef.current.y,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      lastTime: Date.now(),
+      startX: e.clientX, startY: e.clientY,
+      startRotX: rotRef.current.x, startRotY: rotRef.current.y,
+      lastX: e.clientX, lastY: e.clientY, lastTime: Date.now(),
     };
     setIsDragging(true);
   }
@@ -219,34 +475,32 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
     setIsDragging(false);
   }
 
-  const isWin = game.our_score > game.opponent_score;
-  const scoreLine = `${game.our_score}-${game.opponent_score}`;
-  const gradientStr = `linear-gradient(135deg, ${config.colors.join(", ")})`;
-
-  // Foil effect driven by rotation
+  // Holographic foil shift based on rotation
   const foilAngle = 135 + (rot.y % 360) * 0.5;
-  const shimmerAngle = 115 + (rot.y % 360) * 0.7;
-
-  // Card thickness
-  const DEPTH = 6;
-  const half = DEPTH / 2;
-  const edgeColor = config.colors[0];
-
-  const cardFaceStyle: React.CSSProperties = {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    borderRadius: "1rem",
-    overflow: "hidden",
-    backfaceVisibility: "hidden",
-    WebkitBackfaceVisibility: "hidden",
-  };
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div
         ref={containerRef}
-        style={{ perspective: "1200px", width: 280, height: 420 }}
+        style={{
+          perspective: "1200px",
+          width: 300,
+          height: 420,
+          transform: dropPhase === "falling"
+            ? "translateY(-120vh) rotate(-8deg)"
+            : dropPhase === "impact"
+            ? "translateY(0) rotate(0deg) scale(1.05)"
+            : dropPhase === "settle"
+            ? "translateY(0) rotate(0deg) scale(0.97)"
+            : "translateY(0) rotate(0deg) scale(1)",
+          transition: dropPhase === "falling"
+            ? "none"
+            : dropPhase === "impact"
+            ? "transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)"
+            : dropPhase === "settle"
+            ? "transform 0.15s ease-out"
+            : "transform 0.2s ease-out",
+        }}
         className="cursor-grab active:cursor-grabbing select-none touch-none"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -260,272 +514,143 @@ function PlayerCard({ stats, game, opponentName, gameDate }: {
             position: "relative",
             transformStyle: "preserve-3d",
             transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`,
-            transition: isDragging ? "none" : "transform 0.05s linear",
+            transition: isDragging ? "none" : !revealed ? "transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)" : "transform 0.05s linear",
           }}
         >
-          {/* ═══ FRONT FACE — Batter Silhouette Hero ═══ */}
+          {/* FRONT FACE — outer border wrapper */}
           <div
             style={{
-              ...cardFaceStyle,
-              transform: `translateZ(${half}px)`,
-              boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.5)`,
+              position: "absolute",
+              width: "100%",
+              height: "100%",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "translateZ(3px)",
+                            boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.3)`,
             }}
           >
-            {/* Dark background */}
-            <div className="absolute inset-0 bg-[#0a0a0a]" />
+            {/* Inner content with overflow hidden */}
+            <div className="relative w-full h-full overflow-hidden">
+            <CardFace stats={stats} teamName={teamName} teamLogo={teamLogo} cardNumber={cardNumber} foilAngle={foilAngle} rotX={rot.x} rotY={rot.y} />
 
-            {/* Geometric pattern overlay */}
-            <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{
-              backgroundImage: `repeating-linear-gradient(60deg, transparent, transparent 20px, ${config.colors[1]} 20px, ${config.colors[1]} 21px),
-                repeating-linear-gradient(-60deg, transparent, transparent 20px, ${config.colors[1]} 20px, ${config.colors[1]} 21px)`,
-            }} />
-
-            {/* Holographic foil that shifts with rotation */}
+            {/* Holographic foil overlay that shifts with rotation */}
             <div
-              className="absolute inset-0 pointer-events-none z-10"
+              className="absolute inset-0 pointer-events-none z-30"
               style={{
-                background: `linear-gradient(${foilAngle}deg, transparent 15%, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.02) 70%, transparent 85%)`,
+                background: `linear-gradient(${foilAngle}deg, transparent 15%, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.02) 70%, transparent 85%)`,
+                mixBlendMode: "overlay",
               }}
             />
 
             {/* Rainbow shimmer */}
             <div
-              className="absolute inset-0 pointer-events-none z-10"
+              className="absolute inset-0 pointer-events-none z-30"
               style={{
-                background: `linear-gradient(${shimmerAngle}deg,
-                  rgba(255,0,0,0.08), rgba(255,165,0,0.08), rgba(255,255,0,0.08),
-                  rgba(0,255,0,0.08), rgba(0,127,255,0.08), rgba(128,0,255,0.08))`,
-                opacity: isDragging ? 1 : 0.4,
+                background: `linear-gradient(${foilAngle + 20}deg,
+                  rgba(255,0,0,0.04), rgba(255,165,0,0.04), rgba(255,255,0,0.04),
+                  rgba(0,255,0,0.04), rgba(0,127,255,0.04), rgba(128,0,255,0.04))`,
+                opacity: isDragging ? 1 : 0.5,
+                mixBlendMode: "overlay",
               }}
             />
+            </div>{/* end inner overflow wrapper */}
+            {/* Full-card holographic foil — covers border area too */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `linear-gradient(${foilAngle}deg, transparent 10%, rgba(255,255,255,0.2) 35%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 65%, transparent 90%)`,
+                mixBlendMode: "overlay",
+              }}
+            />
+          </div>
 
-            {/* Rarity border — all 4 sides */}
-            <div className="absolute top-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
-            <div className="absolute bottom-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
-            <div className="absolute top-0 left-0 bottom-0 w-1 z-20" style={{ background: `linear-gradient(180deg, ${config.colors.join(", ")})` }} />
-            <div className="absolute top-0 right-0 bottom-0 w-1 z-20" style={{ background: `linear-gradient(180deg, ${config.colors.join(", ")})` }} />
 
-            {/* Front card content */}
-            <div className="relative z-20 flex flex-col h-full">
-              {/* Rarity + date header */}
-              <div className="flex items-center justify-between px-5 pt-4 pb-1">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ backgroundImage: gradientStr, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                  {config.label}
-                </span>
-                <span className="text-[10px] text-zinc-500 tabular-nums">{gameDate}</span>
-              </div>
 
-              {/* Giant jersey number — centered hero */}
-              <div className="flex-1 flex items-center justify-center relative">
-                {/* Glow behind number */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-48 h-48 rounded-full" style={{
-                    background: `radial-gradient(circle, ${config.glow}, transparent 70%)`,
-                    filter: "blur(25px)",
-                  }} />
-                </div>
-                <span
-                  className="relative z-10 font-black leading-none"
-                  style={{
-                    fontSize: "10rem",
-                    backgroundImage: gradientStr,
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    filter: `drop-shadow(0 0 20px ${config.glow})`,
-                  }}
-                >
+          {/* BACK FACE — outer border wrapper */}
+          <div
+            style={{
+              position: "absolute",
+              width: "100%",
+              height: "100%",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "rotateY(180deg) translateZ(3px)",
+                            boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.3)`,
+            }}
+          >
+            <div className="relative w-full h-full overflow-hidden" style={{ background: "#F7F7F7" }}>
+            {/* Same holographic background */}
+            <div className="absolute inset-0" style={{
+              backgroundImage: "linear-gradient(117deg, rgb(108,160,227) 5%, rgb(172,163,222) 10%, rgb(133,228,178) 15%, rgb(112,214,221) 20%, rgb(151,172,241) 24%, rgb(217,185,225) 29%, rgb(231,221,213) 33%, rgb(229,203,217) 41%, rgb(228,183,223) 49%, rgb(184,182,233) 56%, rgb(141,182,242) 65%, rgb(178,169,240) 74%, rgb(227,178,232) 80%, rgb(233,221,218) 86%, rgb(129,245,247) 93%, rgb(123,163,244) 99%)",
+              opacity: 0.4,
+            }} />
+
+            {/* Six43 logo watermark */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/six43-mark.svg" alt="" className="max-w-none" style={{ width: "125%", height: "125%" }} />
+            </div>
+
+            {/* Back content */}
+            <div className="relative z-10 flex flex-col h-full p-6 justify-center items-center" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: config.panelColor }}>
+                <span className="font-bold text-2xl" style={{ color: config.textOnPanel }}>
                   {stats.player.number}
                 </span>
               </div>
-
-              {/* Name bar at bottom */}
-              <div className="px-5 pb-4 pt-2" style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.8))" }}>
-                <div className="text-xl font-black tracking-tight text-white leading-tight">{fullName(stats.player)}</div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[11px] text-zinc-400">vs {opponentName}</span>
-                  <span className={`text-[11px] font-bold ${isWin ? "text-emerald-400" : game.our_score === game.opponent_score ? "text-zinc-400" : "text-red-400"}`}>
-                    {isWin ? "W" : game.our_score === game.opponent_score ? "T" : "L"} {scoreLine}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ═══ EDGE STRIPS (card thickness) ═══ */}
-          {[
-            // right
-            { w: DEPTH, h: 420, l: 280 - half, t: 0, rx: 0, ry: 90, tz: 280 - half, origin: "right center" },
-            // left
-            { w: DEPTH, h: 420, l: -half, t: 0, rx: 0, ry: -90, tz: half, origin: "left center" },
-            // top
-            { w: 280, h: DEPTH, l: 0, t: -half, rx: 90, ry: 0, tz: half, origin: "center top" },
-            // bottom
-            { w: 280, h: DEPTH, l: 0, t: 420 - half, rx: -90, ry: 0, tz: 420 - half, origin: "center bottom" },
-          ].map((e, i) => (
-            <div key={`edge-${i}`} style={{
-              position: "absolute",
-              width: e.w, height: e.h,
-              left: e.l, top: e.t,
-              background: `#111`,
-              borderLeft: i < 2 ? `1px solid ${edgeColor}33` : undefined,
-              borderRight: i < 2 ? `1px solid ${edgeColor}33` : undefined,
-              borderTop: i >= 2 ? `1px solid ${edgeColor}33` : undefined,
-              borderBottom: i >= 2 ? `1px solid ${edgeColor}33` : undefined,
-              transform: `rotateX(${e.rx}deg) rotateY(${e.ry}deg)`,
-              transformOrigin: e.origin,
-            }} />
-          ))}
-
-          {/* ═══ BACK FACE — Stats & Info ═══ */}
-          <div
-            style={{
-              ...cardFaceStyle,
-              transform: `rotateY(180deg) translateZ(${half}px)`,
-              boxShadow: `0 0 ${isDragging ? 35 : 15}px ${config.glow}, 0 25px 50px rgba(0,0,0,0.5)`,
-            }}
-          >
-            <div className="absolute inset-0 bg-[#0a0a0a]" />
-
-            {/* Subtle pattern background */}
-            <div className="absolute inset-0 opacity-[0.03]" style={{
-              backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, currentColor 10px, currentColor 11px)`,
-              color: config.colors[1],
-            }} />
-
-            {/* Holographic foil on back */}
-            <div className="absolute inset-0 pointer-events-none z-10" style={{
-              background: `linear-gradient(${foilAngle + 180}deg, transparent 15%, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.02) 70%, transparent 85%)`,
-            }} />
-
-            {/* Rainbow shimmer on back */}
-            <div className="absolute inset-0 pointer-events-none z-10" style={{
-              background: `linear-gradient(${shimmerAngle + 180}deg,
-                rgba(255,0,0,0.06), rgba(255,165,0,0.06), rgba(255,255,0,0.06),
-                rgba(0,255,0,0.06), rgba(0,127,255,0.06), rgba(128,0,255,0.06))`,
-              opacity: isDragging ? 0.8 : 0.3,
-            }} />
-
-            {/* Rarity border — all 4 sides */}
-            <div className="absolute top-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
-            <div className="absolute bottom-0 left-0 right-0 h-1 z-20" style={{ background: gradientStr }} />
-            <div className="absolute top-0 left-0 bottom-0 w-1 z-20" style={{ background: `linear-gradient(180deg, ${config.colors.join(", ")})` }} />
-            <div className="absolute top-0 right-0 bottom-0 w-1 z-20" style={{ background: `linear-gradient(180deg, ${config.colors.join(", ")})` }} />
-
-            {/* Back content */}
-            <div className="relative z-20 flex flex-col h-full p-5">
-              {/* Name + number header */}
-              <div className="flex items-center justify-between mb-1">
-                <div>
-                  <div className="text-lg font-black text-white leading-tight">{fullName(stats.player)}</div>
-                  <div className="text-[11px] text-zinc-500">vs {opponentName} &middot; {gameDate}</div>
-                </div>
-                <span
-                  className="text-3xl font-black leading-none"
-                  style={{
-                    backgroundImage: gradientStr,
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  #{stats.player.number}
-                </span>
-              </div>
-
-              {/* Divider */}
-              <div className="h-px mb-3" style={{ background: gradientStr, opacity: 0.4 }} />
-
-              {/* Spray chart */}
-              <div className="w-full h-32 text-zinc-300 mb-3">
-                {stats.sprayHits.length > 0 ? (
-                  <MiniSprayChart hits={stats.sprayHits} glowColor={config.glow} />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <svg viewBox="0 0 80 80" className="w-16 h-16 opacity-10">
-                      <path d="M 40 70 L 10 40 L 40 10 L 70 40 Z" fill="none" stroke="currentColor" strokeWidth="2" />
-                      <rect x="37" y="67" width="6" height="6" fill="currentColor" transform="rotate(45 40 70)" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-
-              {/* Primary stats row */}
-              <div className="grid grid-cols-4 gap-1 mb-2">
-                <StatBox label="H" value={stats.hits} max={stats.atBats} highlight={stats.hits >= 2} config={config} />
-                <StatBox label="RBI" value={stats.rbis} highlight={stats.rbis >= 2} config={config} />
-                <StatBox label="BB" value={stats.walks} config={config} />
-                <StatBox label="AVG" value={stats.atBats > 0 ? formatAvg(stats.avg) : "-"} highlight={stats.avg >= 0.5 && stats.atBats > 0} config={config} />
-              </div>
-
-              {/* Secondary stats row */}
-              <div className="grid grid-cols-4 gap-1 mb-3">
-                <StatBox label="2B" value={stats.doubles} highlight={stats.doubles > 0} config={config} small />
-                <StatBox label="3B" value={stats.triples} highlight={stats.triples > 0} config={config} small />
-                <StatBox label="HR" value={stats.homeRuns} highlight={stats.homeRuns > 0} config={config} small />
-                <StatBox label="SB" value={stats.stolenBases} highlight={stats.stolenBases > 0} config={config} small />
-              </div>
-
-              {/* At-bat results timeline */}
-              <div className="mt-auto">
-                <div className="text-[9px] text-zinc-600 uppercase tracking-wider mb-1.5">At-Bats</div>
-                <div className="flex gap-1 flex-wrap">
-                  {stats.results.map((r, i) => (
-                    <span
-                      key={i}
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                        isHit(r)
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                          : r === "BB" || r === "HBP"
-                          ? "bg-blue-500/15 text-blue-400 border border-blue-500/20"
-                          : r === "SO"
-                          ? "bg-red-500/15 text-red-400 border border-red-500/20"
-                          : "bg-zinc-800/80 text-zinc-500 border border-zinc-700/50"
-                      }`}
-                    >
-                      {r}
-                    </span>
-                  ))}
-                  {stats.results.length === 0 && (
-                    <span className="text-[10px] text-zinc-600">No plate appearances</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Rarity badge */}
-              <div className="flex justify-center mt-3">
-                <span
-                  className="text-[10px] font-black uppercase tracking-[0.25em] px-3 py-1 rounded-full border"
-                  style={{
-                    backgroundImage: gradientStr,
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    borderColor: config.colors[0] + "40",
-                  }}
-                >
+              <p className="font-bold text-lg text-white uppercase tracking-wider">{fName}</p>
+              <p className="font-light text-lg text-white uppercase tracking-wider">{lName}</p>
+              <div className="mt-4 text-center">
+                <p className="font-bold text-[10px] tracking-[0.44em] uppercase text-white/70">
                   {config.label}
-                </span>
+                </p>
               </div>
             </div>
+
+            {/* Holographic logo pattern on back */}
+            <div className="absolute inset-0 z-[15] pointer-events-none" style={{
+              backgroundImage: "url('/six43-mark-white.svg?v=4'), url('/six43-mark-white.svg?v=4')",
+              backgroundSize: "22px 22px, 22px 22px",
+              backgroundPosition: "0 0, 11px 11px",
+              backgroundRepeat: "repeat, repeat",
+              opacity: 0.5,
+              mixBlendMode: "overlay",
+              mask: `linear-gradient(${foilAngle}deg, transparent 10%, black 30%, transparent 50%, black 70%, transparent 90%)`,
+              WebkitMask: `linear-gradient(${foilAngle}deg, transparent 10%, black 30%, transparent 50%, black 70%, transparent 90%)`,
+            }} />
+            {/* Rainbow color on back logos */}
+            <div className="absolute inset-0 z-[16] pointer-events-none" style={{
+              background: `linear-gradient(${foilAngle + 45}deg,
+                hsla(${(foilAngle * 2) % 360}, 80%, 70%, 0.15),
+                hsla(${(foilAngle * 2 + 60) % 360}, 80%, 70%, 0.2),
+                hsla(${(foilAngle * 2 + 120) % 360}, 80%, 70%, 0.15),
+                hsla(${(foilAngle * 2 + 180) % 360}, 80%, 70%, 0.2),
+                hsla(${(foilAngle * 2 + 240) % 360}, 80%, 70%, 0.15),
+                hsla(${(foilAngle * 2 + 300) % 360}, 80%, 70%, 0.2))`,
+              mixBlendMode: "color",
+              mask: `linear-gradient(${foilAngle}deg, transparent 10%, black 30%, transparent 50%, black 70%, transparent 90%)`,
+              WebkitMask: `linear-gradient(${foilAngle}deg, transparent 10%, black 30%, transparent 50%, black 70%, transparent 90%)`,
+            }} />
+
+            {/* Foil on back */}
+            <div className="absolute inset-0 pointer-events-none z-20" style={{
+              background: `linear-gradient(${foilAngle + 180}deg, transparent 15%, rgba(255,255,255,0.1) 50%, transparent 85%)`,
+              mixBlendMode: "overlay",
+            }} />
+            </div>{/* end inner overflow wrapper */}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
 
-function StatBox({ label, value, max, highlight, config, small }: {
-  label: string;
-  value: string | number;
-  max?: number;
-  highlight?: boolean;
-  config: typeof RARITY_CONFIG[Rarity];
-  small?: boolean;
-}) {
-  return (
-    <div className="text-center">
-      <div className={`${small ? "text-sm" : "text-xl"} font-black tabular-nums leading-none`} style={highlight ? { backgroundImage: `linear-gradient(135deg, ${config.colors.join(", ")})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" } : { color: "#d4d4d8" }}>
-        {value}{max != null && !small ? <span className="text-zinc-600 text-xs font-bold">/{max}</span> : null}
+        {/* Flash overlay on reveal */}
+        <div
+          className="absolute inset-0 bg-white rounded-none pointer-events-none"
+          style={{
+            opacity: flashOpacity,
+            transition: "opacity 0.4s ease-out",
+            zIndex: 50,
+          }}
+        />
       </div>
-      <div className="text-[9px] text-zinc-600 uppercase tracking-wider mt-0.5">{label}</div>
     </div>
   );
 }
@@ -538,17 +663,21 @@ export default function PlayerCardsPage() {
   const { activeTeam } = useAuth();
   const [game, setGame] = useState<Game | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerGameStats[]>([]);
+  const [cardNumbers, setCardNumbers] = useState<(string | null)[]>([]);
+  const [teamName, setTeamName] = useState("SAN DIEGO PADRES");
+  const [teamLogo, setTeamLogo] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!activeTeam) return;
     async function load() {
-      const [gameRes, lineupRes, playersRes, pasRes] = await Promise.all([
+      const [gameRes, lineupRes, playersRes, pasRes, teamRes] = await Promise.all([
         supabase.from("games").select("*").eq("id", gameId).eq("team_id", activeTeam!.team_id).single(),
         supabase.from("game_lineup").select("*").eq("game_id", gameId).order("batting_order"),
         supabase.from("players").select("*").eq("team_id", activeTeam!.team_id),
         supabase.from("plate_appearances").select("*").eq("game_id", gameId).eq("team", "us").order("created_at"),
+        supabase.from("team_settings").select("*").eq("team_id", activeTeam!.team_id).single(),
       ]);
 
       if (!gameRes.data) { setLoading(false); return; }
@@ -558,6 +687,9 @@ export default function PlayerCardsPage() {
       const lineup = lineupRes.data ?? [];
       const pas: PlateAppearance[] = pasRes.data ?? [];
 
+      if (teamRes.data?.name) setTeamName(teamRes.data.name.toUpperCase());
+      if (teamRes.data?.logo_svg) setTeamLogo(teamRes.data.logo_svg);
+
       const lineupPlayers = lineup
         .map((l: { player_id: number }) => players.find((p) => p.id === l.player_id))
         .filter((p): p is Player => !!p);
@@ -566,6 +698,7 @@ export default function PlayerCardsPage() {
 
       setGame(game);
       setPlayerStats(stats);
+      setCardNumbers(stats.map((s) => generateCardNumber(getRarity(s))));
       setLoading(false);
     }
     load();
@@ -632,7 +765,6 @@ export default function PlayerCardsPage() {
       {selected ? (
         /* ── Single Card View ── */
         <div className="flex flex-col items-center pb-12">
-          {/* Nav: prev / name / next */}
           <div className="flex items-center gap-4 mb-6 w-full max-w-sm">
             <button
               onClick={() => setSelectedIndex((selectedIndex! - 1 + playerStats.length) % playerStats.length)}
@@ -658,13 +790,12 @@ export default function PlayerCardsPage() {
             </button>
           </div>
 
-          {/* The card */}
           <PlayerCard
             key={selected.playerId}
             stats={selected}
-            game={game}
-            opponentName={game.opponent}
-            gameDate={gameDate}
+            teamName={teamName}
+            teamLogo={teamLogo}
+            cardNumber={cardNumbers[selectedIndex!] ?? null}
           />
         </div>
       ) : (
@@ -673,7 +804,6 @@ export default function PlayerCardsPage() {
           {playerStats.map((stats, i) => {
             const rarity = getRarity(stats);
             const config = RARITY_CONFIG[rarity];
-            const gradientStr = `linear-gradient(135deg, ${config.colors.join(", ")})`;
             return (
               <button
                 key={stats.playerId}
@@ -681,15 +811,13 @@ export default function PlayerCardsPage() {
                 className="relative overflow-hidden rounded-xl border border-border/50 p-4 text-left transition-all active:scale-[0.97] hover:border-primary/30 hover:bg-muted/30"
                 style={{ boxShadow: `0 0 12px ${config.glow}` }}
               >
-                {/* Rarity accent bar */}
-                <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: gradientStr }} />
+                <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `linear-gradient(135deg, ${config.gradientColors})` }} />
 
                 <div className="flex items-center gap-3">
-                  {/* Jersey number */}
                   <div
                     className="text-3xl font-black leading-none shrink-0"
                     style={{
-                      backgroundImage: gradientStr,
+                      backgroundImage: config.numberGradient,
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
                     }}
@@ -703,7 +831,7 @@ export default function PlayerCardsPage() {
                     </div>
                     <span
                       className="text-[9px] font-black uppercase tracking-widest"
-                      style={{ backgroundImage: gradientStr, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+                      style={{ backgroundImage: config.numberGradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
                     >
                       {config.label}
                     </span>

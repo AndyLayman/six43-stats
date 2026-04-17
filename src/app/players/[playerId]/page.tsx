@@ -19,6 +19,7 @@ import { NavArrowLeft, Trophy, Gym } from "iconoir-react";
 import { PlayerDetailSkeleton } from "@/components/skeleton";
 import { computePlayerMilestones } from "@/components/milestone-feed";
 import { useAuth } from "@/components/auth-provider";
+import { computeBadges, BadgeRow } from "@/components/leaderboard-badges";
 
 type SprayFilter = "both" | "hits" | "outs";
 
@@ -36,23 +37,29 @@ export default function PlayerDetailPage() {
   const [heatMode, setHeatMode] = useState(false);
   const [chainAwards, setChainAwards] = useState<ChainAward[]>([]);
   const [expandedStat, setExpandedStat] = useState<string | null>(null);
+  const [allBattingStats, setAllBattingStats] = useState<BattingStats[]>([]);
+  const [allFieldingStats, setAllFieldingStats] = useState<FieldingStats[]>([]);
 
   useEffect(() => {
     if (!activeTeam) return;
     async function load() {
-      const [playerRes, battingRes, fieldingRes, pasRes, gamesRes, awardsRes] = await Promise.all([
+      const [playerRes, battingRes, fieldingRes, pasRes, gamesRes, awardsRes, allBatRes, allFldRes] = await Promise.all([
         supabase.from("players").select("*").eq("id", playerId).eq("team_id", activeTeam!.team_id).single(),
         supabase.from("batting_stats_season").select("*").eq("player_id", playerId).single(),
         supabase.from("fielding_stats_season").select("*").eq("player_id", playerId).single(),
         supabase.from("plate_appearances").select("*").eq("player_id", playerId).order("created_at"),
         supabase.from("games").select("*").eq("status", "final").eq("team_id", activeTeam!.team_id).order("date", { ascending: false }),
         supabase.from("chain_awards").select("*").eq("player_id", playerId).order("date", { ascending: false }),
+        supabase.from("batting_stats_season").select("*").eq("team_id", activeTeam!.team_id),
+        supabase.from("fielding_stats_season").select("*").eq("team_id", activeTeam!.team_id),
       ]);
 
       setPlayer(playerRes.data);
       setBattingStats(battingRes.data);
       setFieldingStats(fieldingRes.data);
       setChainAwards(awardsRes.data ?? []);
+      setAllBattingStats(allBatRes.data ?? []);
+      setAllFieldingStats(allFldRes.data ?? []);
 
       const games = gamesRes.data ?? [];
       const pas: PlateAppearance[] = pasRes.data ?? [];
@@ -276,6 +283,11 @@ export default function PlayerDetailPage() {
               ? `Bats: ${player.bats ?? "—"}, Throws: ${player.throws ?? "—"}`
               : `#${player.number}`}
           </p>
+          {(() => {
+            const badgeMap = computeBadges(allBattingStats as BattingStats[], allFieldingStats as FieldingStats[]);
+            const playerBadges = badgeMap.get(playerId) ?? [];
+            return playerBadges.length > 0 ? <div className="mt-1"><BadgeRow badges={playerBadges} /></div> : null;
+          })()}
         </div>
       </div>
 
