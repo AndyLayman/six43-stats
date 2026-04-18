@@ -22,13 +22,14 @@ function LoginForm() {
   const authError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"email" | "code">("email");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(
     authError === "auth" ? "Something went wrong. Please try again." : null
   );
 
-  async function handleMagicLink(e: React.FormEvent) {
+  async function sendCode(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
 
@@ -38,6 +39,8 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
+        // Still pass a redirect URL for users who tap the magic link
+        // anyway (outside the PWA — works fine in Safari/Chrome).
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
@@ -45,9 +48,37 @@ function LoginForm() {
     if (error) {
       setError(error.message);
     } else {
-      setSent(true);
+      setStep("code");
+      setCode("");
     }
     setLoading(false);
+  }
+
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    const token = code.replace(/\D/g, "").trim();
+    if (token.length !== 6) {
+      setError("Enter the 6-digit code from the email.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token,
+      type: "email",
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // Session is now set in this (PWA) storage context. Navigate to next.
+    window.location.replace(next);
   }
 
   async function handleGoogle() {
@@ -84,23 +115,60 @@ function LoginForm() {
           </p>
         </div>
 
-        {sent ? (
-          <div className="rounded-xl border border-border/50 bg-card p-6 text-center space-y-3">
-            <div className="text-3xl">✉️</div>
-            <h2 className="text-lg font-bold text-foreground">Check your email</h2>
-            <p className="text-sm text-muted-foreground">
-              We sent a magic link to <strong className="text-foreground">{email}</strong>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Click the link in the email to sign in. Check spam if you don&apos;t see it.
-            </p>
+        {step === "code" ? (
+          <form onSubmit={verifyCode} className="space-y-4">
+            <div className="rounded-xl border border-border/50 bg-card p-5 text-center space-y-2">
+              <div className="text-2xl">✉️</div>
+              <p className="text-sm text-foreground">
+                We sent a 6-digit code to
+              </p>
+              <p className="text-sm font-semibold text-foreground break-all">{email}</p>
+              <p className="text-xs text-muted-foreground pt-1">
+                Enter it below to sign in. Check spam if you don&apos;t see it.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="code" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Code
+              </label>
+              <input
+                id="code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123456"
+                autoFocus
+                className="mt-1 w-full h-14 rounded-xl border border-border/50 bg-card px-4 text-center text-2xl tabular-nums tracking-[0.5em] font-semibold text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+              />
+            </div>
+
             <button
-              onClick={() => { setSent(false); setEmail(""); }}
-              className="text-sm text-primary hover:underline mt-2"
+              type="submit"
+              disabled={loading || code.length !== 6}
+              className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Use a different email
+              {loading ? "Verifying..." : "Sign in"}
             </button>
-          </div>
+
+            {error && (
+              <p className="text-sm text-destructive text-center">{error}</p>
+            )}
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => { setStep("email"); setCode(""); setError(null); }}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Use a different email
+              </button>
+            </div>
+          </form>
         ) : (
           <div className="space-y-4">
             {/* Google sign-in */}
@@ -123,8 +191,8 @@ function LoginForm() {
               <div className="flex-1 h-px bg-border/50" />
             </div>
 
-            {/* Magic link form */}
-            <form onSubmit={handleMagicLink} className="space-y-3">
+            {/* Email → send code */}
+            <form onSubmit={sendCode} className="space-y-3">
               <div>
                 <label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Email
@@ -144,7 +212,7 @@ function LoginForm() {
                 disabled={loading || !email.trim()}
                 className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Sending..." : "Send Magic Link"}
+                {loading ? "Sending..." : "Send sign-in code"}
               </button>
             </form>
 
