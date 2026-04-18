@@ -315,6 +315,35 @@ export default function LiveScoringPage() {
     load();
   }, [gameId, activeTeam]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Re-fetch the lineup + fielding positions from the Lineup-owned tables
+  // (game_lineup, lineup_assignments, players). Stats is a consumer of these
+  // — the Lineup app is the authoritative writer — so whenever we re-enter
+  // the pre-game summary we should pull the latest in case the coach edited
+  // in Lineup between mount and now.
+  const refreshLineupFromLineup = useCallback(async () => {
+    if (!activeTeam) return;
+    const [lineupRes, playersRes, assignRes] = await Promise.all([
+      supabase.from("game_lineup").select("*").eq("game_id", gameId).order("batting_order"),
+      supabase.from("players").select("*").eq("team_id", activeTeam.team_id),
+      supabase.from("lineup_assignments").select("player_id, position").eq("game_id", gameId).eq("inning", 1),
+    ]);
+    const lineup: GameLineup[] = lineupRes.data ?? [];
+    const players: Player[] = playersRes.data ?? [];
+    // Defensive positions for inning 1 are authoritative for "starting positions".
+    // Fall back to game_lineup.position if no inning-1 assignment exists yet.
+    const assignMap = new Map((assignRes.data ?? []).map((a) => [a.player_id, a.position]));
+    const lineupWithPositions: GameLineup[] = lineup.map((l) => ({
+      ...l,
+      position: assignMap.get(l.player_id) ?? l.position,
+    }));
+    setGameState((prev) => prev ? { ...prev, lineup: lineupWithPositions, players } : prev);
+  }, [gameId, activeTeam]);
+
+  // Whenever the pre-game summary opens, pull the latest from Lineup.
+  useEffect(() => {
+    if (showPregame) refreshLineupFromLineup();
+  }, [showPregame, refreshLineupFromLineup]);
+
   const persistState = useCallback(
     async (state: GameState, pitches?: { us: number; them: number }) => {
       // Resolve the leadoff batter for our next at-bat
@@ -892,7 +921,16 @@ export default function LiveScoringPage() {
         {/* Lineup Preview */}
         <Card className="glass">
           <CardContent className="p-4 space-y-2">
-            <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium">{ourTeamName} Lineup</div>
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium">{ourTeamName} Lineup</div>
+              <button
+                onClick={refreshLineupFromLineup}
+                className="text-xs text-muted-foreground hover:text-foreground"
+                aria-label="Refresh lineup from Lineup app"
+              >
+                ↻ Refresh
+              </button>
+            </div>
             {gameState.lineup.length > 0 ? (
               <div className="space-y-1">
                 {gameState.lineup
