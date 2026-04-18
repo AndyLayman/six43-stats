@@ -164,38 +164,39 @@ export function TeamMembersCard() {
           {members.map((m) => (
             <div
               key={m.user_id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
+              className="rounded-lg border border-border/50 px-3 py-2 space-y-2"
             >
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">
-                  {m.email || "(no email)"}{m.is_self && <span className="text-muted-foreground"> · you</span>}
-                </div>
+              <div className="text-sm font-medium break-all">
+                {m.email || "(no email)"}
+                {m.is_self && <span className="text-muted-foreground"> · you</span>}
               </div>
-              {isAdmin && !m.is_self ? (
-                <select
-                  value={m.role}
-                  onChange={(e) => changeRole(m.user_id, e.target.value as TeamRole)}
-                  className="h-8 rounded-md border border-border/50 bg-input/50 px-2 text-sm"
-                >
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                  ))}
-                </select>
-              ) : (
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {ROLE_LABELS[m.role]}
-                </span>
-              )}
-              {isAdmin && !m.is_self && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => removeMember(m.user_id, m.email)}
-                >
-                  Remove
-                </Button>
-              )}
+              <div className="flex items-center justify-between gap-2">
+                {isAdmin && !m.is_self ? (
+                  <select
+                    value={m.role}
+                    onChange={(e) => changeRole(m.user_id, e.target.value as TeamRole)}
+                    className="h-8 rounded-md border border-border/50 bg-input/50 px-2 text-sm"
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                    {ROLE_LABELS[m.role]}
+                  </span>
+                )}
+                {isAdmin && !m.is_self && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => removeMember(m.user_id, m.email)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -207,15 +208,17 @@ export function TeamMembersCard() {
             {invites.map((i) => (
               <div
                 key={i.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border/50 px-3 py-2"
+                className="rounded-lg border border-dashed border-border/50 px-3 py-2 space-y-2"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm truncate">{i.email}</div>
-                  <div className="text-xs text-muted-foreground">Invited as {ROLE_LABELS[i.role]}</div>
+                <div className="text-sm break-all">{i.email}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Invited as {ROLE_LABELS[i.role]}
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={() => cancelInvite(i.id)}>
+                    Cancel
+                  </Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => cancelInvite(i.id)}>
-                  Cancel
-                </Button>
               </div>
             ))}
           </div>
