@@ -803,6 +803,53 @@ export default function LiveScoringPage() {
     }
   }
 
+  // Manual ± correction to a team's running pitch count (e.g. coach
+  // mistapped or missed one). Updates the totalPitches state and the
+  // matching column on game_state, and adds/removes a pitch row so the
+  // per-pitcher derived totals down the road stay consistent.
+  async function adjustPitchCount(team: "us" | "them", delta: -1 | 1) {
+    if (!gameState) return;
+    const next = {
+      us: team === "us" ? Math.max(0, totalPitches.us + delta) : totalPitches.us,
+      them: team === "them" ? Math.max(0, totalPitches.them + delta) : totalPitches.them,
+    };
+    if (next.us === totalPitches.us && next.them === totalPitches.them) return;
+    setTotalPitches(next);
+    saveToLocal({ totalPitches: next });
+    void supabase.from("game_state").update({
+      pitches_us: next.us,
+      pitches_them: next.them,
+      updated_at: new Date().toISOString(),
+    }).eq("game_id", gameId);
+
+    if (delta > 0) {
+      // Add a generic pitch row so pitch-log sums match the counter.
+      void supabase.from("pitches").insert({
+        game_id: gameId,
+        player_id: null,
+        opponent_batter_id: null,
+        team,
+        inning: gameState.currentInning,
+        half: gameState.currentHalf,
+        pitch_type: "strike",
+        pitch_num: 1,
+      });
+    } else {
+      // Remove the most recently inserted pitch row for this team.
+      const { data: latest } = await supabase
+        .from("pitches")
+        .select("id")
+        .eq("game_id", gameId)
+        .eq("team", team)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (latest) {
+        void supabase.from("pitches").delete().eq("id", latest.id);
+      }
+    }
+  }
+
   function handleEndGame() {
     if (!gameState) return;
     setShowEndGame(true);
@@ -1345,13 +1392,11 @@ export default function LiveScoringPage() {
         </Button>
 
         {/* Total Pitches — them (pitched to us) on left, us (pitched to them) on right */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30">
-          <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">Pitches</span>
-          <div className="flex items-center gap-1.5 text-sm font-bold tabular-nums">
-            <span className="text-foreground">{totalPitches.them}</span>
-            <span className="text-muted-foreground">-</span>
-            <span className="text-foreground">{totalPitches.us}</span>
-          </div>
+        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 border border-primary/30">
+          <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground mr-1">Pitches</span>
+          <PitchAdjuster side="them" count={totalPitches.them} onAdjust={(delta) => adjustPitchCount("them", delta)} />
+          <span className="text-muted-foreground text-xs">/</span>
+          <PitchAdjuster side="us" count={totalPitches.us} onAdjust={(delta) => adjustPitchCount("us", delta)} />
         </div>
 
         <Button
@@ -2086,6 +2131,39 @@ export default function LiveScoringPage() {
       )}
     </div>
     </>
+  );
+}
+
+function PitchAdjuster({
+  side,
+  count,
+  onAdjust,
+}: {
+  side: "us" | "them";
+  count: number;
+  onAdjust: (delta: -1 | 1) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5">
+      <button
+        type="button"
+        onClick={() => onAdjust(-1)}
+        disabled={count <= 0}
+        aria-label={`Subtract one from ${side === "us" ? "our" : "opponent"} pitch count`}
+        className="w-5 h-5 rounded text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-90 transition disabled:opacity-30 disabled:hover:bg-transparent"
+      >
+        −
+      </button>
+      <span className="text-sm font-bold tabular-nums text-foreground min-w-[1.25rem] text-center">{count}</span>
+      <button
+        type="button"
+        onClick={() => onAdjust(1)}
+        aria-label={`Add one to ${side === "us" ? "our" : "opponent"} pitch count`}
+        className="w-5 h-5 rounded text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-90 transition"
+      >
+        +
+      </button>
+    </div>
   );
 }
 
