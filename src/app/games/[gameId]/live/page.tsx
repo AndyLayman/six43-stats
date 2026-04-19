@@ -1552,12 +1552,13 @@ export default function LiveScoringPage() {
           Undo
         </Button>
 
-        {/* Total Pitches — them (pitched to us) on left, us (pitched to them) on right */}
+        {/* Total Pitches — them (pitched to us) on left, us (pitched to them) on right.
+            ± only shows for the side that's currently pitching. */}
         <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 border border-primary/30">
           <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground mr-1">Pitches</span>
-          <PitchAdjuster side="them" count={totalPitches.them} onAdjust={(delta) => adjustPitchCount("them", delta)} />
+          <PitchAdjuster side="them" count={totalPitches.them} active={!isOpponentBatting} onAdjust={(delta) => adjustPitchCount("them", delta)} />
           <span className="text-muted-foreground text-xs">/</span>
-          <PitchAdjuster side="us" count={totalPitches.us} onAdjust={(delta) => adjustPitchCount("us", delta)} />
+          <PitchAdjuster side="us" count={totalPitches.us} active={isOpponentBatting} onAdjust={(delta) => adjustPitchCount("us", delta)} />
         </div>
 
         <Button
@@ -2343,12 +2344,21 @@ export default function LiveScoringPage() {
 function PitchAdjuster({
   side,
   count,
+  active,
   onAdjust,
 }: {
   side: "us" | "them";
   count: number;
+  active: boolean;
   onAdjust: (delta: -1 | 1) => void;
 }) {
+  if (!active) {
+    return (
+      <span className="text-sm font-bold tabular-nums text-foreground min-w-[1.25rem] text-center px-1.5">
+        {count}
+      </span>
+    );
+  }
   return (
     <div className="flex items-center gap-0.5">
       <button
