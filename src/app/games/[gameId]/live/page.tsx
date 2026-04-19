@@ -462,6 +462,13 @@ export default function LiveScoringPage() {
     if (!batter) return;
     const isBattedBall = !NON_BATTED.includes(selectedResult);
 
+    // The contact pitch on a batted ball (or the pitch that hit the batter
+    // on HBP) isn't captured by the ball/strike/foul buttons — those only
+    // cover balls that reached or crossed the plate without contact. Record
+    // it now so the pitch count reflects reality.
+    if (isBattedBall) addPitch("in_play");
+    else if (selectedResult === "HBP") addPitch("hbp");
+
     const fieldPosition = sprayPoint ? sprayToPosition(sprayPoint.x, sprayPoint.y) : null;
     const cfSide = sprayPoint && fieldPosition === 8 ? sprayCfSide(sprayPoint.x, sprayPoint.y) : undefined;
     const baseState = {
@@ -734,7 +741,7 @@ export default function LiveScoringPage() {
   }
 
   // Increment total pitch count for the pitching team (called on every Ball/Strike/Foul click)
-  function addPitch(pitchType: "ball" | "strike" | "foul") {
+  function addPitch(pitchType: "ball" | "strike" | "foul" | "in_play" | "hbp") {
     if (!gameState) return;
     const isOpponent = isOpponentHalf(gameState.currentHalf);
     const next = {
