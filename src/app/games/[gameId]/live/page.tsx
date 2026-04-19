@@ -27,6 +27,15 @@ import { TeamLogoBadge } from "@/components/team-logo-badge";
 import { ChainAwardPicker } from "@/components/chain-award-picker";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
+interface PlayLogEntry {
+  /** plate_appearances row id; absent only for very old localStorage entries */
+  id?: string;
+  notation: string;
+  playerName: string;
+  inning: number;
+  team: "us" | "them";
+}
+
 const RESULT_BUTTONS: { result: PlateAppearanceResult; label: string; color: string }[] = [
   { result: "1B", label: "1B", color: "bg-primary text-primary-foreground" },
   { result: "2B", label: "2B", color: "bg-primary text-primary-foreground" },
@@ -75,7 +84,7 @@ export default function LiveScoringPage() {
   } | null>(null);
   const [runnerAdvanceOverrides, setRunnerAdvanceOverrides] = useState<RunnerAdvance[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [playLog, setPlayLog] = useState<{ notation: string; playerName: string; inning: number; team: "us" | "them" }[]>([]);
+  const [playLog, setPlayLog] = useState<PlayLogEntry[]>([]);
   const [newOpponentName, setNewOpponentName] = useState("");
   const [pitchCount, setPitchCount] = useState<{ balls: number; strikes: number }>({ balls: 0, strikes: 0 });
   const [totalPitches, setTotalPitches] = useState<{ us: number; them: number }>({ us: 0, them: 0 });
@@ -108,7 +117,7 @@ export default function LiveScoringPage() {
   function saveToLocal(updates: {
     gameState?: GameState;
     stateHistory?: GameState[];
-    playLog?: { notation: string; playerName: string; inning: number; team: "us" | "them" }[];
+    playLog?: PlayLogEntry[];
     totalPitches?: { us: number; them: number };
     totalPitchesHistory?: { us: number; them: number }[];
     pitchCount?: { balls: number; strikes: number };
@@ -141,7 +150,7 @@ export default function LiveScoringPage() {
   function loadFromLocal(): {
     gameState?: Partial<GameState>;
     stateHistory?: Partial<GameState>[];
-    playLog?: { notation: string; playerName: string; inning: number; team: "us" | "them" }[];
+    playLog?: PlayLogEntry[];
     totalPitches?: { us: number; them: number };
     totalPitchesHistory?: { us: number; them: number }[];
     pitchCount?: { balls: number; strikes: number };
@@ -334,13 +343,14 @@ export default function LiveScoringPage() {
         .order("created_at");
 
       if (pas) {
-        const log = pas.map((pa) => ({
+        const log: PlayLogEntry[] = pas.map((pa) => ({
+          id: pa.id,
           notation: pa.scorebook_notation || pa.result,
           playerName: pa.team === "them"
             ? oppLineup.find((b) => b.id === pa.opponent_batter_id)?.name ?? "Opponent"
             : (() => { const p = players.find((p) => p.id === pa.player_id); return p ? fullName(p) : ""; })(),
           inning: pa.inning,
-          team: pa.team ?? ("us" as const),
+          team: (pa.team ?? "us") as "us" | "them",
         }));
         setPlayLog(log);
         saveToLocal({ playLog: log });
@@ -565,7 +575,12 @@ export default function LiveScoringPage() {
 
     // Update UI immediately (optimistic) — don't wait for DB
     setGameState(newState);
-    const newLogEntry = { notation, playerName: batter.playerName, inning: gameState.currentInning, team: isOpponent ? "them" as const : "us" as const };
+    const newLogEntry: PlayLogEntry = {
+      notation,
+      playerName: batter.playerName,
+      inning: gameState.currentInning,
+      team: isOpponent ? "them" : "us",
+    };
     setPlayLog((prev) => {
       const updated = [...prev, newLogEntry];
       saveToLocal({
@@ -586,27 +601,47 @@ export default function LiveScoringPage() {
     setPitchCount({ balls: 0, strikes: 0 });
     setErrorPosition(null);
 
-    // Persist to DB in background
-    void supabase.from("plate_appearances").insert({
-      game_id: gameId,
-      player_id: batter.playerId ?? null,
-      opponent_batter_id: batter.opponentBatterId ?? null,
-      team: isOpponent ? "them" : "us",
-      inning: gameState.currentInning,
-      batting_order: isOpponent
-        ? (gameState.opponentBatterIndex % Math.max(gameState.opponentLineup.length, 1)) + 1
-        : (gameState.currentBatterIndex % gameState.lineup.length) + 1,
-      result: selectedResult,
-      scorebook_notation: notation,
-      spray_x: sprayPoint?.x ?? null,
-      spray_y: sprayPoint?.y ?? null,
-      hit_type: isBattedBall ? hitType : null,
-      rbis,
-      stolen_bases: 0,
-      is_at_bat: isAtBat(selectedResult),
-      is_hit: isHit(selectedResult),
-      total_bases: totalBases(selectedResult),
-    }).then();
+    // Persist to DB. We DO await the id so we can attach it to the
+    // freshly-added play log entry — needed so tap-to-edit/delete can
+    // identify the right plate_appearances row. runner_advances captures
+    // any custom baserunning so we can faithfully replay/edit later
+    // (NULL = use engine defaults at replay time).
+    void (async () => {
+      const { data: inserted } = await supabase.from("plate_appearances").insert({
+        game_id: gameId,
+        player_id: batter.playerId ?? null,
+        opponent_batter_id: batter.opponentBatterId ?? null,
+        team: isOpponent ? "them" : "us",
+        inning: gameState.currentInning,
+        batting_order: isOpponent
+          ? (gameState.opponentBatterIndex % Math.max(gameState.opponentLineup.length, 1)) + 1
+          : (gameState.currentBatterIndex % gameState.lineup.length) + 1,
+        result: selectedResult,
+        scorebook_notation: notation,
+        spray_x: sprayPoint?.x ?? null,
+        spray_y: sprayPoint?.y ?? null,
+        hit_type: isBattedBall ? hitType : null,
+        rbis,
+        stolen_bases: 0,
+        is_at_bat: isAtBat(selectedResult),
+        is_hit: isHit(selectedResult),
+        total_bases: totalBases(selectedResult),
+        runner_advances: runnerAdvanceOverrides ?? null,
+      }).select("id").single();
+      if (inserted?.id) {
+        // Patch the most recent matching playLog entry with the row id.
+        setPlayLog((prev) => {
+          const idx = prev.findIndex((e, i) =>
+            i === prev.length - 1 && !e.id && e.notation === notation && e.inning === gameState.currentInning
+          );
+          if (idx === -1) return prev;
+          const next = prev.slice();
+          next[idx] = { ...next[idx], id: inserted.id };
+          saveToLocal({ playLog: next });
+          return next;
+        });
+      }
+    })();
 
     // Auto-generate fielding plays when opponent is batting (our defense)
     if (isOpponent) {
