@@ -1011,6 +1011,61 @@ export default function LiveScoringPage() {
     }
   }
 
+  function handleHalfInningOver() {
+    if (!gameState) return;
+
+    // Save state for undo
+    setStateHistory((prev) => [...prev, gameState]);
+    setTotalPitchesHistory((prev) => [...prev, totalPitches]);
+
+    const isBottom = gameState.currentHalf === "bottom";
+    const newHalf: "top" | "bottom" = isBottom ? "top" : "bottom";
+    const newInning = isBottom ? gameState.currentInning + 1 : gameState.currentInning;
+    const fullInningCompleted = isBottom;
+
+    const newState: typeof gameState = {
+      ...gameState,
+      currentHalf: newHalf,
+      currentInning: newInning,
+      outs: 0,
+      runnerFirst: null,
+      runnerSecond: null,
+      runnerThird: null,
+    };
+
+    // Trigger transition overlay
+    setHalfInningTransition({
+      fromHalf: gameState.currentHalf,
+      inning: gameState.currentInning,
+      score: { us: newState.ourScore, them: newState.opponentScore },
+    });
+    setTimeout(() => setHalfInningTransition((prev) => prev ? { ...prev, fading: true } : null), 2200);
+    setTimeout(() => setHalfInningTransition(null), 3000);
+
+    // Track completed innings
+    if (fullInningCompleted) {
+      void supabase.from("games")
+        .select("completed_innings")
+        .eq("id", gameId)
+        .single()
+        .then(({ data }) => {
+          const current: number[] = data?.completed_innings ?? [];
+          if (!current.includes(gameState.currentInning)) {
+            void supabase.from("games").update({
+              completed_innings: [...current, gameState.currentInning],
+            }).eq("id", gameId);
+          }
+        });
+    }
+
+    // Reset pitch count
+    setPitchCount({ balls: 0, strikes: 0 });
+
+    setGameState(newState);
+    persistState(newState);
+    saveToLocal({ pitchCount: { balls: 0, strikes: 0 } });
+  }
+
   function handleEndGame() {
     if (!gameState) return;
     setShowEndGame(true);
@@ -1543,14 +1598,23 @@ export default function LiveScoringPage() {
 
       {/* Game controls — near scoreboard */}
       <div className="flex justify-between items-center">
-        <Button
-          variant="outline"
-          onClick={handleUndo}
-          disabled={stateHistory.length === 0}
-          className="h-9 px-4 text-sm active:scale-95 transition-all border-border/50"
-        >
-          Undo
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleUndo}
+            disabled={stateHistory.length === 0}
+            className="h-9 px-4 text-sm active:scale-95 transition-all border-border/50"
+          >
+            Undo
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleHalfInningOver}
+            className="h-9 px-3 text-sm active:scale-95 transition-all border-primary/30 text-primary hover:bg-primary/10"
+          >
+            Half Over
+          </Button>
+        </div>
 
         {/* Total Pitches — them (pitched to us) on left, us (pitched to them) on right.
             ± only shows for the side that's currently pitching. */}
