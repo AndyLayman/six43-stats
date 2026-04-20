@@ -62,6 +62,7 @@ function ScorePop({ value, className }: { value: number; className?: string }) {
 export function LiveGameTicker() {
   const { activeTeam } = useAuth();
   const [game, setGame] = useState<LiveGame | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!activeTeam) return;
@@ -94,8 +95,9 @@ export function LiveGameTicker() {
       if (!mounted) return;
 
       if (liveGames && liveGames.length > 0) {
-        // Live game found — fetch state and poll every 15s
         const g = liveGames[0];
+
+        // Fetch initial state
         const { data: state } = await supabase
           .from("game_state")
           .select("*")
@@ -104,25 +106,72 @@ export function LiveGameTicker() {
 
         if (!mounted) return;
 
-        if (state) {
+        function updateFromState(gData: typeof g, sData: NonNullable<typeof state>) {
+          if (!mounted) return;
           setGame({
-            id: g.id,
-            opponent: g.opponent,
-            ourScore: g.our_score,
-            opponentScore: g.opponent_score,
-            opponentLogoSvg: g.opponent_logo_svg ?? null,
-            opponentColorBg: g.opponent_color_bg ?? null,
-            opponentColorFg: g.opponent_color_fg ?? null,
-            inning: state.current_inning,
-            half: state.current_half,
-            outs: state.outs,
-            runnerFirst: !!(state.runner_first || state.opponent_runner_first),
-            runnerSecond: !!(state.runner_second || state.opponent_runner_second),
-            runnerThird: !!(state.runner_third || state.opponent_runner_third),
+            id: gData.id,
+            opponent: gData.opponent,
+            ourScore: gData.our_score,
+            opponentScore: gData.opponent_score,
+            opponentLogoSvg: gData.opponent_logo_svg ?? null,
+            opponentColorBg: gData.opponent_color_bg ?? null,
+            opponentColorFg: gData.opponent_color_fg ?? null,
+            inning: sData.current_inning,
+            half: sData.current_half,
+            outs: sData.outs,
+            runnerFirst: !!(sData.runner_first || sData.opponent_runner_first),
+            runnerSecond: !!(sData.runner_second || sData.opponent_runner_second),
+            runnerThird: !!(sData.runner_third || sData.opponent_runner_third),
           });
         }
 
-        scheduleNext(tick, 15_000); // poll every 15s during a live game
+        if (state) updateFromState(g, state);
+
+        // Subscribe to real-time changes on game_state
+        const channel = supabase
+          .channel(`ticker-${g.id}`)
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "game_state", filter: `game_id=eq.${g.id}` },
+            (payload) => {
+              if (!mounted) return;
+              const s = payload.new as NonNullable<typeof state>;
+              // Re-fetch game scores since they update separately
+              supabase.from("games")
+                .select("id, opponent, our_score, opponent_score, opponent_logo_svg, opponent_color_bg, opponent_color_fg")
+                .eq("id", g.id)
+                .single()
+                .then(({ data: freshGame }) => {
+                  if (freshGame && mounted) updateFromState(freshGame, s);
+                });
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${g.id}` },
+            (payload) => {
+              if (!mounted) return;
+              const gNew = payload.new as typeof g;
+              // If game ended, clear ticker and re-tick to find next game
+              if ((gNew as Record<string, unknown>).status !== "in_progress") {
+                setGame(null);
+                supabase.removeChannel(channel);
+                scheduleNext(tick, 1000);
+                return;
+              }
+              // Score update — refresh with current state
+              supabase.from("game_state").select("*").eq("game_id", g.id).single()
+                .then(({ data: s }) => {
+                  if (s && mounted) updateFromState(gNew, s);
+                });
+            }
+          )
+          .subscribe();
+
+        // Clean up channel on unmount
+        const origCleanup = () => { supabase.removeChannel(channel); };
+        cleanupRef.current = origCleanup;
+
         return;
       }
 
@@ -216,6 +265,7 @@ export function LiveGameTicker() {
       mounted = false;
       clearTimer();
       document.removeEventListener("visibilitychange", handleVisibility);
+      if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null; }
     };
   }, [activeTeam]);
 
