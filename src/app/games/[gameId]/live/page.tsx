@@ -298,7 +298,7 @@ export default function LiveScoringPage() {
 
       // Prefer localStorage if it's newer (DB writes are async and may lag)
       let state: GameState;
-      const localSavedAt = local?.gameState ? (JSON.parse(localStorage.getItem(`live-${gameId}`) || "{}").savedAt ?? 0) : 0;
+      const localSavedAt = local?.gameState ? (JSON.parse(localStorage.getItem(lsKey) || "{}").savedAt ?? 0) : 0;
       const dbUpdatedAt = stateRes.data?.updated_at ? new Date(stateRes.data.updated_at).getTime() : 0;
       const useLocal = local?.gameState && localSavedAt > dbUpdatedAt;
 
