@@ -949,19 +949,19 @@ export default function LiveScoringPage() {
 
     // Store individual pitch in the pitches table
     const ab = activeBatter;
-    if (ab) {
-      const pitchNum = pitchCount.balls + pitchCount.strikes + 1;
-      void supabase.from("pitches").insert({
-        game_id: gameId,
-        player_id: ab.playerId ?? null,
-        opponent_batter_id: ab.opponentBatterId ?? null,
-        team: isOpponent ? "them" : "us",
-        inning: gameState.currentInning,
-        half: gameState.currentHalf,
-        pitch_type: pitchType,
-        pitch_num: pitchNum,
-      });
-    }
+    const pitchNum = pitchCount.balls + pitchCount.strikes + 1;
+    supabase.from("pitches").insert({
+      game_id: gameId,
+      player_id: ab?.playerId ?? null,
+      opponent_batter_id: ab?.opponentBatterId ?? null,
+      team: isOpponent ? "them" : "us",
+      inning: gameState.currentInning,
+      half: gameState.currentHalf,
+      pitch_type: pitchType,
+      pitch_num: pitchNum,
+    }).then(({ error }) => {
+      if (error) console.error("[Pitch insert failed]", error);
+    });
   }
 
   // Manual ± correction to a team's running pitch count (e.g. coach
