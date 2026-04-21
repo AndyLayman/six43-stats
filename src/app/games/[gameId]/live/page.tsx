@@ -840,17 +840,23 @@ export default function LiveScoringPage() {
   async function handleAddOpponentBatter() {
     if (!gameState || !newOpponentName.trim()) return;
     const order = gameState.opponentLineup.length + 1;
-    const { data } = await supabase.from("opponent_lineup").insert({
-      game_id: gameId,
-      name: newOpponentName.trim(),
-      batting_order: order,
-    }).select().single();
-    if (data) {
-      const batter: OpponentBatter = { id: data.id, game_id: gameId, name: data.name, batting_order: data.batting_order };
-      const newState = addOpponentBatter(gameState, batter);
-      setGameState(newState);
-    }
+    const name = newOpponentName.trim();
+    // Generate the id client-side so we can update local state immediately
+    // without waiting on the insert. iOS can leave the insert fetch
+    // pending indefinitely; with the old flow that left the UI frozen
+    // on the "New Opponent Batter" card with no feedback.
+    const id = typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const batter: OpponentBatter = { id, game_id: gameId, name, batting_order: order };
+    setGameState(addOpponentBatter(gameState, batter));
     setNewOpponentName("");
+    void supabase.from("opponent_lineup").insert({
+      id,
+      game_id: gameId,
+      name,
+      batting_order: order,
+    });
   }
 
   async function handleUndo() {
